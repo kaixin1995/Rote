@@ -180,7 +180,7 @@ function ArticleDetailPage() {
         icon={<BookOpen className="text-primary size-6" />}
       >
         <div className="flex-1" />
-        <div className="flex items-center divide-x font-mono text-xs font-normal">
+        <div className="flex items-center font-mono text-xs font-normal lg:divide-x">
           <div className="flex items-center gap-2 px-2">
             <TextInitialIcon className="size-3" />
             {tEditor('wordsCount', {
