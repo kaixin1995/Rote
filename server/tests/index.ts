@@ -23,7 +23,7 @@ const BASE_URL = process.env.TEST_BASE_URL || testConfig.testSettings.baseUrl;
 const API_BASE = `${BASE_URL}${testConfig.testSettings.apiBase}/api`;
 
 // 默认测试账号
-const DEFAULT_USERNAME = 'admin';
+const DEFAULT_USERNAME = 'testadmin';
 const DEFAULT_PASSWORD = 'password';
 
 class TestRunner {
@@ -345,7 +345,7 @@ class TestRunner {
 
       if (apiKey1?.id) {
         await this.apiKeySuite.testUpdateApiKey(apiKey1.id, {
-          name: 'Updated API Key Name',
+          permissions: ['SENDROTE'],
         });
       }
 

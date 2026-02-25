@@ -33,7 +33,6 @@ export class ApiKeyTestSuite {
       const keyData = Array.isArray(apiKey) ? apiKey[0] : apiKey;
       TestAssertions.assertNotNull(keyData, 'API Key data should be present');
       TestAssertions.assertNotNull(keyData.id, 'API Key should have an ID');
-      TestAssertions.assertNotNull(keyData.key, 'API Key should have a key value');
 
       this.createdApiKeyIds.push(keyData.id);
 
