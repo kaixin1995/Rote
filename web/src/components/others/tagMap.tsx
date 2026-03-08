@@ -42,9 +42,11 @@ export default function TagMap() {
                 tags: [item.name],
               }}
             >
-              <div className="bg-foreground/5 grow rounded-md px-2 py-1 text-center text-xs duration-300 hover:scale-95">
-                {item.name}{' '}
-                {item.count > 0 && <span className="ml-1 opacity-50">{item.count}</span>}
+              <div className="bg-foreground/5 divide-foreground/3 flex grow items-center justify-between divide-x rounded-sm px-2 text-xs duration-300 hover:scale-95">
+                <div className="py-1 pr-1">{item.name}</div>
+                {item.count > 0 && (
+                  <div className="text-theme py-1 pl-1 font-mono">{item.count}</div>
+                )}
               </div>
             </Link>
           ))}
