@@ -12,18 +12,44 @@ import { getRotesV2 } from '@/utils/roteApi';
 import {
   Activity,
   ArrowUpRight,
+  BookOpen,
   Eye,
   GitFork,
   Github,
   Globe2,
   MessageCircleQuestionIcon,
+  MonitorPlay,
   RefreshCw,
+  Smartphone,
   Star,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import useSWR from 'swr';
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const communityProjects = [
+  {
+    key: 'roteSkill',
+    href: 'https://github.com/Rabithua/rote-skill',
+  },
+  {
+    key: 'rotefeeder',
+    href: 'https://github.com/Rabithua/Rotefeeder',
+  },
+  {
+    key: 'roteToolkit',
+    href: 'https://github.com/Rabithua/rote-toolkit',
+  },
+  {
+    key: 'rerote',
+    href: 'https://github.com/Rabithua/Rerote',
+  },
+  {
+    key: 'raycast',
+    href: 'https://github.com/aBER0724/rote-raycast',
+  },
+] as const;
 
 function ExplorePage() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.explore' });
@@ -85,6 +111,7 @@ const SideBar = () => {
     'https://api.github.com/repos/rabithua/rote',
     fetcher
   );
+  const isDemoSite = typeof window !== 'undefined' && window.location.hostname === 'demo.rote.ink';
 
   const dataRender = [
     {
@@ -114,8 +141,12 @@ const SideBar = () => {
       {isRoteGithubDataLoading ? (
         <LoadingPlaceholder className="py-8" size={6} />
       ) : (
-        <Link target="_blank" to={roteGithubData.html_url} className="flex flex-col gap-2 p-4">
-          <div className="text-sm font-thin">{t('githubOpenSource')}</div>
+        <Link
+          target="_blank"
+          to={roteGithubData.html_url}
+          className="flex flex-col gap-2 px-4 py-2"
+        >
+          <div className="text-sm font-light">{t('githubOpenSource')}</div>
           <div className="grid w-4/5 grid-cols-2 justify-between gap-2">
             {dataRender.map((item) => (
               <div key={item.key} className="flex items-center gap-2">
@@ -132,6 +163,95 @@ const SideBar = () => {
           </div>
         </Link>
       )}
+
+      <div className="divide-border/50 flex flex-col divide-y">
+        <div className="px-4 py-2">
+          <div className="text-md">{t('supportAndDocs.title')}</div>
+          <div className="text-info line-clamp-2 text-xs font-light">
+            {t('supportAndDocs.subtitle')}
+          </div>
+        </div>
+
+        <div className="grid w-4/5 grid-cols-2 gap-2 px-4 py-2">
+          <Link
+            to="/doc/selfhosted"
+            title={t('supportAndDocs.selfHosted')}
+            className="hover:text-info flex min-w-0 items-center gap-2 text-sm duration-200 hover:opacity-60"
+          >
+            <BookOpen className="size-4 shrink-0" />
+            <div className="min-w-0 truncate">{t('supportAndDocs.selfHosted')}</div>
+          </Link>
+
+          <a
+            href="https://github.com/rabithua/rote/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('supportAndDocs.githubIssues')}
+            className="hover:text-info flex min-w-0 items-center gap-2 text-sm duration-200 hover:opacity-60"
+          >
+            <Github className="size-4 shrink-0" />
+            <div className="min-w-0 truncate">{t('supportAndDocs.githubIssues')}</div>
+          </a>
+
+          <a
+            href="https://apps.apple.com/us/app/rote/id6755513897"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('supportAndDocs.iosApp')}
+            className="hover:text-info flex min-w-0 items-center gap-2 text-sm duration-200 hover:opacity-60"
+          >
+            <Smartphone className="size-4 shrink-0" />
+            <div className="min-w-0 truncate">{t('supportAndDocs.iosApp')}</div>
+          </a>
+
+          {!isDemoSite && (
+            <a
+              href="https://demo.rote.ink/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t('supportAndDocs.tryDemo')}
+              className="hover:text-info flex min-w-0 items-center gap-2 text-sm duration-200 hover:opacity-60"
+            >
+              <MonitorPlay className="size-4 shrink-0" />
+              <div className="min-w-0 truncate">{t('supportAndDocs.tryDemo')}</div>
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="divide-border/50 flex flex-col divide-y">
+        <div className="px-4 py-2">
+          <div className="text-md">{t('communityProjects.title')}</div>
+          <div className="text-info text-xs font-light">{t('communityProjects.subtitle')}</div>
+        </div>
+
+        <div className="grid w-4/5 gap-2 px-4 py-2">
+          {communityProjects.map((project) => (
+            <a
+              key={project.key}
+              href={project.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-info group flex min-w-0 items-start gap-2 text-sm duration-200 hover:opacity-60"
+            >
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div
+                    className="min-w-0 truncate"
+                    title={t(`communityProjects.items.${project.key}.title`)}
+                  >
+                    {t(`communityProjects.items.${project.key}.title`)}
+                  </div>
+                  <ArrowUpRight className="text-info size-4 shrink-0 opacity-0 duration-200 group-hover:opacity-100" />
+                </div>
+                <div className="text-info line-clamp-1 text-xs font-light">
+                  {t(`communityProjects.items.${project.key}.description`)}
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-col">
         <div className="p-4 pb-0 font-semibold">
