@@ -302,6 +302,7 @@
       "lastPushTime": "上次推送时间：",
       "supportAndDocs": {
         "title": "支持与文档",
+        "subtitle": "快速入口：帮助与配置",
         "selfHosted": "自部署",
         "githubIssues": "Issues",
         "tryDemo": "Demo",

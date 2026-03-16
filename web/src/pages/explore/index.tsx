@@ -20,11 +20,8 @@ import {
   MessageCircleQuestionIcon,
   MonitorPlay,
   RefreshCw,
-  Rss,
   Smartphone,
-  Sparkles,
   Star,
-  Terminal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -35,27 +32,22 @@ const communityProjects = [
   {
     key: 'roteSkill',
     href: 'https://github.com/Rabithua/rote-skill',
-    icon: <Sparkles className="size-4" />,
   },
   {
     key: 'rotefeeder',
     href: 'https://github.com/Rabithua/Rotefeeder',
-    icon: <Rss className="size-4" />,
   },
   {
     key: 'roteToolkit',
     href: 'https://github.com/Rabithua/rote-toolkit',
-    icon: <Terminal className="size-4" />,
   },
   {
     key: 'rerote',
     href: 'https://github.com/Rabithua/Rerote',
-    icon: <Terminal className="size-4" />,
   },
   {
     key: 'raycast',
     href: 'https://github.com/aBER0724/rote-raycast',
-    icon: <Sparkles className="size-4" />,
   },
 ] as const;
 
@@ -149,8 +141,12 @@ const SideBar = () => {
       {isRoteGithubDataLoading ? (
         <LoadingPlaceholder className="py-8" size={6} />
       ) : (
-        <Link target="_blank" to={roteGithubData.html_url} className="flex flex-col gap-2 px-4 py-2">
-          <div className="text-sm font-thin">{t('githubOpenSource')}</div>
+        <Link
+          target="_blank"
+          to={roteGithubData.html_url}
+          className="flex flex-col gap-2 px-4 py-2"
+        >
+          <div className="text-sm font-light">{t('githubOpenSource')}</div>
           <div className="grid w-4/5 grid-cols-2 justify-between gap-2">
             {dataRender.map((item) => (
               <div key={item.key} className="flex items-center gap-2">
@@ -168,10 +164,15 @@ const SideBar = () => {
         </Link>
       )}
 
-      <div className="flex flex-col gap-2 px-4 py-2">
-        <div className="text-md">{t('supportAndDocs.title')}</div>
+      <div className="divide-border/50 flex flex-col divide-y">
+        <div className="px-4 py-2">
+          <div className="text-md">{t('supportAndDocs.title')}</div>
+          <div className="text-info line-clamp-2 text-xs font-light">
+            {t('supportAndDocs.subtitle')}
+          </div>
+        </div>
 
-        <div className="grid w-4/5 grid-cols-2 gap-2">
+        <div className="grid w-4/5 grid-cols-2 gap-2 px-4 py-2">
           <Link
             to="/doc/selfhosted"
             title={t('supportAndDocs.selfHosted')}
@@ -218,13 +219,13 @@ const SideBar = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 px-4 py-2">
-        <div>
+      <div className="divide-border/50 flex flex-col divide-y">
+        <div className="px-4 py-2">
           <div className="text-md">{t('communityProjects.title')}</div>
           <div className="text-info text-xs font-light">{t('communityProjects.subtitle')}</div>
         </div>
 
-        <div className="grid w-4/5 gap-2">
+        <div className="grid w-4/5 gap-2 px-4 py-2">
           {communityProjects.map((project) => (
             <a
               key={project.key}
@@ -233,7 +234,6 @@ const SideBar = () => {
               rel="noopener noreferrer"
               className="hover:text-info group flex min-w-0 items-start gap-2 text-sm duration-200 hover:opacity-60"
             >
-              <div className="mt-[2px] shrink-0">{project.icon}</div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <div

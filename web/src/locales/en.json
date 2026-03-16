@@ -308,6 +308,7 @@
       "lastPushTime": "Last push time: ",
       "supportAndDocs": {
         "title": "Support And Docs",
+        "subtitle": "Quick links for help and setup",
         "selfHosted": "Self-hosted",
         "githubIssues": "Issues",
         "tryDemo": "Try demo",
