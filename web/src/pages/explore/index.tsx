@@ -22,7 +22,6 @@ import {
   RefreshCw,
   Star,
   Smartphone,
-  TestTube2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -89,6 +88,7 @@ const SideBar = () => {
     'https://api.github.com/repos/rabithua/rote',
     fetcher
   );
+  const isDemoSite = typeof window !== 'undefined' && window.location.hostname === 'demo.rote.ink';
 
   const dataRender = [
     {
@@ -137,75 +137,49 @@ const SideBar = () => {
         </Link>
       )}
 
-      <div className="flex flex-col gap-3 p-4">
-        <div>
-          <div className="text-sm font-semibold">{t('community.title')}</div>
-          <div className="text-info text-xs">{t('community.subtitle')}</div>
-        </div>
+      <div className="flex flex-col gap-2 p-4">
+        <div className="text-sm font-semibold">{t('community.title')}</div>
 
-        <div className="grid gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Link
             to="/doc/selfhosted"
-            className="bg-foreground/2 hover:bg-foreground/5 group flex items-center justify-between gap-3 rounded-md p-3 text-sm duration-200"
+            className="bg-foreground/2 hover:bg-foreground/5 flex items-center gap-2 rounded-md p-2 text-xs duration-200"
           >
-            <div className="flex items-center gap-2">
-              <BookOpen className="size-4" />
-              <div className="font-medium">{t('community.selfHosted')}</div>
-            </div>
-            <ArrowUpRight className="text-info size-4 opacity-0 duration-200 group-hover:opacity-100" />
+            <BookOpen className="size-4" />
+            <div className="font-medium">{t('community.selfHosted')}</div>
           </Link>
 
           <a
             href="https://github.com/rabithua/rote/issues"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-foreground/2 hover:bg-foreground/5 group flex items-center justify-between gap-3 rounded-md p-3 text-sm duration-200"
+            className="bg-foreground/2 hover:bg-foreground/5 flex items-center gap-2 rounded-md p-2 text-xs duration-200"
           >
-            <div className="flex items-center gap-2">
-              <MessageCircleQuestionIcon className="size-4" />
-              <div className="font-medium">{t('community.githubIssues')}</div>
-            </div>
-            <ArrowUpRight className="text-info size-4 opacity-0 duration-200 group-hover:opacity-100" />
-          </a>
-
-          <a
-            href="https://demo.rote.ink/login"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-foreground/2 hover:bg-foreground/5 group flex items-center justify-between gap-3 rounded-md p-3 text-sm duration-200"
-          >
-            <div className="flex items-center gap-2">
-              <MonitorPlay className="size-4" />
-              <div className="font-medium">{t('community.tryDemo')}</div>
-            </div>
-            <ArrowUpRight className="text-info size-4 opacity-0 duration-200 group-hover:opacity-100" />
+            <MessageCircleQuestionIcon className="size-4" />
+            <div className="font-medium">{t('community.githubIssues')}</div>
           </a>
 
           <a
             href="https://apps.apple.com/us/app/rote/id6755513897"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-foreground/2 hover:bg-foreground/5 group flex items-center justify-between gap-3 rounded-md p-3 text-sm duration-200"
+            className="bg-foreground/2 hover:bg-foreground/5 flex items-center gap-2 rounded-md p-2 text-xs duration-200"
           >
-            <div className="flex items-center gap-2">
-              <Smartphone className="size-4" />
-              <div className="font-medium">{t('community.iosApp')}</div>
-            </div>
-            <ArrowUpRight className="text-info size-4 opacity-0 duration-200 group-hover:opacity-100" />
+            <Smartphone className="size-4" />
+            <div className="font-medium">{t('community.iosApp')}</div>
           </a>
 
-          <a
-            href="https://testflight.apple.com/join/WC3ETKwp"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-foreground/2 hover:bg-foreground/5 group flex items-center justify-between gap-3 rounded-md p-3 text-sm duration-200"
-          >
-            <div className="flex items-center gap-2">
-              <TestTube2 className="size-4" />
-              <div className="font-medium">{t('community.testflight')}</div>
-            </div>
-            <ArrowUpRight className="text-info size-4 opacity-0 duration-200 group-hover:opacity-100" />
-          </a>
+          {!isDemoSite && (
+            <a
+              href="https://demo.rote.ink/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-foreground/2 hover:bg-foreground/5 flex items-center gap-2 rounded-md p-2 text-xs duration-200"
+            >
+              <MonitorPlay className="size-4" />
+              <div className="font-medium">{t('community.tryDemo')}</div>
+            </a>
+          )}
         </div>
       </div>
 

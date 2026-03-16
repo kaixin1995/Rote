@@ -308,12 +308,10 @@
       "lastPushTime": "Last push time: ",
       "community": {
         "title": "Rote Community",
-        "subtitle": "More tools and links",
         "selfHosted": "Self-hosted guide",
         "githubIssues": "GitHub Issues",
         "tryDemo": "Try the demo",
-        "iosApp": "iOS app",
-        "testflight": "TestFlight"
+        "iosApp": "iOS app"
       }
     },
     "experiment": {

@@ -308,12 +308,10 @@
       "lastPushTime": "最終プッシュ時間：",
       "community": {
         "title": "Rote Community",
-        "subtitle": "ツールとリンク",
         "selfHosted": "セルフホスト ガイド",
         "githubIssues": "GitHub Issues",
         "tryDemo": "デモを試す",
-        "iosApp": "iOS アプリ",
-        "testflight": "TestFlight"
+        "iosApp": "iOS アプリ"
       }
     },
     "experiment": {

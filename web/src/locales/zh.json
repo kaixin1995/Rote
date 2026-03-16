@@ -302,12 +302,10 @@
       "lastPushTime": "上次推送时间：",
       "community": {
         "title": "Rote Community",
-        "subtitle": "更多入口与工具",
         "selfHosted": "自托管指南",
         "githubIssues": "GitHub Issues",
         "tryDemo": "在线 Demo",
-        "iosApp": "iOS App Store",
-        "testflight": "TestFlight"
+        "iosApp": "iOS App Store"
       }
     },
     "experiment": {
