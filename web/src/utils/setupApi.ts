@@ -86,9 +86,7 @@ export async function testStorageConnection(
  * 发送一个 GET 请求到 presigned URL，如果 CORS 未配置则浏览器 preflight 会失败。
  * 返回 { ok: true } 或 { ok: false, reason: string }。
  */
-export async function probeCors(
-  url: string
-): Promise<{ ok: boolean; reason?: string }> {
+export async function probeCors(url: string): Promise<{ ok: boolean; reason?: string }> {
   try {
     const resp = await fetch(url, {
       method: 'GET',

@@ -305,7 +305,16 @@
       "issues": "Issues",
       "watch": "Watch",
       "githubOpenSource": "Rote is open source on Github, welcome to Star!",
-      "lastPushTime": "Last push time: "
+      "lastPushTime": "Last push time: ",
+      "community": {
+        "title": "Rote Community",
+        "subtitle": "More tools and links",
+        "selfHosted": "Self-hosted guide",
+        "githubIssues": "GitHub Issues",
+        "tryDemo": "Try the demo",
+        "iosApp": "iOS app",
+        "testflight": "TestFlight"
+      }
     },
     "experiment": {
       "title": "Experiment",
