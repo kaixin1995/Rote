@@ -11,6 +11,12 @@ import { getGlobalConfig } from './config';
 
 const cacheControl = 'public, max-age=31536000'; // 1 year cache
 
+type StorageClientConfig = {
+  s3: S3Client;
+  bucketName: string;
+  urlPrefix: string;
+};
+
 function normalizeEndpoint(endpoint: string): string {
   return endpoint.trim().replace(/\/+$/, '');
 }
@@ -40,60 +46,97 @@ function shouldUsePathStyle(_endpoint: string): boolean {
   return !extractCosRegion(_endpoint);
 }
 
-// 动态获取 R2 配置并创建 S3 客户端
-function getR2Client(): { s3: S3Client; bucketName: string; urlPrefix: string } | null {
-  const config = getGlobalConfig<StorageConfig>('storage');
-  if (config && config.endpoint && config.accessKeyId && config.secretAccessKey && config.bucket) {
-    const endpoint = normalizeEndpoint(config.endpoint);
-    const bucketName = config.bucket;
-    const cosRegion = extractCosRegion(endpoint);
-    const resolvedRegion = config.region || cosRegion || 'auto';
+export function createStorageClient(config: StorageConfig): StorageClientConfig {
+  const endpoint = normalizeEndpoint(config.endpoint);
+  const bucketName = config.bucket;
+  const cosRegion = extractCosRegion(endpoint);
+  const resolvedRegion = config.region || cosRegion || 'auto';
 
-    if (cosRegion && config.region && config.region !== cosRegion) {
-      throw new Error(
-        `Storage region mismatch: endpoint region is "${cosRegion}", but config region is "${config.region}"`
-      );
-    }
-
-    if (cosRegion && resolvedRegion === 'auto') {
-      throw new Error('COS requires an explicit region (e.g., ap-shanghai).');
-    }
-
-    if (
-      cosRegion &&
-      bucketName &&
-      endpoint.toLowerCase().includes(`${bucketName.toLowerCase()}.cos.${cosRegion}`)
-    ) {
-      throw new Error(
-        `COS endpoint should not include bucket. Use "https://cos.${cosRegion}.myqcloud.com"`
-      );
-    }
-
-    if (cosRegion && !bucketName) {
-      throw new Error('COS requires a bucket name.');
-    }
-
-    const s3 = new S3Client({
-      region: resolvedRegion,
-      endpoint,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
-      // 智能判断是否使用路径风格，兼容所有 S3 兼容服务
-      // 路径风格是 S3 API 的标准格式，所有服务商都支持
-      forcePathStyle: shouldUsePathStyle(endpoint),
-      // 仅在明确要求时计算校验和，避免与 Garage 等 S3 兼容服务的校验和验证冲突
-      // Garage 可能不支持或不正确支持 AWS SDK 自动添加的校验和
-      requestChecksumCalculation: RequestChecksumCalculation.WHEN_REQUIRED,
-    });
-    return {
-      s3,
-      bucketName,
-      urlPrefix: normalizeUrlPrefix(config.urlPrefix),
-    };
+  if (cosRegion && config.region && config.region !== cosRegion) {
+    throw new Error(
+      `Storage region mismatch: endpoint region is "${cosRegion}", but config region is "${config.region}"`
+    );
   }
-  return null;
+
+  if (cosRegion && resolvedRegion === 'auto') {
+    throw new Error('COS requires an explicit region (e.g., ap-shanghai).');
+  }
+
+  if (
+    cosRegion &&
+    bucketName &&
+    endpoint.toLowerCase().includes(`${bucketName.toLowerCase()}.cos.${cosRegion}`)
+  ) {
+    throw new Error(
+      `COS endpoint should not include bucket. Use "https://cos.${cosRegion}.myqcloud.com"`
+    );
+  }
+
+  if (cosRegion && !bucketName) {
+    throw new Error('COS requires a bucket name.');
+  }
+
+  const s3 = new S3Client({
+    region: resolvedRegion,
+    endpoint,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+    // 智能判断是否使用路径风格，兼容所有 S3 兼容服务
+    // 路径风格是 S3 API 的标准格式，所有服务商都支持
+    forcePathStyle: shouldUsePathStyle(endpoint),
+    // 仅在明确要求时计算校验和，避免与 Garage 等 S3 兼容服务的校验和验证冲突
+    // Garage 可能不支持或不正确支持 AWS SDK 自动添加的校验和
+    requestChecksumCalculation: RequestChecksumCalculation.WHEN_REQUIRED,
+  });
+
+  return {
+    s3,
+    bucketName,
+    urlPrefix: normalizeUrlPrefix(config.urlPrefix),
+  };
+}
+
+// 动态获取 R2 配置并创建 S3 客户端
+function getR2Client(): StorageClientConfig | null {
+  const config = getGlobalConfig<StorageConfig>('storage');
+  if (
+    !config ||
+    !config.endpoint ||
+    !config.accessKeyId ||
+    !config.secretAccessKey ||
+    !config.bucket
+  ) {
+    return null;
+  }
+
+  return createStorageClient(config);
+}
+
+async function presignPutUrlWithClient(
+  clientConfig: StorageClientConfig,
+  key: string,
+  contentType?: string,
+  expiresIn: number = 3600
+): Promise<{ putUrl: string; url: string }> {
+  const { s3, bucketName, urlPrefix } = clientConfig;
+
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    ContentType: contentType || undefined,
+    cacheControl,
+    // 明确不设置校验和算法，避免 AWS SDK 自动添加校验和参数
+    // Garage 等 S3 兼容服务可能不支持或不正确支持 AWS SDK 自动添加的校验和
+  } as any);
+
+  const putUrl = await getSignedUrl(s3, command, {
+    expiresIn,
+  });
+
+  const url = `${urlPrefix}/${key}`;
+  return { putUrl, url };
 }
 
 async function r2deletehandler(key: string) {
@@ -141,23 +184,16 @@ export async function presignPutUrl(
     );
   }
 
-  const { s3, bucketName, urlPrefix } = r2Config;
+  return presignPutUrlWithClient(r2Config, key, contentType, expiresIn);
+}
 
-  const command = new PutObjectCommand({
-    Bucket: bucketName,
-    Key: key,
-    ContentType: contentType || undefined,
-    cacheControl,
-    // 明确不设置校验和算法，避免 AWS SDK 自动添加校验和参数
-    // Garage 等 S3 兼容服务可能不支持或不正确支持 AWS SDK 自动添加的校验和
-  } as any);
-
-  const putUrl = await getSignedUrl(s3, command, {
-    expiresIn,
-  });
-
-  const url = `${urlPrefix}/${key}`;
-  return { putUrl, url };
+export async function presignPutUrlForConfig(
+  config: StorageConfig,
+  key: string,
+  contentType?: string,
+  expiresIn: number = 3600
+): Promise<{ putUrl: string; url: string }> {
+  return presignPutUrlWithClient(createStorageClient(config), key, contentType, expiresIn);
 }
 
 // 检查 R2 中的对象是否存在

@@ -1,28 +1,13 @@
-import { HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { RequestChecksumCalculation } from '@aws-sdk/middleware-flexible-checksums';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import type { ConfigTestResult, StorageConfig } from '../types/config';
+import { createStorageClient, presignPutUrlForConfig } from './r2';
 
 /**
  * 配置测试工具类
  */
 export class ConfigTester {
-  private static normalizeEndpoint(endpoint: string): string {
-    return endpoint.trim().replace(/\/+$/, '');
-  }
-
-  private static extractCosRegion(endpoint: string): string | null {
-    const match = endpoint.match(/cos\.([a-z0-9-]+)\.myqcloud\.com/i);
-    return match ? match[1] : null;
-  }
-
-  /**
-   * 判断是否需要使用路径风格访问
-   * 路径风格是 S3 API 的标准格式，所有 S3 兼容服务都支持
-   */
-  private static shouldUsePathStyle(_endpoint: string): boolean {
-    // COS 新桶默认不支持路径风格访问
-    return !this.extractCosRegion(_endpoint);
+  private static buildStorageProbeKey(): string {
+    return 'users/_storage_test/uploads/_rote_cors_probe';
   }
 
   /**
@@ -37,81 +22,37 @@ export class ConfigTester {
         };
       }
 
-      const endpoint = this.normalizeEndpoint(config.endpoint);
-      const bucketName = config.bucket;
-
-      const cosRegion = this.extractCosRegion(endpoint);
-      const resolvedRegion = config.region || cosRegion || 'auto';
-
-      if (cosRegion && config.region && config.region !== cosRegion) {
-        return {
-          success: false,
-          message: `Region mismatch: endpoint region is "${cosRegion}", but config region is "${config.region}"`,
-        };
-      }
-
-      if (cosRegion && resolvedRegion === 'auto') {
-        return {
-          success: false,
-          message: 'COS requires an explicit region (e.g., ap-shanghai). Please set region.',
-        };
-      }
-
-      if (
-        cosRegion &&
-        bucketName &&
-        endpoint.toLowerCase().includes(`${bucketName.toLowerCase()}.cos.${cosRegion}`)
-      ) {
-        return {
-          success: false,
-          message: `COS endpoint should not include bucket. Use "https://cos.${cosRegion}.myqcloud.com"`,
-        };
-      }
-
-      if (cosRegion && !bucketName) {
-        return {
-          success: false,
-          message: 'Bucket is required for COS configuration.',
-        };
-      }
-
-      const s3Client = new S3Client({
-        endpoint,
-        region: resolvedRegion,
-        credentials: {
-          accessKeyId: config.accessKeyId,
-          secretAccessKey: config.secretAccessKey,
-        },
-        // 使用路径风格访问，兼容所有 S3 兼容服务（AWS S3、R2、Garage、MinIO 等）
-        // 路径风格是 S3 API 的标准格式，所有服务商都支持
-        forcePathStyle: this.shouldUsePathStyle(endpoint),
-        // 仅在明确要求时计算校验和，避免与 Garage 等 S3 兼容服务的校验和验证冲突
-        // Garage 可能不支持或不正确支持 AWS SDK 自动添加的校验和
-        requestChecksumCalculation: RequestChecksumCalculation.WHEN_REQUIRED,
-      });
+      const { s3: s3Client, bucketName } = createStorageClient(config);
 
       // 测试存储桶访问权限
       await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
 
       // 生成 presigned PUT URL 用于前端 CORS 探测
       // 真实直传使用 PUT，因此这里也用 PUT 来验证浏览器 preflight 是否允许 PUT + Content-Type
-      const probeKey = '_rote_cors_probe';
-      let probeUrl: string | undefined;
+      const probeKey = this.buildStorageProbeKey();
+      let probeTarget: { putUrl: string; url: string };
       try {
-        const putCommand = new PutObjectCommand({
-          Bucket: bucketName,
-          Key: probeKey,
-          ContentType: 'application/octet-stream',
-        });
-        probeUrl = await getSignedUrl(s3Client, putCommand as any, { expiresIn: 120 });
+        probeTarget = await presignPutUrlForConfig(
+          config,
+          probeKey,
+          'application/octet-stream',
+          120
+        );
       } catch (probeError: any) {
-        // presigned URL 生成失败不影响主测试结果，仅记录警告
-        console.warn('[storage-test] Failed to generate CORS probe URL:', probeError.message);
+        return {
+          success: false,
+          message: `Storage configuration test failed: unable to generate upload probe URL (${probeError.message})`,
+          details: {
+            endpoint: config.endpoint,
+            bucket: config.bucket,
+            urlPrefix: config.urlPrefix,
+          },
+        };
       }
 
       // 构建 URL Prefix 探测地址
       const urlPrefix = (config.urlPrefix || '').trim().replace(/\/+$/, '');
-      const urlPrefixProbeUrl = urlPrefix ? `${urlPrefix}/${probeKey}` : undefined;
+      const urlPrefixProbeUrl = urlPrefix ? probeTarget.url : undefined;
 
       return {
         success: true,
@@ -120,7 +61,7 @@ export class ConfigTester {
           endpoint: config.endpoint,
           bucket: config.bucket,
           urlPrefix: config.urlPrefix,
-          probeUrl,
+          probeUrl: probeTarget.putUrl,
           urlPrefixProbeUrl,
         },
       };
