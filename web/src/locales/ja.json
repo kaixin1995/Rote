@@ -305,7 +305,41 @@
       "issues": "イシュー",
       "watch": "ウォッチ",
       "githubOpenSource": "Rote は Github でオープンソースです。スターをお願いします！",
-      "lastPushTime": "最終プッシュ時間："
+      "lastPushTime": "最終プッシュ時間：",
+      "supportAndDocs": {
+        "title": "サポートとドキュメント",
+        "subtitle": "ヘルプと設定へのクイックリンク",
+        "selfHosted": "セルフホスト",
+        "githubIssues": "Issues",
+        "tryDemo": "Try demo",
+        "iosApp": "iOS app"
+      },
+      "communityProjects": {
+        "title": "コミュニティ プロジェクト",
+        "subtitle": "Rote を拡張するツールと統合",
+        "items": {
+          "raycast": {
+            "title": "Raycast Extension",
+            "description": "Rote 用 Raycast 拡張（by @aBER0724）"
+          },
+          "rerote": {
+            "title": "Rerote",
+            "description": "他プラットフォームのデータを Rote 形式へ変換するツール"
+          },
+          "rotefeeder": {
+            "title": "Rotefeeder",
+            "description": "RSS/Atom を OpenKey 経由で Rote に転送するフィーダー"
+          },
+          "roteToolkit": {
+            "title": "Rote Toolkit",
+            "description": "TypeScript ツールキット（CLI と AI 統合向け MCP サーバー）"
+          },
+          "roteSkill": {
+            "title": "Rote Skill",
+            "description": "rote-toolkit 上で動く再利用可能な AI Agent Skill"
+          }
+        }
+      }
     },
     "experiment": {
       "title": "実験",
@@ -564,6 +598,10 @@
         "testing": "テスト中...",
         "testSuccess": "ストレージ接続テスト成功！",
         "testFailed": "接続テストに失敗しました：{{error}}",
+        "corsSuccess": "CORS 設定は正常です ✓",
+        "corsFailed": "CORS チェック失敗：ブラウザからストレージに直接アクセスできません。バケットのCORS設定を確認してください",
+        "urlPrefixSuccess": "URL Prefix 到達可能 ✓",
+        "urlPrefixFailed": "URL Prefix 検証失敗：公開URLからストレージにアクセスできません。URL Prefix設定を確認してください",
         "seeConsole": "詳細はコンソールを確認してください。",
         "fillAllRequired": "すべての必須フィールドを入力してください",
         "required": "必須",

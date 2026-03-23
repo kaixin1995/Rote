@@ -299,7 +299,41 @@
       "issues": "Issues",
       "watch": "Watch",
       "githubOpenSource": "Rote 已在 Github 开源，欢迎 Star!",
-      "lastPushTime": "上次推送时间："
+      "lastPushTime": "上次推送时间：",
+      "supportAndDocs": {
+        "title": "支持与文档",
+        "subtitle": "快速入口：帮助与配置",
+        "selfHosted": "自部署",
+        "githubIssues": "Issues",
+        "tryDemo": "Demo",
+        "iosApp": "iOS App"
+      },
+      "communityProjects": {
+        "title": "社区项目",
+        "subtitle": "围绕 Rote 的工具与集成",
+        "items": {
+          "raycast": {
+            "title": "Raycast 插件",
+            "description": "Rote 的 Raycast Extension（by @aBER0724）"
+          },
+          "rerote": {
+            "title": "Rerote",
+            "description": "数据转换工具，可将其他平台数据转换为 Rote 格式"
+          },
+          "rotefeeder": {
+            "title": "Rotefeeder",
+            "description": "RSS/Atom 订阅转发工具，通过 OpenKey 定期推送到 Rote"
+          },
+          "roteToolkit": {
+            "title": "Rote Toolkit",
+            "description": "TypeScript 工具箱：包含 CLI 与用于 AI 集成的 MCP Server"
+          },
+          "roteSkill": {
+            "title": "Rote Skill",
+            "description": "基于 rote-toolkit 的可复用 AI Agent Skill"
+          }
+        }
+      }
     },
     "experiment": {
       "title": "实验室 / Experiment",
@@ -558,6 +592,10 @@
         "testing": "测试中...",
         "testSuccess": "存储连接测试成功！",
         "testFailed": "连接测试失败: {{error}}",
+        "corsSuccess": "CORS 配置正常 ✓",
+        "corsFailed": "CORS 检测失败：浏览器无法直接访问存储，请检查 Bucket CORS 配置",
+        "urlPrefixSuccess": "URL Prefix 可达 ✓",
+        "urlPrefixFailed": "URL Prefix 验证失败：无法通过公开地址访问存储，请检查 URL Prefix 配置",
         "seeConsole": "详细信息请查看控制台。",
         "fillAllRequired": "请填写所有必填字段",
         "required": "必填",

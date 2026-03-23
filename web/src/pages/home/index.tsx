@@ -11,7 +11,7 @@ import { useEditor } from '@/state/editor';
 import type { ApiGetRotesParams, Rotes } from '@/types/main';
 import { useAPIInfinite } from '@/utils/fetcher';
 import { getRotesV2 } from '@/utils/roteApi';
-import { ChartAreaIcon, RefreshCw } from 'lucide-react';
+import { Archive, ChartAreaIcon, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,22 +24,30 @@ function MainPageHeader({
   isLoading?: boolean;
   isValidating?: boolean;
 }) {
-  return (
-    <div
-      className="group bg-background sticky top-0 z-10 flex cursor-pointer items-center gap-2 p-4 font-light text-gray-600"
-      onClick={refreshData}
-    >
-      <Logo className="h-5 w-auto" color="#07C160" />
-      <img
-        className="text-theme mb-[2px] ml-2 h-3 opacity-0 duration-300 group-hover:opacity-100"
-        src={slogenImg}
-        alt="slogen"
-      />
+  const navigate = useNavigate();
 
-      {isLoading ||
-        (isValidating && (
-          <RefreshCw className="text-primary ml-auto size-4 animate-spin duration-300" />
-        ))}
+  return (
+    <div className="bg-background sticky top-0 z-10 flex items-center justify-between p-4 font-light text-gray-600">
+      <div className="group flex cursor-pointer items-center gap-2" onClick={refreshData}>
+        <Logo className="h-5 w-auto" color="#07C160" />
+        <img
+          className="text-theme mb-[2px] ml-2 h-3 opacity-0 duration-300 group-hover:opacity-100"
+          src={slogenImg}
+          alt="slogen"
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        {isLoading ||
+          (isValidating && <RefreshCw className="text-primary size-4 animate-spin duration-300" />)}
+
+        <div
+          className="hover:text-theme text-primary cursor-pointer rounded-full duration-300"
+          onClick={() => navigate('/archived')}
+        >
+          <Archive className="size-5" />
+        </div>
+      </div>
     </div>
   );
 }

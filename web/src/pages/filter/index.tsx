@@ -215,9 +215,11 @@ function MineFilter() {
             {tags && tags.length > 0
               ? tags.map((tag) => (
                   <div key={tag.name} onClick={() => tagsClickHandler(tag.name)}>
-                    <div className="bg-foreground/6 cursor-pointer rounded-md px-2 py-1 text-xs font-normal duration-300 hover:scale-95">
-                      {tag.name}{' '}
-                      {tag.count > 0 && <span className="ml-1 opacity-50">{tag.count}</span>}
+                    <div className="bg-foreground/5 divide-foreground/3 flex grow cursor-pointer items-center justify-between divide-x rounded-sm px-2 text-xs duration-300 hover:scale-95">
+                      <div className="py-1 pr-1">{tag.name}</div>
+                      {tag.count > 0 && (
+                        <div className="text-theme py-1 pl-1 font-mono">{tag.count}</div>
+                      )}
                     </div>
                   </div>
                 ))
