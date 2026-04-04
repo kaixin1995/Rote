@@ -31,11 +31,54 @@ export default function ImportData() {
   });
   const [isImporting, setIsImporting] = useState(false);
   const [stats, setStats] = useState<{
+    articleCount: number;
     noteCount: number;
     attachmentCount: number;
   } | null>(null);
   const [fileData, setFileData] = useState<any | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exampleData = {
+    articles: [
+      {
+        id: '660e8400-e29b-41d4-a716-446655440001',
+        content: '# Example Article\n\nArticle content...',
+        authorId: 'user-uuid',
+        createdAt: '2024-03-20T09:55:00Z',
+        updatedAt: '2024-03-20T10:00:00Z',
+      },
+    ],
+    notes: [
+      {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        title: 'Example Note',
+        content: 'Note content...',
+        tags: ['tag1', 'tag2'],
+        state: 'private',
+        articleId: '660e8400-e29b-41d4-a716-446655440001',
+        article: {
+          id: '660e8400-e29b-41d4-a716-446655440001',
+          content: '# Example Article\n\nArticle content...',
+          authorId: 'user-uuid',
+          createdAt: '2024-03-20T09:55:00Z',
+          updatedAt: '2024-03-20T10:00:00Z',
+        },
+        createdAt: '2024-03-20T10:00:00Z',
+        updatedAt: '2024-03-20T10:00:00Z',
+        attachments: [
+          {
+            id: '770e8400-e29b-41d4-a716-446655440002',
+            url: 'https://...',
+            storage: 'R2',
+            details: {
+              originalName: 'image.png',
+              mimeType: 'image/png',
+              size: 1024,
+            },
+          },
+        ],
+      },
+    ],
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,14 +89,30 @@ export default function ImportData() {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.notes && Array.isArray(json.notes)) {
+          const articleIds = new Set<string>();
+          if (Array.isArray(json.articles)) {
+            json.articles.forEach((article: any) => {
+              if (typeof article?.id === 'string') {
+                articleIds.add(article.id);
+              }
+            });
+          }
+
           let attachmentCount = 0;
           json.notes.forEach((note: any) => {
+            if (typeof note?.articleId === 'string') {
+              articleIds.add(note.articleId);
+            }
+            if (typeof note?.article?.id === 'string') {
+              articleIds.add(note.article.id);
+            }
             if (note.attachments && Array.isArray(note.attachments)) {
               attachmentCount += note.attachments.length;
             }
           });
 
           setStats({
+            articleCount: articleIds.size,
             noteCount: json.notes.length,
             attachmentCount,
           });
@@ -111,28 +170,6 @@ export default function ImportData() {
   };
 
   const handleDownloadExample = () => {
-    const exampleData = {
-      notes: [
-        {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          title: 'Example Note',
-          content: 'Note content...',
-          tags: ['tag1', 'tag2'],
-          state: 'private',
-          createdAt: '2024-03-20T10:00:00Z',
-          updatedAt: '2024-03-20T10:00:00Z',
-          attachments: [
-            {
-              id: 'attachment-uuid',
-              originalName: 'image.png',
-              mimeType: 'image/png',
-              size: 1024,
-              url: 'https://...',
-            },
-          ],
-        },
-      ],
-    };
     const blob = new Blob([JSON.stringify(exampleData, null, 2)], {
       type: 'application/json;charset=utf-8',
     });
@@ -169,35 +206,7 @@ export default function ImportData() {
                       </Button>
                     </div>
                     <pre className="text-muted-foreground overflow-x-auto text-[10px] leading-tight">
-                      {JSON.stringify(
-                        {
-                          notes: [
-                            {
-                              id: '550e8400-e29b-41d4-a716-446655440000',
-                              title: 'Example Note',
-                              content: 'Note content...',
-                              tags: ['tag1', 'tag2'],
-                              state: 'private',
-                              createdAt: '2024-03-20T10:00:00Z',
-                              updatedAt: '2024-03-20T10:00:00Z',
-                              attachments: [
-                                {
-                                  id: 'attachment-uuid',
-                                  url: 'https://...',
-                                  storage: 'R2',
-                                  details: {
-                                    originalName: 'image.png',
-                                    mimeType: 'image/png',
-                                    size: 1024,
-                                  },
-                                },
-                              ],
-                            },
-                          ],
-                        },
-                        null,
-                        2
-                      )}
+                      {JSON.stringify(exampleData, null, 2)}
                     </pre>
                   </div>
                   <div className="text-xs leading-relaxed font-light">{t('dialogNote')}</div>
@@ -230,6 +239,13 @@ export default function ImportData() {
         ) : (
           <div className="flex w-full max-w-sm flex-col items-center gap-6">
             <div className="bg-accent/20 flex w-full items-center justify-around p-6">
+              <div className="flex flex-col items-center justify-center gap-2">
+                <SlidingNumber
+                  className="text-4xl font-semibold"
+                  number={stats.articleCount}
+                ></SlidingNumber>
+                <div className="text-info text-sm">{t('articlesFound')}</div>
+              </div>
               <div className="flex flex-col items-center justify-center gap-2">
                 <SlidingNumber
                   className="text-4xl font-semibold"
