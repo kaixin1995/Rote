@@ -5,14 +5,16 @@ import { DatabaseError } from './common';
 
 export async function statistics(authorid: string): Promise<any> {
   try {
-    const [noteCountResult, attachmentsList] = await Promise.all([
+    const [noteCountResult, attachmentsList, articleCountResult] = await Promise.all([
       db.select({ count: count() }).from(rotes).where(eq(rotes.authorid, authorid)),
       db.select().from(attachments).where(eq(attachments.userid, authorid)),
+      db.select({ count: count() }).from(articles).where(eq(articles.authorId, authorid)),
     ]);
 
     return {
       noteCount: noteCountResult[0]?.count || 0,
       attachmentsCount: attachmentsList.length,
+      articleCount: articleCountResult[0]?.count || 0,
     };
   } catch (error) {
     throw new DatabaseError('Failed to get user statistics', error);
@@ -123,8 +125,13 @@ export async function importData(userId: string, data: any): Promise<any> {
   );
 
   try {
-    let createdCount = 0;
-    let updatedCount = 0;
+    let noteCreatedCount = 0;
+    let noteUpdatedCount = 0;
+    let articleCreatedCount = 0;
+    let articleUpdatedCount = 0;
+    let attachmentCreatedCount = 0;
+    let attachmentUpdatedCount = 0;
+    let attachmentTotalCount = 0;
 
     await db.transaction(async (tx) => {
       for (const article of importedArticles) {
@@ -136,6 +143,12 @@ export async function importData(userId: string, data: any): Promise<any> {
           throw new Error(
             `Security violation: Cannot update article ${article.id} owned by another user`
           );
+        }
+
+        if (existingArticle) {
+          articleUpdatedCount++;
+        } else {
+          articleCreatedCount++;
         }
 
         const articleData = {
@@ -191,9 +204,9 @@ export async function importData(userId: string, data: any): Promise<any> {
                 `Security violation: Cannot update note ${note.id} owned by another user`
               );
             }
-            updatedCount++;
+            noteUpdatedCount++;
           } else {
-            createdCount++;
+            noteCreatedCount++;
           }
 
           // 2. 准备笔记数据
@@ -234,6 +247,8 @@ export async function importData(userId: string, data: any): Promise<any> {
           // 4. 处理附件
           if (Array.isArray(note.attachments)) {
             for (const attachment of note.attachments) {
+              attachmentTotalCount++;
+
               const existingAttachment = await tx.query.attachments.findFirst({
                 where: eq(attachments.id, attachment.id),
               });
@@ -242,6 +257,12 @@ export async function importData(userId: string, data: any): Promise<any> {
                 throw new Error(
                   `Security violation: Cannot update attachment ${attachment.id} owned by another user`
                 );
+              }
+
+              if (existingAttachment) {
+                attachmentUpdatedCount++;
+              } else {
+                attachmentCreatedCount++;
               }
 
               const attachmentData = {
@@ -266,8 +287,23 @@ export async function importData(userId: string, data: any): Promise<any> {
 
     return {
       count: notes.length,
-      created: createdCount,
-      updated: updatedCount,
+      created: noteCreatedCount,
+      updated: noteUpdatedCount,
+      notes: {
+        total: notes.length,
+        created: noteCreatedCount,
+        updated: noteUpdatedCount,
+      },
+      articles: {
+        total: importedArticles.length,
+        created: articleCreatedCount,
+        updated: articleUpdatedCount,
+      },
+      attachments: {
+        total: attachmentTotalCount,
+        created: attachmentCreatedCount,
+        updated: attachmentUpdatedCount,
+      },
     };
   } catch (error) {
     if (error instanceof Error && error.message.includes('Security violation')) {

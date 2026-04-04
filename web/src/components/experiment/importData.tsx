@@ -89,14 +89,19 @@ export default function ImportData() {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.notes && Array.isArray(json.notes)) {
-          const articleIds = new Set<string>();
-          if (Array.isArray(json.articles)) {
-            json.articles.forEach((article: any) => {
-              if (typeof article?.id === 'string') {
-                articleIds.add(article.id);
-              }
-            });
-          }
+          const uniqueArticles = Array.from(
+            new Map(
+              [
+                ...(Array.isArray(json.articles) ? json.articles : []),
+                ...json.notes
+                  .map((note: any) => note?.article)
+                  .filter((article: unknown): article is Record<string, any> => !!article),
+              ]
+                .filter((article: any) => typeof article?.id === 'string')
+                .map((article: any) => [article.id, article])
+            ).values()
+          );
+          const articleIds = new Set<string>(uniqueArticles.map((article: any) => article.id));
 
           let attachmentCount = 0;
           json.notes.forEach((note: any) => {
@@ -140,20 +145,56 @@ export default function ImportData() {
         count: number;
         created: number;
         updated: number;
+        notes: {
+          total: number;
+          created: number;
+          updated: number;
+        };
+        articles: {
+          total: number;
+          created: number;
+          updated: number;
+        };
+        attachments: {
+          total: number;
+          created: number;
+          updated: number;
+        };
       }>('/users/me/import', fileData);
       if (res) {
         // Handle variable structure: might be flat or nested in data
         const data = (res as any).data || res;
-        toast.success(
-          t('importSuccess', {
-            count: data.count,
-            created: data.created,
-            updated: data.updated,
-          }),
-          {
-            duration: 5000,
-          }
+        const successDescription = (
+          <div className="text-muted-foreground space-y-1 text-xs leading-5">
+            <div>{t('importSuccessSummary', { count: data.notes.total })}</div>
+            <div>
+              {t('importSuccessNotes', {
+                total: data.notes.total,
+                created: data.notes.created,
+                updated: data.notes.updated,
+              })}
+            </div>
+            <div>
+              {t('importSuccessArticles', {
+                total: data.articles.total,
+                created: data.articles.created,
+                updated: data.articles.updated,
+              })}
+            </div>
+            <div>
+              {t('importSuccessAttachments', {
+                total: data.attachments.total,
+                created: data.attachments.created,
+                updated: data.attachments.updated,
+              })}
+            </div>
+          </div>
         );
+
+        toast.success(t('importSuccessTitle'), {
+          description: successDescription,
+          duration: 7000,
+        });
         setStats(null);
         setFileData(null);
       }
