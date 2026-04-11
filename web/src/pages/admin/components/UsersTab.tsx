@@ -53,7 +53,7 @@ interface User {
   avatar: string | null;
   role: string;
   emailVerified: boolean;
-  noteCount: number;
+  roteCount: number;
   attachmentCount: number;
   createdAt: string;
   updatedAt: string;
@@ -242,7 +242,7 @@ export default function UsersTab() {
                     <TableHead>{t('table.nickname')}</TableHead>
                     <TableHead>{t('table.role')}</TableHead>
                     <TableHead>{t('table.emailVerified')}</TableHead>
-                    <TableHead className="whitespace-nowrap">{t('table.noteCount')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('table.roteCount')}</TableHead>
                     <TableHead className="whitespace-nowrap">
                       {t('table.attachmentCount')}
                     </TableHead>
@@ -293,7 +293,7 @@ export default function UsersTab() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{user.noteCount ?? 0}</TableCell>
+                      <TableCell className="whitespace-nowrap">{user.roteCount ?? 0}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         {user.attachmentCount ?? 0}
                       </TableCell>

@@ -86,18 +86,26 @@ export default function ExportData() {
             <div className="flex flex-col items-center justify-center gap-2">
               <SlidingNumber
                 className="text-4xl font-semibold"
-                number={data?.noteCount || '0'}
+                number={data?.roteCount || '0'}
               ></SlidingNumber>
-              <div className="text-info text-sm">{t('noteCount')}</div>
+              <div className="text-info text-sm">{t('roteCount')}</div>
             </div>
             <div className="flex flex-col items-center justify-center gap-2">
               <SlidingNumber
                 className="text-4xl font-semibold"
-                number={data?.attachmentsCount || '0'}
+                number={data?.attachmentCount || '0'}
               ></SlidingNumber>
               <div className="text-info text-sm">{t('attachmentCount')}</div>
             </div>
+            <div className="flex flex-col items-center justify-center gap-2">
+              <SlidingNumber
+                className="text-4xl font-semibold"
+                number={data?.articleCount || '0'}
+              ></SlidingNumber>
+              <div className="text-info text-sm">{t('articleCount')}</div>
+            </div>
           </div>
+          <div className="text-info px-4 text-center text-xs">{t('includesArticlesHint')}</div>
           <button
             onClick={handleDownload}
             disabled={isDownloading}

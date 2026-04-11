@@ -224,8 +224,9 @@ export type ApiGetRotesParams = {
 };
 
 export type Statistics = {
-  noteCount: number;
-  attachmentsCount: number;
+  roteCount: number;
+  attachmentCount: number;
+  articleCount: number;
 };
 
 export interface Subscription {
