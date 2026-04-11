@@ -792,12 +792,17 @@
         "EDITROTE": "Rote を編集（削除を含む）",
         "DELETEROTE": "Rote を削除",
         "SENDARTICLE": "記事を作成",
+        "GETARTICLE": "記事を取得",
         "EDITARTICLE": "記事を編集（削除を含む）",
         "UPLOADATTACHMENT": "添付ファイルをアップロード",
         "DELETEATTACHMENT": "添付ファイルを削除",
         "ADDREACTION": "リアクションを追加",
         "DELETEREACTION": "リアクションを削除",
-        "EDITPROFILE": "プロフィールを編集"
+        "EDITPROFILE": "プロフィールを編集",
+        "GETTAGS": "タグ統計を取得",
+        "GETSTATISTICS": "統計データを取得",
+        "GETSETTINGS": "ユーザー設定を取得",
+        "EDITSETTINGS": "ユーザー設定を編集"
       }
     },
     "sidebarSearch": {

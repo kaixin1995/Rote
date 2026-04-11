@@ -792,12 +792,17 @@
         "EDITROTE": "Edit Rote (Including Delete)",
         "DELETEROTE": "Delete Rote",
         "SENDARTICLE": "Create Article",
+        "GETARTICLE": "Get Articles",
         "EDITARTICLE": "Edit Article (Including Delete)",
         "UPLOADATTACHMENT": "Upload Attachment",
         "DELETEATTACHMENT": "Delete Attachment",
         "ADDREACTION": "Add Reaction",
         "DELETEREACTION": "Delete Reaction",
-        "EDITPROFILE": "Edit Profile"
+        "EDITPROFILE": "Edit Profile",
+        "GETTAGS": "Get Tags Statistics",
+        "GETSTATISTICS": "Get Statistics",
+        "GETSETTINGS": "Get User Settings",
+        "EDITSETTINGS": "Edit User Settings"
       }
     },
     "sidebarSearch": {

@@ -16,6 +16,7 @@ import {
   createRote,
   deleteArticle,
   deleteAttachment,
+  deleteAttachments,
   deleteRote,
   deleteRoteAttachmentsByRoteId,
   deleteRoteLinkPreviewsByRoteId,
@@ -24,14 +25,23 @@ import {
   findArticleById,
   findMyRote,
   findRoteById,
+  findRotesByIds,
   getAttachmentDetailsByRoteId,
+  getHeatMap,
   getMyProfile,
+  getMySettings,
+  getMyTags,
+  getNoteArticleCard,
   getNoteByArticleId,
+  listMyArticles,
   oneUser,
   removeReaction,
   searchMyRotes,
   setNoteArticleId,
+  statistics,
   updateArticle,
+  updateAttachmentsSortOrder,
+  updateMySettings,
   upsertAttachmentsByOriginalKey,
 } from '../../utils/dbMethods';
 import {
@@ -154,6 +164,70 @@ router.post('/articles', isOpenKeyOk, requireOpenKeyPerm('SENDARTICLE'), async (
   const { content } = body as { content: string };
   const article = await createArticle({ content, authorId: openKey.userid });
   return c.json(createResponse(article), 201);
+});
+
+// List user articles using API key
+// NOTE: This route must be defined BEFORE /articles/:id to avoid matching issues
+router.get('/articles', isOpenKeyOk, requireOpenKeyPerm('GETARTICLE'), async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const skip = c.req.query('skip');
+  const limit = c.req.query('limit');
+  const keyword = c.req.query('keyword');
+
+  // Validate pagination parameters
+  let parsedSkip: number | undefined;
+  let parsedLimit: number | undefined;
+
+  if (typeof skip === 'string') {
+    parsedSkip = parseInt(skip, 10);
+    if (!Number.isFinite(parsedSkip) || parsedSkip < 0) {
+      throw new Error('Invalid skip parameter: must be a non-negative integer');
+    }
+  }
+
+  if (typeof limit === 'string') {
+    parsedLimit = parseInt(limit, 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 1) {
+      throw new Error('Invalid limit parameter: must be a positive integer');
+    }
+  }
+
+  const articles = await listMyArticles(openKey.userid, {
+    skip: parsedSkip,
+    limit: parsedLimit,
+    keyword: keyword || undefined,
+  });
+
+  return c.json(createResponse(articles), 200);
+});
+
+// Get article by note ID using API key
+// NOTE: This route must be defined BEFORE /articles/:id to avoid matching issues
+router.get('/articles/by-note/:noteId', isOpenKeyOk, async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const noteId = c.req.param('noteId');
+
+  if (!noteId || !isValidUUID(noteId)) {
+    throw new Error('Invalid or missing note ID');
+  }
+
+  // Check if user has access to the note
+  const note = await findRoteById(noteId);
+  if (!note) {
+    throw new Error('Note not found');
+  }
+
+  // Only allow access if note is public or belongs to the user
+  if (note.state !== 'public' && note.authorid !== openKey.userid) {
+    throw new Error('Access denied: note is private');
+  }
+
+  const article = await getNoteArticleCard(noteId);
+  if (!article) {
+    return c.json(createResponse(null), 200);
+  }
+
+  return c.json(createResponse(article), 200);
 });
 
 // Get article by ID using API key
@@ -501,6 +575,37 @@ router.get('/notes/search', isOpenKeyOk, requireOpenKeyPerm('GETROTE'), async (c
   return c.json(createResponse(rotes), 200);
 });
 
+// Batch get notes by IDs using API key
+router.post('/notes/batch', isOpenKeyOk, requireOpenKeyPerm('GETROTE'), async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const body = await c.req.json();
+  const { ids } = body as { ids: string[] };
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    throw new Error('IDs array is required');
+  }
+
+  if (ids.length > MAX_BATCH_SIZE) {
+    throw new Error(`Maximum ${MAX_BATCH_SIZE} IDs allowed`);
+  }
+
+  // Validate all IDs are valid UUIDs
+  for (const id of ids) {
+    if (!isValidUUID(id)) {
+      throw new Error(`Invalid ID format: ${id}`);
+    }
+  }
+
+  const notes = await findRotesByIds(ids);
+
+  // Filter notes: only return public notes or notes owned by the user
+  const accessibleNotes = notes.filter(
+    (note) => note.state === 'public' || note.authorid === openKey.userid
+  );
+
+  return c.json(createResponse(accessibleNotes), 200);
+});
+
 // Get note by ID using API key
 router.get('/notes/:id', isOpenKeyOk, requireOpenKeyPerm('GETROTE'), async (c: HonoContext) => {
   const openKey = c.get('openKey')!;
@@ -700,6 +805,83 @@ router.put('/profile', isOpenKeyOk, requireOpenKeyPerm('EDITPROFILE'), async (c:
   return c.json(createResponse(profile), 200);
 });
 
+// --- User Data Endpoints via OpenKey ---
+
+// Get tags statistics using API key
+router.get('/tags', isOpenKeyOk, requireOpenKeyPerm('GETTAGS'), async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const tags = await getMyTags(openKey.userid);
+  return c.json(createResponse(tags), 200);
+});
+
+// Get activity heatmap using API key
+router.get('/heatmap', isOpenKeyOk, requireOpenKeyPerm('GETSTATISTICS'), async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const startDate = c.req.query('startDate');
+  const endDate = c.req.query('endDate');
+
+  if (!startDate || !endDate) {
+    throw new Error('startDate and endDate are required');
+  }
+
+  // Validate date format (YYYY-MM-DD) and that it's a real calendar date
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+    throw new Error('Invalid date format. Use YYYY-MM-DD');
+  }
+
+  // Validate that dates are real calendar dates
+  const startDateObj = new Date(startDate + 'T00:00:00Z');
+  const endDateObj = new Date(endDate + 'T00:00:00Z');
+
+  if (isNaN(startDateObj.getTime())) {
+    throw new Error('Invalid startDate: not a valid calendar date');
+  }
+  if (isNaN(endDateObj.getTime())) {
+    throw new Error('Invalid endDate: not a valid calendar date');
+  }
+
+  // Additional check: verify the parsed date matches the input (catches dates like 2026-02-30)
+  const startDateStr = startDateObj.toISOString().slice(0, 10);
+  const endDateStr = endDateObj.toISOString().slice(0, 10);
+  if (startDateStr !== startDate) {
+    throw new Error('Invalid startDate: not a valid calendar date');
+  }
+  if (endDateStr !== endDate) {
+    throw new Error('Invalid endDate: not a valid calendar date');
+  }
+
+  const heatmap = await getHeatMap(openKey.userid, startDate, endDate);
+  return c.json(createResponse(heatmap), 200);
+});
+
+// Get statistics using API key
+router.get(
+  '/statistics',
+  isOpenKeyOk,
+  requireOpenKeyPerm('GETSTATISTICS'),
+  async (c: HonoContext) => {
+    const openKey = c.get('openKey')!;
+    const stats = await statistics(openKey.userid);
+    return c.json(createResponse(stats), 200);
+  }
+);
+
+// Get user settings using API key
+router.get('/settings', isOpenKeyOk, requireOpenKeyPerm('GETSETTINGS'), async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const settings = await getMySettings(openKey.userid);
+  return c.json(createResponse(settings), 200);
+});
+
+// Update user settings using API key
+router.put('/settings', isOpenKeyOk, requireOpenKeyPerm('EDITSETTINGS'), async (c: HonoContext) => {
+  const openKey = c.get('openKey')!;
+  const body = await c.req.json();
+  const settings = await updateMySettings(openKey.userid, body);
+  return c.json(createResponse(settings), 200);
+});
+
 // --- Attachment Management via OpenKey ---
 
 // Delete attachment using API key
@@ -717,6 +899,81 @@ router.delete(
 
     const data = await deleteAttachment(id, openKey.userid);
     return c.json(createResponse(data), 200);
+  }
+);
+
+// Batch delete attachments using API key
+router.delete(
+  '/attachments',
+  isOpenKeyOk,
+  requireOpenKeyPerm('DELETEATTACHMENT'),
+  async (c: HonoContext) => {
+    const openKey = c.get('openKey')!;
+    const body = await c.req.json();
+    const { ids } = body as { ids: string[] };
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      throw new Error('IDs array is required');
+    }
+
+    if (ids.length > MAX_BATCH_SIZE) {
+      throw new Error(`Maximum ${MAX_BATCH_SIZE} IDs allowed`);
+    }
+
+    // Validate all IDs are valid UUIDs
+    for (const id of ids) {
+      if (!isValidUUID(id)) {
+        throw new Error(`Invalid ID format: ${id}`);
+      }
+    }
+
+    // Convert string IDs to the expected format
+    const attachmentsData = ids.map((id) => ({ id }));
+    const result = await deleteAttachments(attachmentsData, openKey.userid);
+    return c.json(createResponse(result), 200);
+  }
+);
+
+// Update attachments sort order using API key
+router.put(
+  '/attachments/sort',
+  isOpenKeyOk,
+  requireOpenKeyPerm('EDITROTE'),
+  async (c: HonoContext) => {
+    const openKey = c.get('openKey')!;
+    const body = await c.req.json();
+    const { noteId, attachmentIds } = body as { noteId: string; attachmentIds: string[] };
+
+    if (!noteId || !isValidUUID(noteId)) {
+      throw new Error('Invalid or missing note ID');
+    }
+
+    if (!attachmentIds || !Array.isArray(attachmentIds) || attachmentIds.length === 0) {
+      throw new Error('Attachment IDs array is required');
+    }
+
+    if (attachmentIds.length > MAX_BATCH_SIZE) {
+      throw new Error(`Maximum ${MAX_BATCH_SIZE} attachments allowed`);
+    }
+
+    // Validate all IDs are valid UUIDs
+    for (const id of attachmentIds) {
+      if (!isValidUUID(id)) {
+        throw new Error(`Invalid attachment ID format: ${id}`);
+      }
+    }
+
+    // Verify the note belongs to the user
+    const note = await findRoteById(noteId);
+    if (!note) {
+      throw new Error('Note not found');
+    }
+    if (note.authorid !== openKey.userid) {
+      throw new Error('Access denied: note does not belong to you');
+    }
+
+    const result = await updateAttachmentsSortOrder(openKey.userid, noteId, attachmentIds);
+    return c.json(createResponse(result), 200);
   }
 );
 
