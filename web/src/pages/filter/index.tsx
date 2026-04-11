@@ -32,14 +32,14 @@ function SideBar() {
       <div className="gap2 flex flex-col items-center justify-center py-4">
         <SlidingNumber
           className="font-mono text-xl font-black"
-          number={statisticsData?.noteCount || 0}
+          number={statisticsData?.roteCount || 0}
         />
         <div className="font-light">{t('note')}</div>
       </div>
       <div className="gap2 flex flex-col items-center justify-center py-4">
         <SlidingNumber
           className="font-mono text-xl font-black"
-          number={statisticsData?.attachmentsCount || 0}
+          number={statisticsData?.attachmentCount || 0}
         />
         <div className="font-light">{t('attachment')}</div>
       </div>

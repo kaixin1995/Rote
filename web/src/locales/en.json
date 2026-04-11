@@ -351,7 +351,7 @@
       "exportData": {
         "title": "Export Data",
         "description": "Export complete data in JSON format for use elsewhere.",
-        "noteCount": "Notes Count",
+        "roteCount": "Notes Count",
         "attachmentCount": "Attachments Count",
         "articleCount": "Articles Count",
         "includesArticlesHint": "The exported JSON now includes articles and note-to-article bindings.",
@@ -700,7 +700,7 @@
           "nickname": "Nickname",
           "role": "Role",
           "emailVerified": "Email Verified",
-          "noteCount": "Notes",
+          "roteCount": "Notes",
           "attachmentCount": "Attachments",
           "createdAt": "Created At",
           "actions": "Actions",

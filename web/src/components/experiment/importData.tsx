@@ -32,7 +32,7 @@ export default function ImportData() {
   const [isImporting, setIsImporting] = useState(false);
   const [stats, setStats] = useState<{
     articleCount: number;
-    noteCount: number;
+    roteCount: number;
     attachmentCount: number;
   } | null>(null);
   const [fileData, setFileData] = useState<any | null>(null);
@@ -118,7 +118,7 @@ export default function ImportData() {
 
           setStats({
             articleCount: articleIds.size,
-            noteCount: json.notes.length,
+            roteCount: json.notes.length,
             attachmentCount,
           });
           setFileData(json);
@@ -290,7 +290,7 @@ export default function ImportData() {
               <div className="flex flex-col items-center justify-center gap-2">
                 <SlidingNumber
                   className="text-4xl font-semibold"
-                  number={stats.noteCount}
+                  number={stats.roteCount}
                 ></SlidingNumber>
                 <div className="text-info text-sm">{t('notesFound')}</div>
               </div>

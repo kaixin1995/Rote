@@ -351,7 +351,7 @@
       "exportData": {
         "title": "データエクスポート",
         "description": "完全なデータをJSON形式でエクスポートして、他の場所で使用します。",
-        "noteCount": "ノート数",
+        "roteCount": "ノート数",
         "attachmentCount": "添付ファイル数",
         "articleCount": "記事数",
         "includesArticlesHint": "エクスポートされる JSON には、記事データとノートとの関連付けが含まれます。",
@@ -700,7 +700,7 @@
           "nickname": "ニックネーム",
           "role": "ロール",
           "emailVerified": "メール確認済み",
-          "noteCount": "ノート数",
+          "roteCount": "ノート数",
           "attachmentCount": "添付数",
           "createdAt": "作成日時",
           "actions": "操作",
