@@ -9,6 +9,7 @@ import testConfig from '../scripts/testConfig.json';
 import { generateSecurityKeys } from '../utils/config';
 import db, { closeDatabase } from '../utils/drizzle';
 import { ApiKeyTestSuite } from './apikey.test';
+import { ArticleChangelogTestSuite } from './article.test';
 import { AttachmentTestSuite } from './attachment.test';
 import { AuthTestSuite } from './auth.test';
 import { ChangeTestSuite } from './change.test';
@@ -17,6 +18,7 @@ import { ReactionTestSuite } from './reaction.test';
 import { SiteTestSuite } from './site.test';
 import { SubscriptionTestSuite } from './subscription.test';
 import { UserTestSuite } from './user.test';
+import { TestClient } from './utils/testClient';
 import { TestResultManager } from './utils/testResult';
 
 const BASE_URL = process.env.TEST_BASE_URL || testConfig.testSettings.baseUrl;
@@ -37,6 +39,7 @@ class TestRunner {
   private subscriptionSuite: SubscriptionTestSuite | null = null;
   private siteSuite: SiteTestSuite | null = null;
   private attachmentSuite: AttachmentTestSuite | null = null;
+  private articleChangelogSuite: ArticleChangelogTestSuite | null = null;
   private authToken: string | null = null;
 
   constructor() {
@@ -388,6 +391,53 @@ class TestRunner {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         await this.changeSuite.testGetChangesAfterTimestamp(yesterday.toISOString(), 0, 10);
+      }
+
+      // 8.5 测试 article update/delete 对 rote_changes 的传播（认证路由 + openkey 路由）
+      console.log('\n' + '='.repeat(80));
+      console.log('📰 步骤 6.5: Article Changelog 传播测试');
+      console.log('='.repeat(80));
+
+      try {
+        // 创建全权限 openkey 用于覆盖 openkey 路由
+        const keyRes = await client.post('/api-keys', {
+          name: 'Article Changelog Test Key',
+          permissions: [
+            'SENDROTE',
+            'GETROTE',
+            'EDITROTE',
+            'DELETEROTE',
+            'SENDARTICLE',
+            'EDITARTICLE',
+          ],
+        });
+        const keyData = Array.isArray((keyRes.data as any)?.data)
+          ? (keyRes.data as any).data[0]
+          : (keyRes.data as any)?.data;
+        const openKey = keyData?.id || keyData?.key;
+
+        if (keyRes.status === 201 && openKey) {
+          const openkeyClient = new TestClient(`${API_BASE}/openkey`);
+          this.articleChangelogSuite = new ArticleChangelogTestSuite(
+            client,
+            openkeyClient,
+            openKey,
+            this.resultManager
+          );
+          await this.articleChangelogSuite.runAll();
+          await this.articleChangelogSuite.cleanup();
+
+          // 清理测试用 openkey
+          try {
+            await client.delete(`/api-keys/${openKey}`);
+          } catch {
+            /* ignore */
+          }
+        } else {
+          console.log('⚠️  无法创建 openkey，跳过 article changelog 测试');
+        }
+      } catch (error: any) {
+        console.log(`⚠️  Article changelog 测试执行出错: ${error?.message || error}`);
       }
 
       // 9. 测试站点相关接口

@@ -113,6 +113,25 @@ export async function updateArticle(data: {
       .returning();
 
     if (!article) return null;
+
+    // 记录绑定到此 article 的 rote 的变更历史（保证 /changes/after 增量同步能感知）
+    try {
+      const boundRotes = await db
+        .select({ id: rotes.id })
+        .from(rotes)
+        .where(eq(rotes.articleId, id));
+      for (const r of boundRotes) {
+        await createRoteChange({
+          originid: r.id,
+          roteid: r.id,
+          action: 'UPDATE',
+          userid: authorId,
+        });
+      }
+    } catch (_error) {
+      // 记录变更失败不影响操作
+    }
+
     const meta = parseMarkdownMeta(article.content);
     return { ...article, ...meta };
   } catch (error: any) {
@@ -126,11 +145,34 @@ export async function deleteArticle(data: {
   authorId: string;
 }): Promise<Article | null> {
   try {
+    // 先查询绑定到此 article 的 rote，用于删除后写 changelog
+    const boundRotes = await db
+      .select({ id: rotes.id })
+      .from(rotes)
+      .where(eq(rotes.articleId, data.id));
+
     const [article] = await db
       .delete(articles)
       .where(and(eq(articles.id, data.id), eq(articles.authorId, data.authorId)))
       .returning();
-    return article || null;
+
+    if (!article) return null;
+
+    // 删除成功后为受影响的 rote 写 UPDATE changelog（rote 仍存在，只是 articleId 变 null）
+    try {
+      for (const r of boundRotes) {
+        await createRoteChange({
+          originid: r.id,
+          roteid: r.id,
+          action: 'UPDATE',
+          userid: data.authorId,
+        });
+      }
+    } catch (_error) {
+      // 记录变更失败不影响操作
+    }
+
+    return article;
   } catch (error: any) {
     throw new DatabaseError(`Failed to delete article: ${data.id}`, error);
   }
