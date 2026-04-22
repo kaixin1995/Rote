@@ -126,7 +126,8 @@
       "authorize": {
         "title": "ログイン認証",
         "message": "Rote Web App を Rote iOS App に {{username}} としてログインすることを承認しようとしています",
-        "button": "ログインを認証"
+        "button": "ログインを認証",
+        "switchAccount": "アカウントを切り替える"
       },
       "messages": {
         "loggingIn": "ログイン中...",
