@@ -17,6 +17,16 @@ interface UseArticleExportOptions {
   author?: Author;
 }
 
+async function toDataURL(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function useArticleExport() {
   const [exporting, setExporting] = useState(false);
   const { t } = useTranslation('translation', { keyPrefix: 'article.actions' });
@@ -25,6 +35,10 @@ export function useArticleExport() {
     if (!content || exporting) return;
     setExporting(true);
     try {
+      const resolvedAuthor = author?.avatar
+        ? { ...author, avatar: await toDataURL(author.avatar) }
+        : author;
+
       const container = document.createElement('div');
       container.style.cssText = 'position:fixed;left:-9999px;top:0;';
       document.body.appendChild(container);
@@ -35,7 +49,7 @@ export function useArticleExport() {
           <ExportCard
             title={title || 'Untitled'}
             content={content}
-            author={author}
+            author={resolvedAuthor}
             onReady={resolve}
           />
         );
