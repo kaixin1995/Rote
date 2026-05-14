@@ -30,12 +30,6 @@ clientsClaim();
 precacheAndRoute(self.__WB_MANIFEST || []);
 cleanupOutdatedCaches();
 
-// r2 静态资源
-registerRoute(
-  ({ url }) => url.hostname === 'r2.rote.ink',
-  new CacheFirst({ cacheName: 'r2-assets' })
-);
-
 // API GET 缓存
 registerRoute(
   ({ request, url }) => request.method === 'GET' && url.pathname.startsWith('/api/v2/'),

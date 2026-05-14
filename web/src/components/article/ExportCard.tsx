@@ -62,7 +62,13 @@ export default function ExportCard({ title, content, author, onReady }: ExportCa
             <img
               src={author.avatar || '/DefaultAvatar.svg'}
               alt=""
-              style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'cover' }}
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                objectFit: 'cover',
+                border: '1px solid #e5e5e5',
+              }}
             />
             <span style={{ color: '#555' }}>
               {window.location.origin}/{author.username}
