@@ -108,13 +108,16 @@
     },
     "error": {
       "pageNotFound": "页面未找到或发生错误",
-      "pageNotFoundDesc": "抱歉，我们无法找到您要访问的页面"
+      "pageNotFoundDesc": "抱歉，我们无法找到您要访问的页面",
+      "back": "返回",
+      "goHome": "回到首页"
     },
     "login": {
       "authorize": {
         "title": "授权登录",
         "message": "你将授权 Rote Web App 以 {{username}} 的身份登录 Rote iOS App",
-        "button": "授权登录"
+        "button": "授权登录",
+        "switchAccount": "切换账号"
       },
       "messages": {
         "loggingIn": "登录中...",
@@ -935,7 +938,11 @@
       "deleting": "删除中...",
       "deleteConfirm": "确定要删除这篇文章吗？此操作不可恢复。",
       "deleteSuccess": "文章已删除",
-      "deleteFailed": "删除失败"
+      "deleteFailed": "删除失败",
+      "exportImage": "导出图片",
+      "exporting": "导出中...",
+      "exportSuccess": "图片已下载",
+      "exportFailed": "导出失败"
     },
     "selection": {
       "title": "选择文章",

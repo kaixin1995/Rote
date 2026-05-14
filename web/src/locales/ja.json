@@ -118,13 +118,16 @@
     },
     "error": {
       "pageNotFound": "ページが見つからないか、エラーが発生しました",
-      "pageNotFoundDesc": "申し訳ございませんが、お探しのページが見つかりませんでした"
+      "pageNotFoundDesc": "申し訳ございませんが、お探しのページが見つかりませんでした",
+      "back": "戻る",
+      "goHome": "ホームへ"
     },
     "login": {
       "authorize": {
         "title": "ログイン認証",
         "message": "Rote Web App を Rote iOS App に {{username}} としてログインすることを承認しようとしています",
-        "button": "ログインを認証"
+        "button": "ログインを認証",
+        "switchAccount": "アカウントを切り替える"
       },
       "messages": {
         "loggingIn": "ログイン中...",
@@ -945,7 +948,11 @@
       "deleting": "削除中...",
       "deleteConfirm": "この記事を削除してもよろしいですか？この操作は取り消せません。",
       "deleteSuccess": "記事を削除しました",
-      "deleteFailed": "削除に失敗しました"
+      "deleteFailed": "削除に失敗しました",
+      "exportImage": "画像をエクスポート",
+      "exporting": "エクスポート中...",
+      "exportSuccess": "画像をダウンロードしました",
+      "exportFailed": "エクスポートに失敗しました"
     },
     "selection": {
       "title": "記事を選択",

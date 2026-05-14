@@ -1,7 +1,19 @@
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function ErrorPage() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.error' });
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  function back() {
+    if (location.key !== 'default') {
+      navigate(-1);
+    } else {
+      navigate('/home');
+    }
+  }
 
   return (
     <>
@@ -16,6 +28,12 @@ export default function ErrorPage() {
           <p className="text-primary/50 text-xs font-light dark:text-white/50">
             {t('pageNotFoundDesc')}
           </p>
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" onClick={back}>
+              {t('back')}
+            </Button>
+            <Button onClick={() => navigate('/')}>{t('goHome')}</Button>
+          </div>
         </div>
       </main>
     </>

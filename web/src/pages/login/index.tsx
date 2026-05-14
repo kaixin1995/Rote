@@ -391,6 +391,16 @@ function Login() {
               <Button onClick={authorizeIosLogin} className="w-full">
                 {t('authorize.button')}
               </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  authService.logout(false);
+                  mutateProfile(undefined, { revalidate: false });
+                }}
+                className="mt-2 w-full"
+              >
+                {t('authorize.switchAccount')}
+              </Button>
             </div>
           </>
         ) : (
