@@ -938,7 +938,11 @@
       "deleting": "删除中...",
       "deleteConfirm": "确定要删除这篇文章吗？此操作不可恢复。",
       "deleteSuccess": "文章已删除",
-      "deleteFailed": "删除失败"
+      "deleteFailed": "删除失败",
+      "exportImage": "导出图片",
+      "exporting": "导出中...",
+      "exportSuccess": "图片已下载",
+      "exportFailed": "导出失败"
     },
     "selection": {
       "title": "选择文章",

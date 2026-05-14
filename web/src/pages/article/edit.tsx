@@ -1,29 +1,28 @@
+import ArticleNavBarActions from '@/components/article/ArticleNavBarActions';
 import NavBar from '@/components/layout/navBar';
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useArticleActions } from '@/hooks/useArticleActions';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
+import { profileAtom } from '@/state/profile';
 import { createArticle, getArticleFull, updateArticle } from '@/utils/articleApi';
 import { finalize, getUploadErrorMessage, presign, uploadToSignedUrl } from '@/utils/directUpload';
-import { formatBytes } from '@/utils/main';
 import { parseMarkdownMeta } from '@/utils/markdownParser';
 import { maybeCompressToWebp } from '@/utils/uploadHelpers';
 import {
   ArrowUpRight,
-  Download,
   Edit3,
   Eye,
-  FileText,
   Heading1,
   Save,
   Signature,
-  TextInitialIcon,
   Trash2,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAtomValue } from 'jotai';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
@@ -46,6 +45,7 @@ export default function ArticleEditPage() {
   const [showMarkdown, setShowMarkdown] = useState(false);
   const [, startTransition] = useTransition();
   const [minRows, setMinRows] = useState(20);
+  const profile = useAtomValue(profileAtom);
 
   useEffect(() => {
     const lineHeight = 21; // font-mono text-sm ≈ 1.375 * 14px ≈ 21px
@@ -177,17 +177,6 @@ export default function ArticleEditPage() {
         localStorage.setItem(CREATE_CACHE_KEY, val);
       } catch {}
     }
-  };
-
-  const handleDownload = () => {
-    if (!content) return;
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = title ? `${title}.md` : 'article.md';
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const uploadAndInsert = async (files: FileList | File[], textarea: HTMLTextAreaElement) => {
@@ -324,22 +313,11 @@ export default function ArticleEditPage() {
         title={isEditMode ? t('editTitle') : t('title')}
         icon={<Signature className="text-primary size-6" />}
       >
-        <div className="flex-1" />
-        <div className="flex items-center font-mono text-xs font-normal lg:divide-x">
-          <div className="flex items-center gap-2 px-2">
-            <TextInitialIcon className="size-3" />
-            {t('wordsCount', { defaultValue: '{{count}} Words', count: content.length })}
-          </div>
-          <div
-            className="group hidden cursor-pointer items-center gap-2 px-2 lg:flex"
-            onClick={handleDownload}
-            title={t('download', { defaultValue: 'Download Markdown' })}
-          >
-            <FileText className="size-3 group-hover:hidden" />
-            <Download className="hidden size-3 group-hover:block" />
-            {formatBytes(new Blob([content]).size)}
-          </div>
-        </div>
+        <ArticleNavBarActions
+          content={content}
+          title={title || ''}
+          author={profile ? { nickname: profile.nickname, avatar: profile.avatar, username: profile.username } : undefined}
+        />
       </NavBar>
 
       {!isPreview ? (

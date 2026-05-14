@@ -948,7 +948,11 @@
       "deleting": "削除中...",
       "deleteConfirm": "この記事を削除してもよろしいですか？この操作は取り消せません。",
       "deleteSuccess": "記事を削除しました",
-      "deleteFailed": "削除に失敗しました"
+      "deleteFailed": "削除に失敗しました",
+      "exportImage": "画像をエクスポート",
+      "exporting": "エクスポート中...",
+      "exportSuccess": "画像をダウンロードしました",
+      "exportFailed": "エクスポートに失敗しました"
     },
     "selection": {
       "title": "記事を選択",
