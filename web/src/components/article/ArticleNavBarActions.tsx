@@ -16,7 +16,11 @@ interface ArticleNavBarActionsProps {
   author?: Author;
 }
 
-export default function ArticleNavBarActions({ content, title, author }: ArticleNavBarActionsProps) {
+export default function ArticleNavBarActions({
+  content,
+  title,
+  author,
+}: ArticleNavBarActionsProps) {
   const { t } = useTranslation('translation', { keyPrefix: 'article.editor' });
   const { t: tActions } = useTranslation('translation', { keyPrefix: 'article.actions' });
   const { exporting, handleExportImage } = useArticleExport();

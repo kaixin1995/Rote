@@ -10,16 +10,7 @@ import { createArticle, getArticleFull, updateArticle } from '@/utils/articleApi
 import { finalize, getUploadErrorMessage, presign, uploadToSignedUrl } from '@/utils/directUpload';
 import { parseMarkdownMeta } from '@/utils/markdownParser';
 import { maybeCompressToWebp } from '@/utils/uploadHelpers';
-import {
-  ArrowUpRight,
-  Edit3,
-  Eye,
-  Heading1,
-  Save,
-  Signature,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { ArrowUpRight, Edit3, Eye, Heading1, Save, Signature, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAtomValue } from 'jotai';
@@ -316,7 +307,11 @@ export default function ArticleEditPage() {
         <ArticleNavBarActions
           content={content}
           title={title || ''}
-          author={profile ? { nickname: profile.nickname, avatar: profile.avatar, username: profile.username } : undefined}
+          author={
+            profile
+              ? { nickname: profile.nickname, avatar: profile.avatar, username: profile.username }
+              : undefined
+          }
         />
       </NavBar>
 
