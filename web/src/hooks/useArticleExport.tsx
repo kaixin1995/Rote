@@ -25,8 +25,10 @@ function logExport(step: string, data?: Record<string, unknown>) {
   const ts = new Date().toISOString().slice(11, 23);
   const prefix = `[Export ${ts}]`;
   if (data) {
+    // eslint-disable-next-line no-console
     console.log(`${prefix} ${step}`, data);
   } else {
+    // eslint-disable-next-line no-console
     console.log(`${prefix} ${step}`);
   }
 }
@@ -35,10 +37,13 @@ function logExportError(step: string, error?: unknown) {
   const ts = new Date().toISOString().slice(11, 23);
   const prefix = `[Export ${ts}]`;
   if (error instanceof Error) {
+    // eslint-disable-next-line no-console
     console.error(`${prefix} ✗ ${step}`, { message: error.message, name: error.name });
   } else if (error) {
+    // eslint-disable-next-line no-console
     console.error(`${prefix} ✗ ${step}`, error);
   } else {
+    // eslint-disable-next-line no-console
     console.error(`${prefix} ✗ ${step}`);
   }
 }
