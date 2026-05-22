@@ -59,6 +59,9 @@ interface SiteStatusData {
       };
     };
   };
+  passkey?: {
+    enabled: boolean;
+  };
   frontendConfig: FrontendConfig;
   timestamp: string;
 }

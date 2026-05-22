@@ -15,5 +15,6 @@ export * from './user';
 export * from './userAccount';
 export * from './userData';
 export * from './userOAuth';
+export * from './userPasskey';
 export * from './userProfile';
 export * from './userSettings';

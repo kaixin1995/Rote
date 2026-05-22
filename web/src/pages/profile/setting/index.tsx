@@ -22,7 +22,7 @@ import { del, put } from '@/utils/api';
 import { authService } from '@/utils/auth';
 import i18n from 'i18next';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { Github, Loader, Settings2, Stars } from 'lucide-react';
+import { Fingerprint, Github, Loader, Settings2, Stars, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ import DeleteAccountDialog from '../components/DeleteAccountDialog';
 import MergeAccountDialog from '../components/MergeAccountDialog';
 import ProfileSidebar from '../components/ProfileSidebar';
 import { useOAuthBinding } from '../hooks/useOAuthBinding';
+import { usePasskey } from '@/hooks/usePasskey';
 
 export default function SettingsPage() {
   const { data: siteStatus } = useSiteStatus();
@@ -62,6 +63,15 @@ export default function SettingsPage() {
     handleOAuthCallback,
   } = useOAuthBinding(loadProfile);
 
+  const {
+    isRegistering,
+    passkeys,
+    isLoading: isLoadingPasskeys,
+    registerPasskey,
+    fetchPasskeys,
+    deletePasskey,
+  } = usePasskey();
+
   useEffect(() => {
     if (!profile) {
       loadProfile();
@@ -76,6 +86,12 @@ export default function SettingsPage() {
   useEffect(() => {
     handleOAuthCallback();
   }, [handleOAuthCallback]);
+
+  useEffect(() => {
+    if (profile && siteStatus?.passkey?.enabled !== false) {
+      fetchPasskeys();
+    }
+  }, [profile, siteStatus, fetchPasskeys]);
 
   const saveSettings = async () => {
     try {
@@ -297,6 +313,67 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Passkey 管理 */}
+      {siteStatus?.passkey?.enabled !== false && (
+        <div className="space-y-4 p-4">
+          <div>
+            <div className="text-base font-semibold">{t('settings.passkey.title')}</div>
+            <p className="text-muted-foreground text-sm">{t('settings.passkey.description')}</p>
+          </div>
+
+          {/* Passkey list */}
+          {isLoadingPasskeys ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader className="size-4 animate-spin" />
+            </div>
+          ) : passkeys.length > 0 ? (
+            <div className="grid gap-3">
+              {passkeys.map((pk) => (
+                <div
+                  key={pk.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Fingerprint className="size-5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold">{pk.deviceName || 'Unknown'}</div>
+                      <div className="text-muted-foreground text-xs">
+                        {new Date(pk.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive size-8"
+                    onClick={() => {
+                      if (confirm(t('settings.passkey.confirmDelete'))) {
+                        deletePasskey(pk.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">{t('settings.passkey.noPasskeys')}</div>
+          )}
+
+          <Button
+            onClick={() => registerPasskey()}
+            disabled={isRegistering}
+            variant="outline"
+            className="w-full"
+          >
+            {isRegistering && <Loader className="mr-2 size-4 animate-spin" />}
+            <Fingerprint className="mr-2 size-4" />
+            {isRegistering ? t('settings.passkey.adding') : t('settings.passkey.add')}
+          </Button>
         </div>
       )}
 

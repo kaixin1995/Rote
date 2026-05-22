@@ -135,11 +135,15 @@
       },
       "fields": {
         "username": "用户名",
+        "usernamePlaceholder": "用户名",
         "usernameOrEmail": "用户名或邮箱",
-        "usernameOrEmailPlaceholder": "username or email",
+        "usernameOrEmailPlaceholder": "用户名或邮箱",
         "password": "密码",
+        "passwordOptional": "密码（可选）",
         "email": "邮箱",
-        "nickname": "昵称"
+        "emailPlaceholder": "someone@mail.com",
+        "nickname": "昵称",
+        "nicknamePlaceholder": "昵称"
       },
       "buttons": {
         "login": "登录",
@@ -167,7 +171,21 @@
       "emailMaxLength": "邮箱最长30位",
       "emailFormat": "请输入正确的邮箱格式",
       "nicknameRequired": "请输入昵称",
-      "nicknameMaxLength": "昵称最长20位"
+      "nicknameMaxLength": "昵称最长20位",
+      "passkey": {
+        "promptTitle": "设置通行密钥？",
+        "promptDescription": "通行密钥可以让您通过指纹、面容或安全密钥快速登录，无需记住密码。",
+        "setup": "设置通行密钥",
+        "skip": "暂不设置",
+        "settingUp": "设置中...",
+        "loginWithPasskey": "使用通行密钥登录",
+        "loginSuccess": "登录成功",
+        "loginFailed": "通行密钥登录失败",
+        "registerSuccess": "通行密钥注册成功",
+        "registerFailed": "通行密钥注册失败",
+        "cancelled": "操作已取消",
+        "passwordOptionalHint": "可以跳过密码设置，使用通行密钥注册。"
+      }
     },
     "home": {
       "statistics": "统计 / Static"
@@ -215,6 +233,17 @@
         "saving": "保存中…",
         "saveSuccess": "设置已保存",
         "saveFailed": "保存失败：{{error}}",
+        "passkey": {
+          "title": "通行密钥",
+          "description": "管理您的通行密钥，用于免密码登录。",
+          "confirmDelete": "确定要删除此通行密钥吗？",
+          "noPasskeys": "暂未注册通行密钥。",
+          "add": "添加通行密钥",
+          "adding": "正在添加通行密钥...",
+          "deleteSuccess": "通行密钥已删除",
+          "deleteFailed": "删除通行密钥失败",
+          "fetchFailed": "加载通行密钥失败"
+        },
         "oauth": {
           "title": "账户关联",
           "description": "关联第三方账户后，您可以使用多种方式登录",
@@ -468,6 +497,7 @@
         "username": "用户名",
         "email": "邮箱",
         "password": "密码",
+        "passwordOptional": "密码（可选）",
         "nickname": "昵称"
       },
       "placeholders": {

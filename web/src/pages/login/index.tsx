@@ -16,7 +16,9 @@ import { useSiteStatus } from '@/hooks/useSiteStatus';
 import { get, getApiUrl, post } from '@/utils/api';
 import { authService } from '@/utils/auth';
 import { useAPIGet } from '@/utils/fetcher';
-import { Github } from 'lucide-react';
+import { registerWithPasskey } from '@/utils/passkey';
+import { usePasskey } from '@/hooks/usePasskey';
+import { Fingerprint, Github } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -51,6 +53,9 @@ function Login() {
   const [disbled, setDisbled] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [searchParams] = useSearchParams();
+  const { authenticateWithPasskey, registerPasskey, isAuthenticating, isRegistering } =
+    usePasskey();
+  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
 
   // 如果注册被禁用，确保 activeTab 是 'login'
   useEffect(() => {
@@ -116,6 +121,8 @@ function Login() {
       .max(128, t('passwordMaxLength')),
   });
 
+  const passkeyEnabled = siteStatus?.passkey?.enabled !== false;
+
   const RegisterDataZod = z.object({
     username: z
       .string()
@@ -125,11 +132,17 @@ function Login() {
       .refine((value) => !siteStatus?.frontendConfig?.safeRoutes?.includes(value), {
         message: t('usernameConflict'),
       }),
-    password: z
-      .string()
-      .refine((val) => val.length > 0, { message: t('passwordRequired') })
-      .refine((val) => val.length >= 6, { message: t('passwordMin') })
-      .max(128, t('passwordMaxLength')),
+    password: passkeyEnabled
+      ? z
+          .string()
+          .max(128, t('passwordMaxLength'))
+          .optional()
+          .refine((val) => !val || val.length >= 6, { message: t('passwordMin') })
+      : z
+          .string()
+          .min(1, t('passwordRequired'))
+          .refine((val) => val.length >= 6, { message: t('passwordMin') })
+          .max(128, t('passwordMaxLength')),
     email: z
       .string()
       .min(1, t('emailRequired'))
@@ -231,8 +244,35 @@ function Login() {
     }
 
     setDisbled(true);
+
+    // No password + passkey enabled → two-step passkey registration
+    if (!registerData.password && passkeyEnabled) {
+      registerWithPasskey({
+        username: registerData.username,
+        email: registerData.email,
+        nickname: registerData.nickname,
+      })
+        .then((result) => {
+          toast.success(t('messages.registerSuccess'));
+          authService.setTokens(result.accessToken, result.refreshToken);
+          mutateProfile();
+          navigate('/home');
+        })
+        .catch((err: any) => {
+          if (err?.name === 'NotAllowedError') {
+            toast.info(t('passkey.cancelled'));
+          } else {
+            const errorMessage = err.response?.data?.message || err?.message;
+            toast.error(errorMessage || t('messages.backendDown'));
+          }
+        })
+        .finally(() => setDisbled(false));
+      return;
+    }
+
+    // Has password → standard registration
     post('/auth/register', registerData)
-      .then(() => {
+      .then((response) => {
         toast.success(t('messages.registerSuccess'));
         setDisbled(false);
         setRegisterData({
@@ -241,12 +281,24 @@ function Login() {
           email: '',
           nickname: '',
         });
-        // 注册成功后自动切换到登录 tab
-        setActiveTab('login');
+
+        const { accessToken, refreshToken } = response.data;
+        if (accessToken && refreshToken) {
+          authService.setTokens(accessToken, refreshToken);
+
+          if (passkeyEnabled) {
+            // Has password, passkey optional → show passkey prompt with skip
+            setShowPasskeyPrompt(true);
+          } else {
+            mutateProfile();
+            navigate('/home');
+          }
+        } else {
+          setActiveTab('login');
+        }
       })
       .catch((err: any) => {
         setDisbled(false);
-        // 使用 message 字段
         const errorMessage = err.response?.data?.message;
         toast.error(errorMessage || t('messages.backendDown'));
       });
@@ -411,157 +463,222 @@ function Login() {
             </div>
 
             {backendStatusOk ? (
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="bg-muted w-full rounded-lg"
-              >
-                <TabsList
-                  className={`grid w-full ${backendStatusOk.ui?.allowRegistration !== false ? 'grid-cols-2' : 'grid-cols-1'}`}
+              showPasskeyPrompt ? (
+                // Passkey setup prompt after registration
+                <div className="bg-muted w-full rounded-lg p-6 text-center">
+                  <Fingerprint className="mx-auto mb-4 size-12" />
+                  <h2 className="mb-2 text-lg font-semibold">{t('passkey.promptTitle')}</h2>
+                  <p className="text-muted-foreground mb-6 text-sm">
+                    {t('passkey.promptDescription')}
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={async () => {
+                        const success = await registerPasskey();
+                        if (success) {
+                          mutateProfile();
+                          navigate('/home');
+                        }
+                      }}
+                      disabled={isRegistering}
+                      className="w-full"
+                    >
+                      {isRegistering ? t('passkey.settingUp') : t('passkey.setup')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        mutateProfile();
+                        navigate('/home');
+                      }}
+                      className="w-full"
+                    >
+                      {t('passkey.skip')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Tabs
+                  value={activeTab}
+                  onValueChange={setActiveTab}
+                  className="bg-muted w-full rounded-lg"
                 >
-                  <TabsTrigger value="login">{t('buttons.login')}</TabsTrigger>
-                  {backendStatusOk.ui?.allowRegistration !== false && (
-                    <TabsTrigger value="register">{t('buttons.register')}</TabsTrigger>
-                  )}
-                </TabsList>
-
-                <TabsContents className="bg-background mx-1 -mt-2 mb-1 h-full rounded-sm">
-                  <div className="space-y-4 p-4">
-                    <TabsContent value="login" className="space-y-4 py-4">
-                      <div className="space-y-5">
-                        <div className="space-y-2">
-                          <Label htmlFor="login-username">{t('fields.usernameOrEmail')}</Label>
-                          <Input
-                            id="login-username"
-                            placeholder={t('fields.usernameOrEmailPlaceholder')}
-                            className="text-md rounded-md font-mono"
-                            maxLength={255}
-                            value={loginData.username}
-                            onInput={(e) => handleInputChange(e, 'username', 'login')}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="login-password">{t('fields.password')}</Label>
-                          <Input
-                            id="login-password"
-                            placeholder="password"
-                            type="password"
-                            className="text-md rounded-md font-mono"
-                            maxLength={30}
-                            value={loginData.password}
-                            onInput={(e) => handleInputChange(e, 'password', 'login')}
-                            onKeyDown={handleLoginKeyDown}
-                          />
-                        </div>
-                      </div>
-                      <Button disabled={disbled} onClick={login} className="w-full">
-                        {disbled ? t('messages.loggingIn') : t('buttons.login')}
-                      </Button>
-                      {hasEnabledOAuthProviders && (
-                        <>
-                          <div className="relative my-4">
-                            <div className="absolute inset-0 flex items-center">
-                              <span className="w-full border-t" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                              <span className="bg-background text-muted-foreground px-2">
-                                {t('oauth.or')}
-                              </span>
-                            </div>
-                          </div>
-                          {backendStatusOk?.oauth?.providers &&
-                            Object.entries(backendStatusOk.oauth.providers).map(
-                              ([provider, config]: [string, any]) => {
-                                if (!config?.enabled) return null;
-                                const providerInfo = getOAuthProviderInfo(provider);
-                                const IconComponent = providerInfo.icon;
-                                return (
-                                  <Button
-                                    key={provider}
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => handleOAuthLogin(provider)}
-                                    className="w-full"
-                                    disabled={disbled}
-                                  >
-                                    {IconComponent && <IconComponent className="mr-2 size-4" />}
-                                    {t(providerInfo.labelKey)}
-                                  </Button>
-                                );
-                              }
-                            )}
-                        </>
-                      )}
-                    </TabsContent>
-
+                  <TabsList
+                    className={`grid w-full ${backendStatusOk.ui?.allowRegistration !== false ? 'grid-cols-2' : 'grid-cols-1'}`}
+                  >
+                    <TabsTrigger value="login">{t('buttons.login')}</TabsTrigger>
                     {backendStatusOk.ui?.allowRegistration !== false && (
-                      <TabsContent value="register" className="space-y-4 py-4">
+                      <TabsTrigger value="register">{t('buttons.register')}</TabsTrigger>
+                    )}
+                  </TabsList>
+
+                  <TabsContents className="bg-background mx-1 -mt-2 mb-1 h-full rounded-sm">
+                    <div className="space-y-4 p-4">
+                      <TabsContent value="login" className="space-y-4 py-4">
                         <div className="space-y-5">
                           <div className="space-y-2">
-                            <Label htmlFor="register-username">{t('fields.username')}</Label>
+                            <Label htmlFor="login-username">{t('fields.usernameOrEmail')}</Label>
                             <Input
-                              id="register-username"
-                              placeholder="username"
+                              id="login-username"
+                              placeholder={t('fields.usernameOrEmailPlaceholder')}
                               className="text-md rounded-md font-mono"
-                              maxLength={20}
-                              value={registerData.username}
-                              onInput={(e) => handleInputChange(e, 'username', 'register')}
+                              maxLength={255}
+                              value={loginData.username}
+                              onInput={(e) => handleInputChange(e, 'username', 'login')}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="register-email">{t('fields.email')}</Label>
+                            <Label htmlFor="login-password">{t('fields.password')}</Label>
                             <Input
-                              id="register-email"
-                              placeholder="someone@mail.com"
-                              className="text-md rounded-md font-mono"
-                              maxLength={30}
-                              value={registerData.email}
-                              onInput={(e) => handleInputChange(e, 'email', 'register')}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="register-nickname">{t('fields.nickname')}</Label>
-                            <Input
-                              id="register-nickname"
-                              placeholder="nickname"
-                              className="text-md rounded-md font-mono"
-                              maxLength={20}
-                              value={registerData.nickname}
-                              onInput={(e) => handleInputChange(e, 'nickname', 'register')}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="register-password">{t('fields.password')}</Label>
-                            <Input
-                              id="register-password"
+                              id="login-password"
                               placeholder="password"
                               type="password"
                               className="text-md rounded-md font-mono"
                               maxLength={30}
-                              value={registerData.password}
-                              onInput={(e) => handleInputChange(e, 'password', 'register')}
-                              onKeyDown={handleRegisterKeyDown}
+                              value={loginData.password}
+                              onInput={(e) => handleInputChange(e, 'password', 'login')}
+                              onKeyDown={handleLoginKeyDown}
                             />
                           </div>
                         </div>
-                        <Button disabled={disbled} onClick={register} className="w-full">
-                          {disbled ? t('messages.registering') : t('buttons.register')}
+                        <Button disabled={disbled} onClick={login} className="w-full">
+                          {disbled ? t('messages.loggingIn') : t('buttons.login')}
                         </Button>
+                        {siteStatus?.passkey?.enabled !== false && (
+                          <Button
+                            variant="outline"
+                            disabled={disbled || isAuthenticating}
+                            onClick={async () => {
+                              const result = await authenticateWithPasskey();
+                              if (result) {
+                                mutateProfile();
+                                if (searchParams.get('type') === 'ioslogin') {
+                                  const callbackUrl = `rote://callback?token=${result.accessToken}&refreshToken=${result.refreshToken}`;
+                                  window.location.href = callbackUrl;
+                                  return;
+                                }
+                                navigate('/home');
+                              }
+                            }}
+                            className="w-full"
+                          >
+                            <Fingerprint className="mr-2 size-4" />
+                            {isAuthenticating
+                              ? t('messages.loggingIn')
+                              : t('passkey.loginWithPasskey')}
+                          </Button>
+                        )}
+                        {hasEnabledOAuthProviders && (
+                          <>
+                            <div className="relative my-4">
+                              <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                              </div>
+                              <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background text-muted-foreground px-2">
+                                  {t('oauth.or')}
+                                </span>
+                              </div>
+                            </div>
+                            {backendStatusOk?.oauth?.providers &&
+                              Object.entries(backendStatusOk.oauth.providers).map(
+                                ([provider, config]: [string, any]) => {
+                                  if (!config?.enabled) return null;
+                                  const providerInfo = getOAuthProviderInfo(provider);
+                                  const IconComponent = providerInfo.icon;
+                                  return (
+                                    <Button
+                                      key={provider}
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => handleOAuthLogin(provider)}
+                                      className="w-full"
+                                      disabled={disbled}
+                                    >
+                                      {IconComponent && <IconComponent className="mr-2 size-4" />}
+                                      {t(providerInfo.labelKey)}
+                                    </Button>
+                                  );
+                                }
+                              )}
+                          </>
+                        )}
                       </TabsContent>
-                    )}
 
-                    <div className="my-4 flex cursor-pointer items-center justify-center gap-1 text-sm duration-300 active:scale-95">
-                      <Link to="/explore">
-                        <div className="duration-300 hover:opacity-60">{t('nav.explore')}</div>
-                      </Link>
-                      <span className="px-2">/</span>
-                      <Link to="/landing">
-                        <div className="duration-300 hover:opacity-60">{t('nav.home')}</div>
-                      </Link>
+                      {backendStatusOk.ui?.allowRegistration !== false && (
+                        <TabsContent value="register" className="space-y-4 py-4">
+                          <div className="space-y-5">
+                            <div className="space-y-2">
+                              <Label htmlFor="register-username">{t('fields.username')}</Label>
+                              <Input
+                                id="register-username"
+                                placeholder={t('fields.usernamePlaceholder')}
+                                className="text-md rounded-md font-mono"
+                                maxLength={20}
+                                value={registerData.username}
+                                onInput={(e) => handleInputChange(e, 'username', 'register')}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="register-email">{t('fields.email')}</Label>
+                              <Input
+                                id="register-email"
+                                placeholder={t('fields.emailPlaceholder')}
+                                className="text-md rounded-md font-mono"
+                                maxLength={30}
+                                value={registerData.email}
+                                onInput={(e) => handleInputChange(e, 'email', 'register')}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="register-nickname">{t('fields.nickname')}</Label>
+                              <Input
+                                id="register-nickname"
+                                placeholder={t('fields.nicknamePlaceholder')}
+                                className="text-md rounded-md font-mono"
+                                maxLength={20}
+                                value={registerData.nickname}
+                                onInput={(e) => handleInputChange(e, 'nickname', 'register')}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="register-password">{t('fields.password')}</Label>
+                              <Input
+                                id="register-password"
+                                placeholder={t('fields.passwordOptional')}
+                                type="password"
+                                className="text-md rounded-md font-mono"
+                                maxLength={30}
+                                value={registerData.password}
+                                onInput={(e) => handleInputChange(e, 'password', 'register')}
+                                onKeyDown={handleRegisterKeyDown}
+                              />
+                              {siteStatus?.passkey?.enabled !== false && (
+                                <p className="text-muted-foreground text-xs">
+                                  {t('passkey.passwordOptionalHint')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <Button disabled={disbled} onClick={register} className="w-full">
+                            {disbled ? t('messages.registering') : t('buttons.register')}
+                          </Button>
+                        </TabsContent>
+                      )}
+
+                      <div className="my-4 flex cursor-pointer items-center justify-center gap-1 text-sm duration-300 active:scale-95">
+                        <Link to="/explore">
+                          <div className="duration-300 hover:opacity-60">{t('nav.explore')}</div>
+                        </Link>
+                        <span className="px-2">/</span>
+                        <Link to="/landing">
+                          <div className="duration-300 hover:opacity-60">{t('nav.home')}</div>
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                </TabsContents>
-              </Tabs>
+                  </TabsContents>
+                </Tabs>
+              )
             ) : (
               <div>
                 <div className=" ">{t('error.backendIssue')}</div>

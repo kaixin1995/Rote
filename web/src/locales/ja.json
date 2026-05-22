@@ -145,11 +145,15 @@
       },
       "fields": {
         "username": "ユーザー名",
+        "usernamePlaceholder": "ユーザー名",
         "usernameOrEmail": "ユーザー名またはメールアドレス",
-        "usernameOrEmailPlaceholder": "username or email",
+        "usernameOrEmailPlaceholder": "ユーザー名またはメールアドレス",
         "password": "パスワード",
+        "passwordOptional": "パスワード（任意）",
         "email": "メールアドレス",
-        "nickname": "ニックネーム"
+        "emailPlaceholder": "someone@mail.com",
+        "nickname": "ニックネーム",
+        "nicknamePlaceholder": "ニックネーム"
       },
       "buttons": {
         "login": "ログイン",
@@ -177,7 +181,21 @@
       "emailMaxLength": "メールアドレスは30文字以内で入力してください",
       "emailFormat": "無効なメールアドレス形式です",
       "nicknameRequired": "ニックネームは必須です",
-      "nicknameMaxLength": "ニックネームは20文字以内で入力してください"
+      "nicknameMaxLength": "ニックネームは20文字以内で入力してください",
+      "passkey": {
+        "promptTitle": "パスキーを設定しますか？",
+        "promptDescription": "パスキーを使用すると、指紋、顔認証、またはセキュリティキーだけでログインできます。パスワードは不要です。",
+        "setup": "パスキーを設定",
+        "skip": "後で設定する",
+        "settingUp": "設定中...",
+        "loginWithPasskey": "パスキーでログイン",
+        "loginSuccess": "ログイン成功",
+        "loginFailed": "パスキーログインに失敗しました",
+        "registerSuccess": "パスキーの登録に成功しました",
+        "registerFailed": "パスキーの登録に失敗しました",
+        "cancelled": "操作がキャンセルされました",
+        "passwordOptionalHint": "パスワードをスキップして、パスキーで登録できます。"
+      }
     },
     "home": {
       "statistics": "統計"
@@ -225,6 +243,17 @@
         "saving": "保存中…",
         "saveSuccess": "設定を保存しました",
         "saveFailed": "保存に失敗しました：{{error}}",
+        "passkey": {
+          "title": "パスキー",
+          "description": "パスワードレスログイン用のパスキーを管理します。",
+          "confirmDelete": "このパスキーを削除しますか？",
+          "noPasskeys": "まだパスキーが登録されていません。",
+          "add": "パスキーを追加",
+          "adding": "パスキーを追加中...",
+          "deleteSuccess": "パスキーを削除しました",
+          "deleteFailed": "パスキーの削除に失敗しました",
+          "fetchFailed": "パスキーの読み込みに失敗しました"
+        },
         "oauth": {
           "title": "アカウント連携",
           "description": "サードパーティアカウントを連携して、複数のログイン方法を有効にします",
@@ -478,6 +507,7 @@
         "username": "ユーザー名",
         "email": "メールアドレス",
         "password": "パスワード",
+        "passwordOptional": "パスワード（任意）",
         "nickname": "ニックネーム"
       },
       "placeholders": {

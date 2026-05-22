@@ -13,6 +13,7 @@ import notesRouter from './note';
 import notificationsRouter from './notification';
 import oauthRouter from './oauth';
 import openKeyRouter from './openKeyRouter';
+import passkeyRouter from './passkey';
 import reactionsRouter from './reaction';
 import siteRouter from './site';
 import subscriptionsRouter from './subscription';
@@ -112,6 +113,7 @@ router.get('/rss/:username', async (c: HonoContext) => {
 // 注册子路由
 router.route('/auth', authRouter);
 router.route('/auth/oauth', oauthRouter);
+router.route('/auth/passkey', passkeyRouter);
 router.route('/users', usersRouter);
 router.route('/notes', notesRouter);
 router.route('/articles', articlesRouter);

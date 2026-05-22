@@ -163,6 +163,11 @@ siteRouter.get('/status', async (c: HonoContext) => {
         };
       })(),
 
+      // Passkey 配置（用于前端判断是否显示 Passkey 登录按钮）
+      passkey: {
+        enabled: securityConfig?.passkey?.enabled !== false,
+      },
+
       // 时间戳
       timestamp: new Date().toISOString(),
 

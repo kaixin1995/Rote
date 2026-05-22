@@ -145,11 +145,15 @@
       },
       "fields": {
         "username": "Username",
+        "usernamePlaceholder": "username",
         "usernameOrEmail": "Username or Email",
         "usernameOrEmailPlaceholder": "username or email",
         "password": "Password",
+        "passwordOptional": "password (optional)",
         "email": "Email",
-        "nickname": "Nickname"
+        "emailPlaceholder": "someone@mail.com",
+        "nickname": "Nickname",
+        "nicknamePlaceholder": "nickname"
       },
       "buttons": {
         "login": "Login",
@@ -177,7 +181,21 @@
       "emailMaxLength": "Email cannot exceed 30 characters",
       "emailFormat": "Invalid email format",
       "nicknameRequired": "Nickname is required",
-      "nicknameMaxLength": "Nickname cannot exceed 20 characters"
+      "nicknameMaxLength": "Nickname cannot exceed 20 characters",
+      "passkey": {
+        "promptTitle": "Set up a passkey?",
+        "promptDescription": "A passkey lets you log in with just your fingerprint, face, or security key. No password needed.",
+        "setup": "Set up Passkey",
+        "skip": "Skip for now",
+        "settingUp": "Setting up...",
+        "loginWithPasskey": "Login with Passkey",
+        "loginSuccess": "Login successful",
+        "loginFailed": "Passkey login failed",
+        "registerSuccess": "Passkey registered successfully",
+        "registerFailed": "Passkey registration failed",
+        "cancelled": "Operation cancelled",
+        "passwordOptionalHint": "You can skip the password and register with a passkey."
+      }
     },
     "home": {
       "statistics": "Statistics"
@@ -225,6 +243,17 @@
         "saving": "Saving…",
         "saveSuccess": "Settings saved",
         "saveFailed": "Failed to save: {{error}}",
+        "passkey": {
+          "title": "Passkeys",
+          "description": "Manage your passkeys for passwordless login.",
+          "confirmDelete": "Delete this passkey?",
+          "noPasskeys": "No passkeys registered yet.",
+          "add": "Add Passkey",
+          "adding": "Adding passkey...",
+          "deleteSuccess": "Passkey deleted",
+          "deleteFailed": "Failed to delete passkey",
+          "fetchFailed": "Failed to load passkeys"
+        },
         "oauth": {
           "title": "Account Linking",
           "description": "Link third-party accounts to enable multiple login methods",
@@ -478,6 +507,7 @@
         "username": "Username",
         "email": "Email",
         "password": "Password",
+        "passwordOptional": "Password (optional)",
         "nickname": "Nickname"
       },
       "placeholders": {

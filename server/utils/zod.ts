@@ -13,9 +13,11 @@ export const RegisterDataZod = z.object({
     }),
   password: z
     .string()
-    .refine((val) => val.length > 0, { message: 'Password cannot be empty' })
-    .refine((val) => val.length >= 6, { message: 'Password must be at least 6 characters' })
-    .max(128, 'Password cannot exceed 128 characters'),
+    .max(128, 'Password cannot exceed 128 characters')
+    .optional()
+    .refine((val) => !val || val.length >= 6, {
+      message: 'Password must be at least 6 characters',
+    }),
   email: z
     .string()
     .min(1, 'Email cannot be empty')

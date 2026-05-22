@@ -45,6 +45,13 @@ export interface OAuthConfig {
   providers: Record<string, OAuthProviderConfig | AppleOAuthProviderConfig>;
 }
 
+export interface PasskeyConfig {
+  enabled?: boolean; // defaults to true
+  rpName?: string; // defaults to site name
+  rpId?: string; // defaults to hostname from frontendUrl
+  origin?: string; // defaults to frontendUrl
+}
+
 export interface SecurityConfig {
   jwtSecret: string;
   jwtRefreshSecret: string;
@@ -55,6 +62,8 @@ export interface SecurityConfig {
   requireVerifiedEmailForExplore?: boolean;
   // OAuth 配置
   oauth?: OAuthConfig;
+  // Passkey 配置
+  passkey?: PasskeyConfig;
 }
 
 export interface NotificationConfig {

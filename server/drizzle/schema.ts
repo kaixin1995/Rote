@@ -390,6 +390,33 @@ export const userOAuthBindings = pgTable(
   })
 );
 
+// User Passkeys 表 - WebAuthn/FIDO2 凭证
+export const userPasskeys = pgTable(
+  'user_passkeys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userid: uuid('userid').notNull(),
+    credentialId: text('credentialId').notNull().unique(),
+    publicKey: bytea('publicKey').notNull(),
+    counter: integer('counter').notNull().default(0),
+    transports: jsonb('transports'), // ["internal", "hybrid", "ble", "nfc", "usb"]
+    deviceName: varchar('deviceName', { length: 255 }).default(''),
+    deviceType: varchar('deviceType', { length: 50 }).default(''), // "platform" or "cross-platform"
+    createdAt: timestamp('createdAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    useridIdx: index('user_passkeys_userid_idx').on(table.userid),
+    credentialIdIdx: index('user_passkeys_credentialId_idx').on(table.credentialId),
+    useridFk: foreignKey({
+      columns: [table.userid],
+      foreignColumns: [users.id],
+    })
+      .onDelete('cascade')
+      .onUpdate('cascade'),
+  })
+);
+
 // 关系定义
 export const usersRelations = relations(users, ({ one, many }) => ({
   attachments: many(attachments),
@@ -403,6 +430,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   userswsubscription: many(userSwSubscriptions),
   oauthBindings: many(userOAuthBindings),
+  passkeys: many(userPasskeys),
 }));
 
 export const userSettingsRelations = relations(userSettings, ({ one }) => ({
@@ -500,6 +528,13 @@ export const userOAuthBindingsRelations = relations(userOAuthBindings, ({ one })
   }),
 }));
 
+export const userPasskeysRelations = relations(userPasskeys, ({ one }) => ({
+  user: one(users, {
+    fields: [userPasskeys.userid],
+    references: [users.id],
+  }),
+}));
+
 // 导出类型
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -527,3 +562,5 @@ export type UserOAuthBinding = typeof userOAuthBindings.$inferSelect;
 export type NewUserOAuthBinding = typeof userOAuthBindings.$inferInsert;
 export type OpenKeyUsageLog = typeof openKeyUsageLogs.$inferSelect;
 export type NewOpenKeyUsageLog = typeof openKeyUsageLogs.$inferInsert;
+export type UserPasskey = typeof userPasskeys.$inferSelect;
+export type NewUserPasskey = typeof userPasskeys.$inferInsert;
