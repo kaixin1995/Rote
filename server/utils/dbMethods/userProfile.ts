@@ -139,6 +139,7 @@ export async function getMyProfile(userId: string): Promise<{
     providerId: string;
     providerUsername: string | null;
   }>;
+  hasPassword: boolean;
 }> {
   try {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -166,6 +167,7 @@ export async function getMyProfile(userId: string): Promise<{
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       allowExplore,
+      hasPassword: !!user.passwordhash,
       // 注意：authProvider 已移除，主登录方式可以通过 passwordhash 和 oauthBindings 推断
       // - 如果有 passwordhash，主登录方式是 'local'
       // - 如果没有 passwordhash 但有 oauthBindings，主登录方式是第一个绑定的提供商

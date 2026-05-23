@@ -151,7 +151,10 @@ export type Profile =
       updatedAt: string;
       emailVerified?: boolean;
       allowExplore?: boolean;
+      hasPassword?: boolean;
       // 注意：authProvider 已移除，主登录方式可以通过 passwordhash 和 oauthBindings 推断
+      // - 如果有 passwordhash，主登录方式是 'local'
+      // - 如果没有 passwordhash 但有 oauthBindings，主登录方式是第一个绑定的提供商
       oauthBindings?: Array<{
         provider: string;
         providerId: string;
