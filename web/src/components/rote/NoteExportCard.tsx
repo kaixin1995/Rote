@@ -19,7 +19,6 @@ interface NoteExportCardProps {
 export default function NoteExportCard({
   title,
   content,
-  noteId,
   tags,
   attachments,
   articleTitle,
@@ -177,9 +176,7 @@ export default function NoteExportCard({
               }}
             />
             <span style={{ color: '#555' }}>
-              {noteId
-                ? `${window.location.origin}/rote/${noteId}`
-                : `${window.location.origin}/${author.username}`}
+              {`${window.location.origin}${author.username ? `/${author.username}` : ''}`}
             </span>
           </div>
         )}

@@ -6,7 +6,7 @@ import {
 } from '@simplewebauthn/server';
 import { Hono } from 'hono';
 import { eq, or } from 'drizzle-orm';
-import { users, userPasskeys } from '../../drizzle/schema';
+import { users, userPasskeys, userOAuthBindings } from '../../drizzle/schema';
 import type { User } from '../../drizzle/schema';
 import { requireSecurityConfig } from '../../middleware/configCheck';
 import { authenticateJWT } from '../../middleware/jwtAuth';
@@ -436,6 +436,170 @@ authRouter.post('/refresh', requireSecurityConfig, async (c: HonoContext) => {
   } catch (_error) {
     return c.json(createResponse(null, 'Invalid refresh token', 401), 401);
   }
+});
+
+// 清除密码 (切换为纯无密码模式)
+authRouter.delete('/password', authenticateJWT, async (c: HonoContext) => {
+  const user = c.get('user') as User;
+  const body = await c.req.json().catch(() => ({}));
+  const { password } = body;
+
+  // 1. 获取完整用户信息
+  const fullUser = await oneUser(user.id);
+  if (!fullUser) {
+    return c.json(createResponse(null, 'User not found', 404), 404);
+  }
+
+  // 2. 如果当前有密码，则必须验证密码
+  if (fullUser.passwordhash && fullUser.salt) {
+    if (!password) {
+      return c.json(
+        createResponse(null, 'Current password is required to clear password', 400),
+        400
+      );
+    }
+    // 验证密码
+    const saltBuffer = Buffer.isBuffer(fullUser.salt)
+      ? fullUser.salt
+      : Buffer.from(fullUser.salt as unknown as string);
+    const passwordhashBuffer = Buffer.isBuffer(fullUser.passwordhash)
+      ? fullUser.passwordhash
+      : Buffer.from(fullUser.passwordhash as unknown as string);
+
+    const isMatch = await new Promise<boolean>((resolve) => {
+      crypto.pbkdf2(password, saltBuffer, 310000, 32, 'sha256', (err, hashedPassword) => {
+        if (err) return resolve(false);
+        try {
+          resolve(crypto.timingSafeEqual(passwordhashBuffer, hashedPassword));
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+
+    if (!isMatch) {
+      return c.json(createResponse(null, 'Incorrect password', 400), 400);
+    }
+  }
+
+  // 3. 核心防锁死校验
+  const oauthBindings = await db
+    .select()
+    .from(userOAuthBindings)
+    .where(eq(userOAuthBindings.userid, user.id));
+
+  const passkeys = await db.select().from(userPasskeys).where(eq(userPasskeys.userid, user.id));
+
+  const securityConfig = getGlobalConfig<SecurityConfig>('security');
+  const passkeyEnabled = securityConfig?.passkey?.enabled !== false;
+
+  const hasOAuth = oauthBindings.length > 0;
+  const hasUsablePasskey = passkeys.length > 0 && passkeyEnabled;
+
+  if (!hasOAuth && !hasUsablePasskey) {
+    return c.json(
+      createResponse(
+        null,
+        passkeyEnabled
+          ? 'Must bind at least one OAuth provider or Passkey before clearing password'
+          : 'Must bind at least one OAuth provider before clearing password (Passkey login is disabled)',
+        400
+      ),
+      400
+    );
+  }
+
+  // 4. 清除密码
+  await db
+    .update(users)
+    .set({
+      passwordhash: null,
+      salt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, user.id));
+
+  // 获取更新后的用户信息并返回
+  const updatedUser = await oneUser(user.id);
+  if (!updatedUser) {
+    return c.json(createResponse(null, 'User not found after update', 404), 404);
+  }
+
+  // 注入 hasPassword: false 并序列化返回
+  const sanitizedUser = sanitizeUserData(updatedUser);
+  const profileResponse = {
+    ...sanitizedUser,
+    hasPassword: false,
+  };
+
+  return c.json(createResponse(profileResponse, 'Password cleared successfully'), 200);
+});
+
+// 设置密码 (适用于无密码账户设置密码)
+authRouter.post('/password/set', authenticateJWT, async (c: HonoContext) => {
+  const user = c.get('user') as User;
+  const body = await c.req.json().catch(() => ({}));
+  const { newpassword } = body;
+
+  // 1. 获取完整用户信息
+  const fullUser = await oneUser(user.id);
+  if (!fullUser) {
+    return c.json(createResponse(null, 'User not found', 404), 404);
+  }
+
+  // 2. 检查当前是否已经有密码
+  if (fullUser.passwordhash && fullUser.salt) {
+    return c.json(
+      createResponse(
+        null,
+        'Account already has a password. Please use change password endpoint instead.',
+        400
+      ),
+      400
+    );
+  }
+
+  // 3. 验证新密码强度/格式
+  const zodData = passwordChangeZod.safeParse({ newpassword, oldpassword: 'placeholder_not_used' });
+  if (zodData.success === false) {
+    const errorMessages = zodData.error.issues
+      .slice(0, 3)
+      .map((issue) => issue.message)
+      .filter((msg): msg is string => typeof msg === 'string' && msg.length > 0);
+
+    const message =
+      errorMessages.length === 1
+        ? errorMessages[0]
+        : errorMessages.join('; ') || 'Password validation failed';
+    return c.json(createResponse(null, message, 400), 400);
+  }
+
+  // 4. 生成 hash 并更新数据库
+  const salt = crypto.randomBytes(16);
+  const passwordhash = crypto.pbkdf2Sync(newpassword, salt, 310000, 32, 'sha256');
+
+  await db
+    .update(users)
+    .set({
+      passwordhash,
+      salt,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, user.id));
+
+  // 获取更新后的用户信息并返回
+  const updatedUser = await oneUser(user.id);
+  if (!updatedUser) {
+    return c.json(createResponse(null, 'User not found after update', 404), 404);
+  }
+
+  const sanitizedUser = sanitizeUserData(updatedUser);
+  const profileResponse = {
+    ...sanitizedUser,
+    hasPassword: true,
+  };
+
+  return c.json(createResponse(profileResponse, 'Password set successfully'), 200);
 });
 
 export default authRouter;

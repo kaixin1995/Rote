@@ -254,6 +254,35 @@
           "deleteFailed": "パスキーの削除に失敗しました",
           "fetchFailed": "パスキーの読み込みに失敗しました"
         },
+        "password": {
+          "title": "パスワードセキュリティ",
+          "description": "アカウントのパスワードを管理します。パスワードを変更するか、ソーシャル連携やパスキーの登録後にパスワードを削除してセキュリティを向上させることができます。",
+          "status": "パスワードステータス",
+          "hasPassword": "パスワード設定済み",
+          "noPassword": "パスワード未設定（ソーシャルログインまたはパスキーを使用）",
+          "change": "パスワード変更",
+          "set": "パスワード設定",
+          "clear": "パスワード削除",
+          "clearWarning": "パスワードを削除すると、ユーザー名とパスワードを使用したログインができなくなります。事前に少なくとも1つのソーシャルアカウント連携またはパスキー登録が行われていることを確認してください。",
+          "clearConfirmTitle": "パスワード削除の確認",
+          "passwordLabel": "現在のパスワード",
+          "passwordPlaceholder": "現在のパスワードを入力してください",
+          "newPasswordLabel": "新しいパスワード",
+          "newPasswordPlaceholder": "新しいパスワードを入力してください",
+          "confirmNewPasswordLabel": "新しいパスワードの確認",
+          "confirmNewPasswordPlaceholder": "新しいパスワードをもう一度入力してください",
+          "passwordRequired": "パスワードは必須です",
+          "passwordsDoNotMatch": "パスワードが一致しません",
+          "clearSuccess": "パスワードを削除しました。パスワードレスモードに切り替わりました",
+          "clearFailed": "パスワードの削除に失敗しました: {{error}}",
+          "setSuccess": "パスワードを設定しました。パスワードを使用したログインが可能になりました",
+          "setFailed": "パスワードの設定に失敗しました: {{error}}",
+          "changeSuccess": "パスワードを変更しました",
+          "changeFailed": "パスワードの変更に失敗しました: {{error}}",
+          "cancel": "キャンセル",
+          "confirm": "確認",
+          "saving": "保存中…"
+        },
         "oauth": {
           "title": "アカウント連携",
           "description": "サードパーティアカウントを連携して、複数のログイン方法を有効にします",
@@ -764,6 +793,10 @@
     }
   },
   "components": {
+    "reactions": {
+      "limitExceeded": "カスタムリアクションは24文字を超えることはできません",
+      "placeholder": "カスタム..."
+    },
     "d3": {
       "heatmap": {
         "noData": "ヒートマップデータなし",

@@ -22,7 +22,18 @@ import { del, put } from '@/utils/api';
 import { authService } from '@/utils/auth';
 import i18n from 'i18next';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { Fingerprint, Github, Loader, Settings2, Stars, Trash2 } from 'lucide-react';
+import {
+  Fingerprint,
+  Github,
+  Loader,
+  Settings2,
+  Stars,
+  Trash2,
+  KeyRound,
+  RefreshCw,
+  RotateCcw,
+  Key,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -31,6 +42,11 @@ import MergeAccountDialog from '../components/MergeAccountDialog';
 import ProfileSidebar from '../components/ProfileSidebar';
 import { useOAuthBinding } from '../hooks/useOAuthBinding';
 import { usePasskey } from '@/hooks/usePasskey';
+import {
+  ChangePasswordDialog,
+  ClearPasswordDialog,
+  SetPasswordDialog,
+} from '../components/PasswordDialogs';
 
 export default function SettingsPage() {
   const { data: siteStatus } = useSiteStatus();
@@ -48,6 +64,10 @@ export default function SettingsPage() {
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isClearPasswordOpen, setIsClearPasswordOpen] = useState(false);
+  const [isSetPasswordOpen, setIsSetPasswordOpen] = useState(false);
 
   const {
     bindingProviders,
@@ -166,7 +186,11 @@ export default function SettingsPage() {
       }
       className="divide-y"
     >
-      <NavBar title={t('settings.title')} icon={<Settings2 className="size-5" />} />
+      <NavBar title={t('settings.title')} icon={<Settings2 className="size-5" />}>
+        {(isLoadingPasskeys || isRegistering) && (
+          <RefreshCw className="text-primary ml-auto size-4 animate-spin duration-300" />
+        )}
+      </NavBar>
 
       <div className="space-y-6 p-4">
         {/* 允许探索设置 */}
@@ -325,11 +349,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Passkey list */}
-          {isLoadingPasskeys ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader className="size-4 animate-spin" />
-            </div>
-          ) : passkeys.length > 0 ? (
+          {passkeys.length > 0 ? (
             <div className="grid gap-3">
               {passkeys.map((pk) => (
                 <div
@@ -360,9 +380,9 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : !isLoadingPasskeys ? (
             <div className="text-muted-foreground text-sm">{t('settings.passkey.noPasskeys')}</div>
-          )}
+          ) : null}
 
           <Button
             onClick={() => registerPasskey()}
@@ -376,6 +396,80 @@ export default function SettingsPage() {
           </Button>
         </div>
       )}
+
+      {/* 密码安全 */}
+      <div className="space-y-4 p-4">
+        <div>
+          <div className="text-base font-semibold">{t('settings.password.title')}</div>
+          <p className="text-muted-foreground text-sm">{t('settings.password.description')}</p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <KeyRound className="size-5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-base font-semibold">{t('settings.password.status')}</div>
+              <div className="text-muted-foreground text-sm">
+                {profile?.hasPassword
+                  ? t('settings.password.hasPassword')
+                  : t('settings.password.noPassword')}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 gap-1">
+            {profile?.hasPassword ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setIsChangePasswordOpen(true)}
+                  title={t('settings.password.change')}
+                >
+                  <RotateCcw className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive size-8"
+                  onClick={() => setIsClearPasswordOpen(true)}
+                  disabled={
+                    (!profile?.oauthBindings || profile.oauthBindings.length === 0) &&
+                    passkeys.length === 0
+                  }
+                  title={
+                    (!profile?.oauthBindings || profile.oauthBindings.length === 0) &&
+                    passkeys.length === 0
+                      ? t('settings.password.clearWarning')
+                      : t('settings.password.clear')
+                  }
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => setIsSetPasswordOpen(true)}
+                title={t('settings.password.set')}
+              >
+                <Key className="size-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {(!profile?.oauthBindings || profile.oauthBindings.length === 0) &&
+          passkeys.length === 0 &&
+          profile?.hasPassword && (
+            <div className="text-destructive bg-destructive/5 border-destructive/20 flex items-start gap-2 rounded-lg border p-3 text-xs leading-relaxed">
+              <span>{t('settings.password.clearWarning')}</span>
+            </div>
+          )}
+      </div>
 
       {/* 危险操作 */}
       <div className="border-t p-4">
@@ -419,6 +513,24 @@ export default function SettingsPage() {
           setDeletePassword('');
         }}
         isDeleting={isDeletingAccount}
+      />
+
+      <ChangePasswordDialog
+        isOpen={isChangePasswordOpen}
+        onOpenChange={setIsChangePasswordOpen}
+        onSuccess={loadProfile}
+      />
+
+      <ClearPasswordDialog
+        isOpen={isClearPasswordOpen}
+        onOpenChange={setIsClearPasswordOpen}
+        onSuccess={loadProfile}
+      />
+
+      <SetPasswordDialog
+        isOpen={isSetPasswordOpen}
+        onOpenChange={setIsSetPasswordOpen}
+        onSuccess={loadProfile}
       />
     </ContainerWithSideBar>
   );
