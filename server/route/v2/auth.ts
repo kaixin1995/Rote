@@ -490,14 +490,19 @@ authRouter.delete('/password', authenticateJWT, async (c: HonoContext) => {
 
   const passkeys = await db.select().from(userPasskeys).where(eq(userPasskeys.userid, user.id));
 
-  const hasOAuth = oauthBindings.length > 0;
-  const hasPasskey = passkeys.length > 0;
+  const securityConfig = getGlobalConfig<SecurityConfig>('security');
+  const passkeyEnabled = securityConfig?.passkey?.enabled !== false;
 
-  if (!hasOAuth && !hasPasskey) {
+  const hasOAuth = oauthBindings.length > 0;
+  const hasUsablePasskey = passkeys.length > 0 && passkeyEnabled;
+
+  if (!hasOAuth && !hasUsablePasskey) {
     return c.json(
       createResponse(
         null,
-        'Must bind at least one OAuth provider or Passkey before clearing password',
+        passkeyEnabled
+          ? 'Must bind at least one OAuth provider or Passkey before clearing password'
+          : 'Must bind at least one OAuth provider before clearing password (Passkey login is disabled)',
         400
       ),
       400
