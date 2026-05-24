@@ -29,7 +29,7 @@ export default defineConfig({
           }
           next();
         });
-      }
+      },
     },
     react(),
     tailwindcss(),
