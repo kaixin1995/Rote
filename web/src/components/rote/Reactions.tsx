@@ -10,7 +10,9 @@ import { del, post } from '@/utils/api';
 import { useAtom } from 'jotai';
 import { Loader, SmilePlus, User as UserIcon } from 'lucide-react';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import type { KeyedMutator } from 'swr';
 import type { SWRInfiniteKeyedMutator } from 'swr/infinite';
 
@@ -32,12 +34,92 @@ interface ReactionsPartProps {
 export function ReactionsPart({ rote, mutate, mutateSingle }: ReactionsPartProps) {
   const { authReady, isAuthenticated, isAuthPending, profile } = useAuthState();
   const { data: siteStatus } = useSiteStatus();
+  const { t } = useTranslation('translation', {
+    keyPrefix: 'components.reactions',
+  });
   const preReactions = siteStatus?.frontendConfig?.preReactions ?? [];
 
   const [open, setOpen] = useState(false);
   const [visitorId, setVisitorId] = useAtom(visitorIdAtom);
   const [isLoading, setIsLoading] = useState(false);
   const [isVisitorIdLoading, setIsVisitorIdLoading] = useState(false);
+
+  const [showInlineInput, setShowInlineInput] = useState(false);
+  const [customReaction, setCustomReaction] = useState('');
+
+  const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = React.useRef(false);
+
+  const startLongPress = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    isLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      setShowInlineInput(true);
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate(30);
+        } catch {}
+      }
+    }, 2000); // 2s threshold as requested
+  };
+
+  const endLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    if (isLongPressRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      isLongPressRef.current = false;
+    }
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setShowInlineInput(false);
+      setCustomReaction('');
+    }
+  };
+
+  const handleInlineBlur = () => {
+    setShowInlineInput(false);
+    setCustomReaction('');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value.length > 24) {
+      toast.warning(t('limitExceeded'));
+      setCustomReaction(value.slice(0, 24));
+    } else {
+      setCustomReaction(value);
+    }
+  };
+
+  const handleInlineSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading || !customReaction.trim()) {
+      setShowInlineInput(false);
+      setCustomReaction('');
+      return;
+    }
+
+    const reactionType = customReaction.trim();
+    setShowInlineInput(false);
+    setCustomReaction('');
+
+    await handleReactionClick(reactionType);
+  };
 
   React.useEffect(() => {
     if (authReady && !isAuthenticated && !visitorId) {
@@ -189,32 +271,67 @@ export function ReactionsPart({ rote, mutate, mutateSingle }: ReactionsPartProps
         })}
       </div>
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger>
-          {isLoading || isAuthPending || (!isAuthenticated && isVisitorIdLoading) ? (
-            <Loader className="bg-foreground/5 size-6 animate-spin cursor-pointer rounded-2xl p-1 duration-300" />
-          ) : (
-            <SmilePlus className="bg-foreground/5 size-6 cursor-pointer rounded-2xl p-1 duration-300 hover:scale-110" />
-          )}
-        </PopoverTrigger>
-        <PopoverContent side="bottom" className="bg-background/90 w-fit p-0 backdrop-blur-sm">
-          <div className="grid grid-cols-6 divide-x divide-y">
-            {preReactions.map((reaction) => (
-              <div
-                className="flex size-10 cursor-pointer items-center justify-center"
-                key={reaction}
-              >
-                <span
-                  className="duration-300 hover:scale-120"
-                  onClick={() => handleReactionClick(reaction)}
+      {showInlineInput ? (
+        <form
+          onSubmit={handleInlineSubmit}
+          className="bg-foreground/5 flex h-6 w-32 items-center rounded-2xl px-1.5 transition-all duration-300 focus-within:w-36"
+        >
+          <SmilePlus className="mr-1 size-4 shrink-0 opacity-60" />
+          <input
+            type="text"
+            value={customReaction}
+            onChange={handleInputChange}
+            onKeyDown={handleInlineKeyDown}
+            onBlur={handleInlineBlur}
+            placeholder={t('placeholder')}
+            className="inputOrTextAreaInit h-full w-full border-none bg-transparent p-0 text-sm! shadow-none outline-none focus:border-none focus:ring-0 focus:outline-none"
+            autoFocus
+          />
+        </form>
+      ) : (
+        <Popover open={open} onOpenChange={handleOpenChange}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="transition-transform select-none focus:outline-none active:scale-95"
+              style={{
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                WebkitTouchCallout: 'none',
+                touchAction: 'none',
+              }}
+              onPointerDown={startLongPress}
+              onPointerUp={endLongPress}
+              onPointerCancel={endLongPress}
+              onClick={handleTriggerClick}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {isLoading || isAuthPending || (!isAuthenticated && isVisitorIdLoading) ? (
+                <Loader className="bg-foreground/5 size-6 animate-spin cursor-pointer rounded-2xl p-1 duration-300" />
+              ) : (
+                <SmilePlus className="bg-foreground/5 size-6 cursor-pointer rounded-2xl p-1 duration-300 hover:scale-110" />
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" className="bg-background/90 w-fit p-0 backdrop-blur-sm">
+            <div className="grid grid-cols-6 divide-x divide-y">
+              {preReactions.map((reaction) => (
+                <div
+                  className="flex size-10 cursor-pointer items-center justify-center"
+                  key={reaction}
                 >
-                  {reaction}
-                </span>
-              </div>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+                  <span
+                    className="duration-300 hover:scale-120"
+                    onClick={() => handleReactionClick(reaction)}
+                  >
+                    {reaction}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }

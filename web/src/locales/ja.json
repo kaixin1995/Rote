@@ -793,6 +793,10 @@
     }
   },
   "components": {
+    "reactions": {
+      "limitExceeded": "カスタムリアクションは24文字を超えることはできません",
+      "placeholder": "カスタム..."
+    },
     "d3": {
       "heatmap": {
         "noData": "ヒートマップデータなし",

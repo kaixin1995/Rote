@@ -783,6 +783,10 @@
     }
   },
   "components": {
+    "reactions": {
+      "limitExceeded": "自定义 Reaction 不能超过 24 个字符",
+      "placeholder": "自定义..."
+    },
     "d3": {
       "heatmap": {
         "noData": "热力图暂无数据",

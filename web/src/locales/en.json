@@ -793,6 +793,10 @@
     }
   },
   "components": {
+    "reactions": {
+      "limitExceeded": "Custom reaction cannot exceed 24 characters",
+      "placeholder": "Custom..."
+    },
     "d3": {
       "heatmap": {
         "noData": "No HeatMap Data",
