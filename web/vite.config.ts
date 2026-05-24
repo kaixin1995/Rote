@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react-swc';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 dotenv.config();
@@ -14,6 +15,22 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
   },
   plugins: [
+    {
+      name: 'serve-aasa',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/.well-known/apple-app-site-association') {
+            res.setHeader('Content-Type', 'application/json');
+            const file = path.resolve(__dirname, 'public/.well-known/apple-app-site-association');
+            if (fs.existsSync(file)) {
+              res.end(fs.readFileSync(file));
+              return;
+            }
+          }
+          next();
+        });
+      }
+    },
     react(),
     tailwindcss(),
     VitePWA({
