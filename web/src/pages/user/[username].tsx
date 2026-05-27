@@ -1,5 +1,6 @@
 import defaultCover from '@/assets/img/defaultCover.png';
 import { VerifiedIcon } from '@/components/icons/Verified';
+import UserSidebarLinks from '@/components/common/UserSidebarLinks';
 import NavBar from '@/components/layout/navBar';
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
 import UserAvatar from '@/components/others/UserAvatar';
@@ -11,7 +12,7 @@ import { useAPIGet, useAPIInfinite } from '@/utils/fetcher';
 import { getRotesV2 } from '@/utils/roteApi';
 import { Helmet } from '@dr.pogodin/react-helmet';
 import Linkify from 'linkify-react';
-import { Globe2, RefreshCw, Rss, Stars } from 'lucide-react';
+import { Globe2, RefreshCw, Stars } from 'lucide-react';
 import moment from 'moment';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -86,26 +87,6 @@ function UserPage() {
     mutate();
   };
 
-  const SideBar = () => (
-    <div className="grid grid-cols-3 divide-x border-b">
-      <a
-        href={`${API_URL}/rss/${username}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-foreground/3 flex cursor-pointer items-center justify-center gap-2 py-4"
-      >
-        <Rss className="size-5" />
-        <div className="text-xl">RSS</div>
-      </a>
-      <div className="flex items-center justify-center gap-2 py-4">
-        <div className="text-xl">☝️</div>
-      </div>
-      <div className="flex items-center justify-center gap-2 py-4">
-        <div className="text-xl">🤓</div>
-      </div>
-    </div>
-  );
-
   // 如果数据无效，不渲染内容（useEffect 会处理跳转）
   if (!isLoading && (!userInfo || !userInfo.id || !userInfo.username)) {
     return null;
@@ -127,7 +108,7 @@ function UserPage() {
       </Helmet>
 
       <ContainerWithSideBar
-        sidebar={<SideBar />}
+        sidebar={<UserSidebarLinks username={username} appLabel={t('downloadApp')} />}
         sidebarHeader={
           <div className="flex items-center gap-2 p-3 text-lg font-semibold">
             <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { AppleIcon } from '@/components/icons/Apple';
 import { SlidingNumber } from '@/components/animate-ui/text/sliding-number';
 import NavBar from '@/components/layout/navBar';
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
@@ -20,7 +21,6 @@ import {
   MessageCircleQuestionIcon,
   MonitorPlay,
   RefreshCw,
-  Smartphone,
   Star,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -194,13 +194,13 @@ const SideBar = () => {
           </a>
 
           <a
-            href="https://apps.apple.com/us/app/rote/id6755513897"
+            href="https://apps.apple.com/app/rote/id6755513897"
             target="_blank"
             rel="noopener noreferrer"
             title={t('supportAndDocs.iosApp')}
             className="hover:text-info flex min-w-0 items-center gap-2 text-sm duration-200 hover:opacity-60"
           >
-            <Smartphone className="size-4 shrink-0" />
+            <AppleIcon className="size-4 shrink-0" />
             <div className="min-w-0 truncate">{t('supportAndDocs.iosApp')}</div>
           </a>
 

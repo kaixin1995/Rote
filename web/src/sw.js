@@ -39,7 +39,7 @@ registerRoute(
 // 导航回退到 index.html（由 Workbox 预缓存）
 const handler = async () => fetch('/index.html');
 const navigationRoute = new NavigationRoute(handler, {
-  denylist: [/^\/api\//, /\/sw\.js$/],
+  denylist: [/^\/api\//, /\/sw\.js$/, /^\/\.well-known\//],
 });
 registerRoute(navigationRoute);
 

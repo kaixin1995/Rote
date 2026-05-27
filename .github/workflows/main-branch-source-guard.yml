@@ -10,6 +10,9 @@ on:
       - synchronize
       - edited
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   enforce-source-branch:
     runs-on: ubuntu-latest

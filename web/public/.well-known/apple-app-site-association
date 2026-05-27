@@ -1,0 +1,27 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [ "SSK4KVR5FN.rabithua.Rote" ],
+        "components": [
+          { "/": "/rote/*" },
+          { "/": "/api/*", "exclude": true },
+          { "/": "/login", "exclude": true },
+          { "/": "/landing", "exclude": true },
+          { "/": "/setup", "exclude": true },
+          { "/": "/app/*", "exclude": true },
+          { "/": "/doc/*", "exclude": true },
+          { "/": "/home", "exclude": true },
+          { "/": "/filter", "exclude": true },
+          { "/": "/profile*", "exclude": true },
+          { "/": "/explore", "exclude": true },
+          { "/": "/admin", "exclude": true },
+          { "/": "/article/*", "exclude": true },
+          { "/": "/archived", "exclude": true },
+          { "/": "/experiment", "exclude": true },
+          { "/": "/*" }
+        ]
+      }
+    ]
+  }
+}
