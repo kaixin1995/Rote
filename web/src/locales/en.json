@@ -681,6 +681,7 @@
       "accessDenied": "Access Denied",
       "adminOnly": "This page is only accessible to administrators",
       "tabs": {
+        "dashboard": "Dashboard",
         "site": "Site Settings",
         "storage": "Storage Settings",
         "ui": "System Settings",
@@ -688,6 +689,36 @@
         "oauth": "OAuth Login",
         "ai": "AI Settings",
         "users": "User Management"
+      },
+      "dashboard": {
+        "title": "Data Dashboard",
+        "description": "Overview of platform statistics and anomaly detection",
+        "stats": {
+          "users": "Total Users",
+          "rotes": "Total Notes",
+          "attachments": "Attachments",
+          "aiPending": "AI Pending Jobs"
+        },
+        "tables": {
+          "topCreators": "Top Content Creators",
+          "topApi": "High API Usage (7 days)",
+          "topStorage": "Top Storage Usage",
+          "topTokenUsage": "Top AI Token Usage (30 days)"
+        },
+        "table": {
+          "username": "Username",
+          "notes": "Notes",
+          "articles": "Articles",
+          "apiCalls": "API Calls",
+          "storage": "Storage Used",
+          "tokenUsage": "Tokens Used"
+        },
+        "empty": {
+          "noData": "No data",
+          "noApiUsage": "No API usage in the last 7 days",
+          "noStorageUsage": "No storage usage yet",
+          "noTokenUsage": "No token usage yet"
+        }
       },
       "site": {
         "title": "Site Configuration",

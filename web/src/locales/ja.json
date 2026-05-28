@@ -681,6 +681,7 @@
       "accessDenied": "アクセス拒否",
       "adminOnly": "このページは管理者のみアクセス可能です",
       "tabs": {
+        "dashboard": "ダッシュボード",
         "site": "サイト設定",
         "storage": "ストレージ設定",
         "ui": "システム設定",
@@ -688,6 +689,36 @@
         "oauth": "OAuth ログイン",
         "ai": "AI 関連",
         "users": "ユーザー管理"
+      },
+      "dashboard": {
+        "title": "データダッシュボード",
+        "description": "プラットフォーム統計の概要と異常検知",
+        "stats": {
+          "users": "総ユーザー数",
+          "rotes": "総ノート数",
+          "attachments": "添付ファイル数",
+          "aiPending": "AI 保留ジョブ"
+        },
+        "tables": {
+          "topCreators": "コンテンツクリエイターランキング",
+          "topApi": "高 API 使用量（7 日間）",
+          "topStorage": "ストレージ使用量ランキング",
+          "topTokenUsage": "AI Token 使用量ランキング（30 日間）"
+        },
+        "table": {
+          "username": "ユーザー名",
+          "notes": "ノート",
+          "articles": "記事",
+          "apiCalls": "API コール",
+          "storage": "使用ストレージ",
+          "tokenUsage": "使用 Token"
+        },
+        "empty": {
+          "noData": "データなし",
+          "noApiUsage": "過去 7 日間に API 使用なし",
+          "noStorageUsage": "ストレージ使用記録なし",
+          "noTokenUsage": "Token 使用記録なし"
+        }
       },
       "site": {
         "title": "サイト設定",

@@ -164,7 +164,7 @@ export default function DashboardTab() {
                   {topUsersByNotes.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={3} className="text-muted-foreground py-6 text-center">
-                        No data
+                        {t('empty.noData', 'No data')}
                       </TableCell>
                     </TableRow>
                   )}

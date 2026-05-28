@@ -671,6 +671,7 @@
       "accessDenied": "访问被拒绝",
       "adminOnly": "此页面仅限管理员访问",
       "tabs": {
+        "dashboard": "数据看板",
         "site": "站点设置",
         "storage": "存储设置",
         "ui": "系统设置",
@@ -678,6 +679,36 @@
         "oauth": "OAuth 登录",
         "ai": "AI 相关",
         "users": "用户管理"
+      },
+      "dashboard": {
+        "title": "数据看板",
+        "description": "平台统计概览与异常检测",
+        "stats": {
+          "users": "总用户数",
+          "rotes": "总笔记数",
+          "attachments": "附件数",
+          "aiPending": "AI 待处理任务"
+        },
+        "tables": {
+          "topCreators": "内容创作者排行",
+          "topApi": "高 API 使用量（7 天）",
+          "topStorage": "存储使用排行",
+          "topTokenUsage": "AI Token 使用排行（30 天）"
+        },
+        "table": {
+          "username": "用户名",
+          "notes": "笔记",
+          "articles": "文章",
+          "apiCalls": "API 调用",
+          "storage": "已用存储",
+          "tokenUsage": "已用 Token"
+        },
+        "empty": {
+          "noData": "暂无数据",
+          "noApiUsage": "近 7 天无 API 使用记录",
+          "noStorageUsage": "暂无存储使用记录",
+          "noTokenUsage": "暂无 Token 使用记录"
+        }
       },
       "site": {
         "title": "站点配置",
