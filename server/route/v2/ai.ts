@@ -20,6 +20,7 @@ import {
   getEmbeddingJobStats,
   getPgvectorStatus,
   getStoredAiConfig,
+  isAiEligibleUser,
   prepareRoteChatContext,
   processPendingEmbeddingJobs,
   retryFailedEmbeddingJobs,
@@ -31,6 +32,7 @@ import { bodyTypeCheck, createResponse } from '../../utils/main';
 
 const aiRouter = new Hono<{ Variables: HonoVariables }>();
 const VALID_AI_SOURCE_TYPES = new Set<AiSourceType>(['rote', 'article']);
+const AI_VERIFICATION_REQUIRED_MESSAGE = 'AI features require a verified account';
 
 async function writeSseEvent(
   stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
@@ -48,14 +50,17 @@ aiRouter.get('/providers', authenticateJWT, requireAdmin, (c: HonoContext) =>
 );
 
 aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
+  const user = c.get('user') as User;
   const config = await getStoredAiConfig();
   const vectorStatus = await getPgvectorStatus();
+  const eligible = await isAiEligibleUser(user.id);
   return c.json(
     createResponse({
       enabled: config.enabled,
       vectorEnabled: config.vectorEnabled,
       publicExploreVectorEnabled: config.publicExploreVectorEnabled,
-      available: config.enabled && config.vectorEnabled && vectorStatus.installed,
+      eligible,
+      available: eligible && config.enabled && config.vectorEnabled && vectorStatus.installed,
     }),
     200
   );
@@ -142,6 +147,10 @@ aiRouter.post('/index/clear', authenticateJWT, requireAdmin, async (c: HonoConte
 
 aiRouter.post('/search', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
+  if (!(await isAiEligibleUser(user.id))) {
+    return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+  }
+
   const body = await c.req.json();
   const query = String(body?.query || '').trim();
 
@@ -166,6 +175,10 @@ aiRouter.post('/search', authenticateJWT, bodyTypeCheck, async (c: HonoContext) 
 
 aiRouter.post('/related-notes', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
+  if (!(await isAiEligibleUser(user.id))) {
+    return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+  }
+
   const body = await c.req.json();
   const sourceType = body?.sourceType as 'rote' | 'article';
   const sourceId = String(body?.sourceId || '');
@@ -210,6 +223,10 @@ aiRouter.post('/related-notes', authenticateJWT, bodyTypeCheck, async (c: HonoCo
 
 aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
+  if (!(await isAiEligibleUser(user.id))) {
+    return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+  }
+
   const body = await c.req.json();
   const message = String(body?.message || '').trim();
 
@@ -229,6 +246,10 @@ aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) =>
 
 aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
+  if (!(await isAiEligibleUser(user.id))) {
+    return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+  }
+
   const body = await c.req.json();
   const message = String(body?.message || '').trim();
 

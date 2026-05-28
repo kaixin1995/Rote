@@ -120,6 +120,6 @@ export interface DashboardStats {
     email: string;
     nickname: string | null;
     avatar: string | null;
-    tokenUsage: number;
+    tokenUsage: number | string;
   }>;
 }

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { articles, attachments, rotes, userOpenKeys, users } from '../../drizzle/schema';
-import { getEmbeddingJobStats } from './ai';
+import { deleteEmbeddingsForOwner, getEmbeddingJobStats } from './ai';
 import db from '../drizzle';
 
 // Admin 相关数据库方法
@@ -238,6 +238,9 @@ export async function unverifyUserEmail(userId: string) {
       emailVerified: users.emailVerified,
       updatedAt: users.updatedAt,
     });
+  if (user) {
+    await deleteEmbeddingsForOwner(user.id);
+  }
   return user;
 }
 
@@ -275,6 +278,11 @@ export async function getDashboardStats() {
   const [articlesRes] = await db.select({ count: count() }).from(articles);
   const [attachmentsRes] = await db.select({ count: count() }).from(attachments);
   const embeddingJobStats = await getEmbeddingJobStats();
+  const tokenUsageTotalSql = sql`(
+    SELECT COALESCE(SUM("totalTokens"), 0)
+    FROM ai_token_usage_logs
+    WHERE ai_token_usage_logs.userid = users.id AND ai_token_usage_logs."createdAt" > NOW() - INTERVAL '30 days'
+  )`;
 
   const topUsersByNotes = await db
     .select({
@@ -338,20 +346,18 @@ export async function getDashboardStats() {
       email: users.email,
       nickname: users.nickname,
       avatar: users.avatar,
-      tokenUsage: sql<number>`(
-        SELECT COALESCE(SUM("totalTokens"), 0)::int
-        FROM ai_token_usage_logs
-        WHERE ai_token_usage_logs.userid = users.id AND ai_token_usage_logs."createdAt" > NOW() - INTERVAL '30 days'
-      )`.as('tokenUsage'),
+      tokenUsage: sql<string>`${tokenUsageTotalSql}::text`.as('tokenUsage'),
     })
     .from(users)
-    .orderBy(desc(sql`"tokenUsage"`))
+    .orderBy(desc(tokenUsageTotalSql))
     .limit(50);
 
   // Filter out users with 0 api calls from the top list to keep it clean
   const activeApiUsers = topUsersByApi.filter((u) => u.apiCallCount > 0);
   const activeStorageUsers = topUsersByStorage.filter((u) => Number(u.storageUsage) > 0);
-  const activeTokenUsers = topUsersByTokenUsage.filter((u) => u.tokenUsage > 0);
+  const activeTokenUsers = topUsersByTokenUsage.filter(
+    (u) => String(u.tokenUsage || '0').replace(/^0+/, '').length > 0
+  );
 
   return {
     globalStats: {

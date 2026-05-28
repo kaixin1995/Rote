@@ -32,6 +32,18 @@ function MetricBlock({
   );
 }
 
+function formatIntegerValue(value: number | string) {
+  const raw = String(value ?? 0).trim();
+  if (!/^-?\d+$/.test(raw)) {
+    return Number(value || 0).toLocaleString();
+  }
+
+  const sign = raw.startsWith('-') ? '-' : '';
+  const digits = sign ? raw.slice(1) : raw;
+  const normalized = digits.replace(/^0+(?=\d)/, '') || '0';
+  return `${sign}${normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
 export default function DashboardTab() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.admin.dashboard' });
 
@@ -298,7 +310,7 @@ export default function DashboardTab() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {user.tokenUsage.toLocaleString()}
+                        {formatIntegerValue(user.tokenUsage)}
                       </TableCell>
                     </TableRow>
                   ))}

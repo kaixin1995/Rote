@@ -5,6 +5,7 @@ import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
 import UserAvatar from '@/components/others/UserAvatar';
 import RoteItem from '@/components/rote/roteItem';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
+import { useSiteStatus } from '@/hooks/useSiteStatus';
 import { profileAtom } from '@/state/profile';
 
 import type { Rote } from '@/types/main';
@@ -21,6 +22,7 @@ function SingleRotePage() {
   const navigate = useNavigate();
   const { roteid } = useParams();
   const profile = useAtomValue(profileAtom);
+  const { data: siteStatus } = useSiteStatus();
 
   const {
     data: rote,
@@ -84,6 +86,7 @@ function SingleRotePage() {
   }
 
   const isOwner = Boolean(profile?.username && rote?.author?.username === profile.username);
+  const canUseAi = siteStatus?.ai?.available === true && profile?.emailVerified === true;
 
   const SideBar = () =>
     isLoading ? (
@@ -128,7 +131,7 @@ function SingleRotePage() {
             <div className="text-xl">🤓</div>
           </div>
         </div>
-        <RelatedNotesBlock roteId={rote?.id} enabled={isOwner} />
+        <RelatedNotesBlock roteId={rote?.id} enabled={isOwner && canUseAi} />
       </div>
     );
 

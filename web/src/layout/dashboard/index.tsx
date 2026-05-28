@@ -101,9 +101,8 @@ function LayoutDashboard() {
 
   // 根据用户角色动态生成 tabs
   const userTabs = useMemo(() => {
-    const tabs = siteStatus?.ai?.available
-      ? [...baseTabs]
-      : baseTabs.filter((tab) => tab.name !== 'aiMemory');
+    const canShowAi = siteStatus?.ai?.available === true && profile?.emailVerified === true;
+    const tabs = canShowAi ? [...baseTabs] : baseTabs.filter((tab) => tab.name !== 'aiMemory');
     // 如果是管理员或超级管理员，添加管理员 tab
     if (profile && (profile.role === 'admin' || profile.role === 'super_admin')) {
       tabs.splice(tabs.length - 1, 0, ...adminTabs);

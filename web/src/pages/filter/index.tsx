@@ -7,7 +7,9 @@ import RoteList from '@/components/rote/roteList';
 import RoteItem from '@/components/rote/roteItem';
 import { DatePicker } from '@/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useSiteStatus } from '@/hooks/useSiteStatus';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
+import { profileAtom } from '@/state/profile';
 import { loadTagsAtom, tagsAtom } from '@/state/tags';
 import type { ApiGetRotesParams, Rote, Rotes, Statistics } from '@/types/main';
 import type { AiSemanticResult } from '@/utils/aiApi';
@@ -62,7 +64,11 @@ function MineFilter() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.filter' });
 
   const tags = useAtomValue(tagsAtom);
+  const profile = useAtomValue(profileAtom);
   const loadTags = useSetAtom(loadTagsAtom);
+  const { data: siteStatus } = useSiteStatus();
+  const canUseAi = siteStatus?.ai?.available === true && profile?.emailVerified === true;
+
   useEffect(() => {
     if (tags === null) loadTags();
   }, [tags, loadTags]);
@@ -77,6 +83,12 @@ function MineFilter() {
     date: location.state?.date || '',
   });
   const [searchMode, setSearchMode] = useState<SearchMode>('keyword');
+
+  useEffect(() => {
+    if (!canUseAi && searchMode === 'semantic') {
+      setSearchMode('keyword');
+    }
+  }, [canUseAi, searchMode]);
 
   const getProps = useCallback(
     (pageIndex: number, _previousPageData: any): ApiGetRotesParams => {
@@ -117,7 +129,7 @@ function MineFilter() {
   );
 
   const semanticKey =
-    searchMode === 'semantic' && filter.keyword.trim()
+    canUseAi && searchMode === 'semantic' && filter.keyword.trim()
       ? {
           key: 'ai-semantic-search',
           keyword: filter.keyword.trim(),
@@ -401,24 +413,26 @@ function MineFilter() {
     >
       <NavBar title={t('title')} icon={<Filter className="size-5" />} onNavClick={refreshData}>
         <div className="ml-auto flex items-center gap-3">
-          <ToggleGroup
-            type="single"
-            value={searchMode}
-            onValueChange={(value) => {
-              if (value === 'keyword' || value === 'semantic') {
-                setSearchMode(value);
-              }
-            }}
-            variant="outline"
-            size="sm"
-          >
-            <ToggleGroupItem value="keyword" className="px-3 text-xs">
-              {t('searchMode.keyword')}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="semantic" className="px-3 text-xs">
-              {t('searchMode.semantic')}
-            </ToggleGroupItem>
-          </ToggleGroup>
+          {canUseAi && (
+            <ToggleGroup
+              type="single"
+              value={searchMode}
+              onValueChange={(value) => {
+                if (value === 'keyword' || value === 'semantic') {
+                  setSearchMode(value);
+                }
+              }}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="keyword" className="px-3 text-xs">
+                {t('searchMode.keyword')}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="semantic" className="px-3 text-xs">
+                {t('searchMode.semantic')}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
           {(searchMode === 'semantic'
             ? semanticLoading || semanticValidating
             : isLoading || isValidating) && (

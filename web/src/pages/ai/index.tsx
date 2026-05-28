@@ -105,6 +105,8 @@ function AiMemoryPage() {
 
   const unavailable =
     !isStatusLoading && (!status?.enabled || !status.vectorEnabled || !status.available);
+  const unavailableText =
+    status?.eligible === false ? t('status.unverified') : t('status.unavailable');
   const canSend = !isSending && !unavailable && input.trim().length > 0;
 
   useEffect(() => {
@@ -376,7 +378,7 @@ function AiMemoryPage() {
           t('status.ready')
         ) : (
           <button className="hover:text-theme duration-200" onClick={() => refreshStatus()}>
-            {t('status.unavailable')}
+            {unavailableText}
           </button>
         )}
         {isStatusValidating && <RefreshCw className="text-theme size-3 animate-spin" />}
@@ -525,7 +527,7 @@ function AiMemoryPage() {
           onSubmit={handleSubmit}
         >
           {unavailable && (
-            <div className="text-info mb-2 px-1 text-sm font-light">{t('status.unavailable')}</div>
+            <div className="text-info mb-2 px-1 text-sm font-light">{unavailableText}</div>
           )}
           <div className="flex items-center gap-2">
             <Input

@@ -403,6 +403,7 @@
         "title": "AI 状態",
         "checking": "確認中...",
         "ready": "準備完了",
+        "unverified": "メール確認後に AI を利用できます",
         "unavailable": "AI またはベクトル索引を利用できません"
       },
       "sources": {

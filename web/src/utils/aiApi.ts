@@ -7,6 +7,7 @@ export interface AiStatus {
   enabled: boolean;
   vectorEnabled: boolean;
   publicExploreVectorEnabled: boolean;
+  eligible: boolean;
   available: boolean;
 }
 

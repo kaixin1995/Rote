@@ -5,6 +5,7 @@ import {
   documentEmbeddings,
   embeddingJobs,
   rotes,
+  users,
   type EmbeddingJob,
 } from '../../drizzle/schema';
 import type { AiConfig, SecurityConfig } from '../../types/config';
@@ -68,6 +69,15 @@ function isVectorUsable(config = getRuntimeAiConfig()): boolean {
 
 function shouldAutoIndex(config = getRuntimeAiConfig()): boolean {
   return isVectorUsable(config) && config.autoIndexEnabled === true;
+}
+
+export async function isAiEligibleUser(userId: string): Promise<boolean> {
+  const [user] = await db
+    .select({ emailVerified: users.emailVerified })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return user?.emailVerified === true;
 }
 
 function hashText(value: string): string {
@@ -308,6 +318,11 @@ export async function enqueueEmbeddingJob(
   try {
     if (!VALID_SOURCE_TYPES.has(sourceType)) return;
 
+    if (action !== 'delete' && !(await isAiEligibleUser(ownerId))) {
+      await deleteEmbeddingsForSource(sourceType, sourceId);
+      return;
+    }
+
     if (!force && action !== 'delete' && !shouldAutoIndex()) {
       return;
     }
@@ -359,6 +374,15 @@ export async function deleteEmbeddingsForSource(
   }
 }
 
+export async function deleteEmbeddingsForOwner(ownerId: string): Promise<void> {
+  try {
+    await db.delete(documentEmbeddings).where(eq(documentEmbeddings.ownerId, ownerId));
+    await db.delete(embeddingJobs).where(eq(embeddingJobs.ownerId, ownerId));
+  } catch (error: any) {
+    throw new DatabaseError('Failed to delete user document embeddings', error);
+  }
+}
+
 export async function enqueueBackfillEmbeddingJobs(): Promise<{ queued: number }> {
   try {
     const config = await getStoredAiConfig();
@@ -367,10 +391,16 @@ export async function enqueueBackfillEmbeddingJobs(): Promise<{ queued: number }
     }
 
     let queued = 0;
-    const roteRows = await db.select({ id: rotes.id, ownerId: rotes.authorid }).from(rotes);
+    const roteRows = await db
+      .select({ id: rotes.id, ownerId: rotes.authorid })
+      .from(rotes)
+      .innerJoin(users, eq(rotes.authorid, users.id))
+      .where(eq(users.emailVerified, true));
     const articleRows = await db
       .select({ id: articles.id, ownerId: articles.authorId })
-      .from(articles);
+      .from(articles)
+      .innerJoin(users, eq(articles.authorId, users.id))
+      .where(eq(users.emailVerified, true));
 
     for (const row of roteRows) {
       const source = await getSourceDocument('rote', row.id);
@@ -445,6 +475,11 @@ async function processJob(job: EmbeddingJob, config: AiConfig): Promise<void> {
   }
 
   const ownerId = getSourceOwner(sourceType, source);
+  if (!(await isAiEligibleUser(ownerId))) {
+    await deleteEmbeddingsForSource(sourceType, job.sourceId);
+    return;
+  }
+
   const document = buildSourceDocument(sourceType, source);
   const chunks = splitIntoChunks(
     document.text,
@@ -463,7 +498,7 @@ async function processJob(job: EmbeddingJob, config: AiConfig): Promise<void> {
     if (usage) {
       // Background log
       logAiTokenUsage({
-        userid: job.ownerId,
+        userid: ownerId,
         model: config.embedding.model,
         type: 'embedding',
         promptTokens: usage.prompt_tokens,

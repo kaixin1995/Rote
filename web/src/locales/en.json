@@ -403,6 +403,7 @@
         "title": "AI Status",
         "checking": "Checking...",
         "ready": "Ready",
+        "unverified": "Verify your email to use AI",
         "unavailable": "AI or vector index is not available"
       },
       "sources": {
