@@ -122,6 +122,31 @@ export const openKeyUsageLogs = pgTable(
   })
 );
 
+// AI Token 使用日志表
+export const aiTokenUsageLogs = pgTable(
+  'ai_token_usage_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userid: uuid('userid').notNull(),
+    model: varchar('model', { length: 255 }).notNull(),
+    type: varchar('type', { length: 20 }).notNull(), // 'chat' | 'embedding'
+    promptTokens: integer('promptTokens').notNull().default(0),
+    completionTokens: integer('completionTokens').notNull().default(0),
+    totalTokens: integer('totalTokens').notNull().default(0),
+    createdAt: timestamp('createdAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    useridIdx: index('ai_token_usage_logs_userid_idx').on(table.userid),
+    createdAtIdx: index('ai_token_usage_logs_createdAt_idx').on(table.createdAt),
+    useridFk: foreignKey({
+      columns: [table.userid],
+      foreignColumns: [users.id],
+    })
+      .onDelete('cascade')
+      .onUpdate('cascade'),
+  })
+);
+
 // User SW Subscriptions 表
 export const userSwSubscriptions = pgTable(
   'user_sw_subscriptions',
@@ -625,6 +650,13 @@ export const userPasskeysRelations = relations(userPasskeys, ({ one }) => ({
   }),
 }));
 
+export const aiTokenUsageLogsRelations = relations(aiTokenUsageLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [aiTokenUsageLogs.userid],
+    references: [users.id],
+  }),
+}));
+
 // 导出类型
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -658,3 +690,5 @@ export type OpenKeyUsageLog = typeof openKeyUsageLogs.$inferSelect;
 export type NewOpenKeyUsageLog = typeof openKeyUsageLogs.$inferInsert;
 export type UserPasskey = typeof userPasskeys.$inferSelect;
 export type NewUserPasskey = typeof userPasskeys.$inferInsert;
+export type AiTokenUsageLog = typeof aiTokenUsageLogs.$inferSelect;
+export type NewAiTokenUsageLog = typeof aiTokenUsageLogs.$inferInsert;

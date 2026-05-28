@@ -10,10 +10,12 @@ export type ChatCompletionOptions = {
   enableThinking?: boolean;
 };
 
-export type ChatCompletionStreamPart = {
-  type: 'content' | 'reasoning';
-  text: string;
-};
+export type ChatCompletionStreamPart =
+  | { type: 'content' | 'reasoning'; text: string }
+  | {
+      type: 'usage';
+      usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+    };
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, '');
@@ -72,7 +74,7 @@ function buildChatRequestBody(
     model: config.model,
     messages: body.messages,
     temperature: body.temperature,
-    ...(body.stream ? { stream: true } : {}),
+    ...(body.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
     ...(config.providerId === 'dashscope' && typeof body.enableThinking === 'boolean'
       ? { enable_thinking: body.enableThinking }
       : {}),
@@ -82,7 +84,10 @@ function buildChatRequestBody(
 export async function createEmbedding(
   config: AiProviderConfig & { dimensions?: number },
   input: string
-): Promise<number[]> {
+): Promise<{
+  embedding: number[];
+  usage?: { prompt_tokens: number; total_tokens: number };
+}> {
   ensureProviderConfig(config);
 
   const payload: any = {
@@ -106,14 +111,25 @@ export async function createEmbedding(
     throw new Error('Embedding provider returned an invalid embedding response');
   }
 
-  return embedding;
+  return {
+    embedding,
+    usage: body?.usage
+      ? {
+          prompt_tokens: body.usage.prompt_tokens || 0,
+          total_tokens: body.usage.total_tokens || 0,
+        }
+      : undefined,
+  };
 }
 
 export async function createChatCompletion(
   config: AiProviderConfig,
   messages: ChatMessage[],
   options: ChatCompletionOptions = {}
-): Promise<string> {
+): Promise<{
+  content: string;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+}> {
   ensureProviderConfig(config);
 
   const response = await fetch(`${normalizeBaseUrl(config.baseUrl)}/chat/completions`, {
@@ -134,7 +150,16 @@ export async function createChatCompletion(
     throw new Error('Chat provider returned an invalid chat completion response');
   }
 
-  return content;
+  return {
+    content,
+    usage: body?.usage
+      ? {
+          prompt_tokens: body.usage.prompt_tokens || 0,
+          completion_tokens: body.usage.completion_tokens || 0,
+          total_tokens: body.usage.total_tokens || 0,
+        }
+      : undefined,
+  };
 }
 
 export async function* createChatCompletionStreamParts(
@@ -202,6 +227,17 @@ export async function* createChatCompletionStreamParts(
         if (typeof content === 'string' && content.length > 0) {
           yield { type: 'content', text: content };
         }
+
+        if (chunk?.usage) {
+          yield {
+            type: 'usage',
+            usage: {
+              prompt_tokens: chunk.usage.prompt_tokens || 0,
+              completion_tokens: chunk.usage.completion_tokens || 0,
+              total_tokens: chunk.usage.total_tokens || 0,
+            },
+          };
+        }
       }
     }
   } finally {
@@ -232,7 +268,7 @@ export async function testEmbeddingProvider(
   config: AiProviderConfig,
   expectedDimensions?: number
 ): Promise<{ dimensions: number }> {
-  const embedding = await createEmbedding(config, 'Rote embedding connectivity test.');
+  const { embedding } = await createEmbedding(config, 'Rote embedding connectivity test.');
   if (expectedDimensions && embedding.length !== expectedDimensions) {
     throw new Error(
       `Embedding dimensions mismatch: expected ${expectedDimensions}, got ${embedding.length}`

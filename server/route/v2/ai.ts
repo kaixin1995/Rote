@@ -25,6 +25,7 @@ import {
   retryFailedEmbeddingJobs,
   semanticSearch,
   setIndexingPaused,
+  logAiTokenUsage,
 } from '../../utils/dbMethods';
 import { bodyTypeCheck, createResponse } from '../../utils/main';
 
@@ -266,6 +267,16 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
       })) {
         if (part.type === 'reasoning') {
           await writeSseEvent(stream, 'thinking', { phase: 'answer', text: part.text });
+        } else if (part.type === 'usage') {
+          logAiTokenUsage({
+            userid: user.id,
+            model: config.chat.model,
+            type: 'chat',
+            promptTokens: part.usage.prompt_tokens,
+            completionTokens: part.usage.completion_tokens,
+            totalTokens: part.usage.total_tokens,
+          });
+          await writeSseEvent(stream, 'usage', part.usage);
         } else {
           await writeSseEvent(stream, 'delta', { text: part.text });
         }

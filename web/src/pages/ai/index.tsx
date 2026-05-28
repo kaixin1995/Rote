@@ -261,6 +261,15 @@ function AiMemoryPage() {
             }
             queueStreamDelta(assistantId, text);
           },
+          onUsage: (usage) => {
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantId
+                  ? { ...message, metrics: { ...message.metrics, usage } }
+                  : message
+              )
+            );
+          },
         }
       );
       if (!receivedClarification) {

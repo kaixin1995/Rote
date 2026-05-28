@@ -1185,7 +1185,7 @@ export async function createRetrievalPlan(params: {
     })) {
       if (part.type === 'reasoning') {
         await params.onThinkingDelta?.(part.text);
-      } else {
+      } else if (part.type === 'content') {
         raw += part.text;
       }
     }

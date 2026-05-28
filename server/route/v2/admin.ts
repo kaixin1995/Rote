@@ -39,6 +39,7 @@ import {
   unverifyUserEmail,
   updateUserRole,
   verifyUserEmail,
+  getDashboardStats,
 } from '../../utils/dbMethods';
 import { createResponse, getApiUrl } from '../../utils/main';
 
@@ -732,6 +733,17 @@ adminRouter.post('/refresh-cache', authenticateJWT, requireAdmin, async (c: Hono
   } catch (error: any) {
     console.error('Failed to refresh configuration cache:', error);
     return c.json(createResponse(null, 'Failed to refresh configuration cache'), 500);
+  }
+});
+
+// 获取数据看板统计（管理员）
+adminRouter.get('/stats/dashboard', authenticateJWT, requireAdmin, async (c: HonoContext) => {
+  try {
+    const stats = await getDashboardStats();
+    return c.json(createResponse(stats), 200);
+  } catch (error: any) {
+    console.error('Failed to get dashboard stats:', error);
+    return c.json(createResponse(null, 'Failed to get dashboard stats'), 500);
   }
 });
 

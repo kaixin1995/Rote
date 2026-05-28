@@ -23,6 +23,7 @@ import {
 } from '../ai/retrievalPlan';
 import { getConfig, getGlobalConfig, setConfig } from '../config';
 import db from '../drizzle';
+import { logAiTokenUsage } from './aiToken';
 import { DatabaseError } from './common';
 
 export type AiSourceType = 'rote' | 'article';
@@ -441,7 +442,19 @@ async function processJob(job: EmbeddingJob, config: AiConfig): Promise<void> {
   const expectedDimensions = normalizeEmbeddingDimensions(config.embedding.dimensions);
   for (let index = 0; index < chunks.length; index += 1) {
     const chunk = chunks[index];
-    const embedding = await createEmbedding(config.embedding, chunk);
+    const { embedding, usage } = await createEmbedding(config.embedding, chunk);
+
+    if (usage) {
+      // Background log
+      logAiTokenUsage({
+        userid: job.ownerId,
+        model: config.embedding.model,
+        type: 'embedding',
+        promptTokens: usage.prompt_tokens,
+        completionTokens: 0,
+        totalTokens: usage.total_tokens,
+      });
+    }
     if (embedding.length !== expectedDimensions) {
       throw new Error(
         `Embedding dimensions mismatch: expected ${expectedDimensions}, got ${embedding.length}`
@@ -559,7 +572,17 @@ export async function semanticSearch(params: {
   const dimensions = normalizeEmbeddingDimensions(config.embedding.dimensions);
   const limit = normalizeLimit(params.limit);
   const queryText = [params.query, ...(params.semanticScope || [])].filter(Boolean).join('\n');
-  const queryEmbedding = await createEmbedding(config.embedding, queryText);
+  const { embedding: queryEmbedding, usage } = await createEmbedding(config.embedding, queryText);
+  if (usage && params.ownerId) {
+    logAiTokenUsage({
+      userid: params.ownerId,
+      model: config.embedding.model,
+      type: 'embedding',
+      promptTokens: usage.prompt_tokens,
+      completionTokens: 0,
+      totalTokens: usage.total_tokens,
+    });
+  }
   if (queryEmbedding.length !== dimensions) {
     throw new Error(
       `Embedding dimensions mismatch: expected ${dimensions}, got ${queryEmbedding.length}`
@@ -742,7 +765,19 @@ export async function chatWithRoteContext(params: {
       clarification: { question, pendingPlan: plan },
     };
   }
-  const answer = await createChatCompletion(config.chat, messages);
+  const { content: answer, usage } = await createChatCompletion(config.chat, messages);
+
+  if (usage) {
+    logAiTokenUsage({
+      userid: params.ownerId,
+      model: config.chat.model,
+      type: 'chat',
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+      totalTokens: usage.total_tokens,
+    });
+  }
+
   return { answer, sources, plan };
 }
 

@@ -14,16 +14,18 @@ import SiteConfigTab from './components/SiteConfigTab';
 import StorageConfigTab from './components/StorageConfigTab';
 import UIConfigTab from './components/UIConfigTab';
 import UsersTab from './components/UsersTab';
+import DashboardTab from './components/DashboardTab';
 import type { SystemConfig } from './types';
+import { Activity } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.admin' });
   const { authReady, profile } = useAuthState();
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'site' | 'storage' | 'ui' | 'oauth' | 'users' | 'ai'>(
-    'site'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'site' | 'storage' | 'ui' | 'oauth' | 'users' | 'ai'
+  >('dashboard');
 
   const {
     data: configs,
@@ -109,6 +111,14 @@ export default function AdminDashboard() {
         {/* Tab 导航 */}
         <div className="noScrollBar flex divide-x overflow-x-scroll">
           <Button
+            variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('dashboard')}
+            className="flex items-center gap-2 rounded-none"
+          >
+            <Activity className="size-4" />
+            {t('tabs.dashboard', 'Dashboard')}
+          </Button>
+          <Button
             variant={activeTab === 'site' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('site')}
             className="flex items-center gap-2 rounded-none"
@@ -157,6 +167,9 @@ export default function AdminDashboard() {
             {t('tabs.oauth')}
           </Button>
         </div>
+
+        {/* 数据看板 */}
+        {activeTab === 'dashboard' && <DashboardTab />}
 
         {/* 站点配置 */}
         {activeTab === 'site' && (

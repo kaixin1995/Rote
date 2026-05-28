@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
-import { attachments, rotes, userOpenKeys, users } from '../../drizzle/schema';
+import { articles, attachments, rotes, userOpenKeys, users } from '../../drizzle/schema';
+import { getEmbeddingJobStats } from './ai';
 import db from '../drizzle';
 
 // Admin 相关数据库方法
@@ -266,4 +267,103 @@ export async function findUserByUsernameOrEmail(params: { username: string; emai
     .where(or(eq(users.username, params.username), eq(users.email, params.email))!)
     .limit(1);
   return user || null;
+}
+
+export async function getDashboardStats() {
+  const [usersRes] = await db.select({ count: count() }).from(users);
+  const [rotesRes] = await db.select({ count: count() }).from(rotes);
+  const [articlesRes] = await db.select({ count: count() }).from(articles);
+  const [attachmentsRes] = await db.select({ count: count() }).from(attachments);
+  const embeddingJobStats = await getEmbeddingJobStats();
+
+  const topUsersByNotes = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      nickname: users.nickname,
+      avatar: users.avatar,
+      roteCount: sql<number>`(SELECT COUNT(*)::int FROM rotes WHERE rotes.authorid = users.id)`.as(
+        'roteCount'
+      ),
+      articleCount:
+        sql<number>`(SELECT COUNT(*)::int FROM articles WHERE articles."authorId" = users.id)`.as(
+          'articleCount'
+        ),
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(desc(sql`"roteCount"`))
+    .limit(50);
+
+  const topUsersByApi = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      nickname: users.nickname,
+      avatar: users.avatar,
+      apiCallCount: sql<number>`(
+        SELECT COUNT(*)::int 
+        FROM open_key_usage_logs 
+        JOIN user_open_keys ON open_key_usage_logs."openKeyId" = user_open_keys.id 
+        WHERE user_open_keys.userid = users.id AND open_key_usage_logs."createdAt" > NOW() - INTERVAL '7 days'
+      )`.as('apiCallCount'),
+    })
+    .from(users)
+    .orderBy(desc(sql`"apiCallCount"`))
+    .limit(50);
+
+  const topUsersByStorage = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      nickname: users.nickname,
+      avatar: users.avatar,
+      storageUsage: sql<number>`(
+        SELECT COALESCE(SUM(CAST(attachments.details->>'size' AS BIGINT)), 0)::bigint
+        FROM attachments
+        WHERE attachments.userid = users.id
+      )`.as('storageUsage'),
+    })
+    .from(users)
+    .orderBy(desc(sql`"storageUsage"`))
+    .limit(50);
+
+  const topUsersByTokenUsage = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      nickname: users.nickname,
+      avatar: users.avatar,
+      tokenUsage: sql<number>`(
+        SELECT COALESCE(SUM("totalTokens"), 0)::int
+        FROM ai_token_usage_logs
+        WHERE ai_token_usage_logs.userid = users.id AND ai_token_usage_logs."createdAt" > NOW() - INTERVAL '30 days'
+      )`.as('tokenUsage'),
+    })
+    .from(users)
+    .orderBy(desc(sql`"tokenUsage"`))
+    .limit(50);
+
+  // Filter out users with 0 api calls from the top list to keep it clean
+  const activeApiUsers = topUsersByApi.filter((u) => u.apiCallCount > 0);
+  const activeStorageUsers = topUsersByStorage.filter((u) => Number(u.storageUsage) > 0);
+  const activeTokenUsers = topUsersByTokenUsage.filter((u) => u.tokenUsage > 0);
+
+  return {
+    globalStats: {
+      users: usersRes?.count || 0,
+      rotes: rotesRes?.count || 0,
+      articles: articlesRes?.count || 0,
+      attachments: attachmentsRes?.count || 0,
+      embeddingJobs: embeddingJobStats,
+    },
+    topUsersByNotes,
+    topUsersByApi: activeApiUsers,
+    topUsersByStorage: activeStorageUsers,
+    topUsersByTokenUsage: activeTokenUsers,
+  };
 }

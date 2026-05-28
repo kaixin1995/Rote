@@ -74,3 +74,52 @@ export interface AiProviderPreset {
   embeddingModels: string[];
   requiresApiKey: boolean;
 }
+
+export interface DashboardStats {
+  globalStats: {
+    users: number;
+    rotes: number;
+    articles: number;
+    attachments: number;
+    embeddingJobs: {
+      pending: number;
+      running: number;
+      succeeded: number;
+      failed: number;
+    };
+  };
+  topUsersByNotes: Array<{
+    id: string;
+    username: string;
+    email: string;
+    nickname: string | null;
+    avatar: string | null;
+    roteCount: number;
+    articleCount: number;
+    createdAt: string;
+  }>;
+  topUsersByApi: Array<{
+    id: string;
+    username: string;
+    email: string;
+    nickname: string | null;
+    avatar: string | null;
+    apiCallCount: number;
+  }>;
+  topUsersByStorage: Array<{
+    id: string;
+    username: string;
+    email: string;
+    nickname: string | null;
+    avatar: string | null;
+    storageUsage: number | string;
+  }>;
+  topUsersByTokenUsage: Array<{
+    id: string;
+    username: string;
+    email: string;
+    nickname: string | null;
+    avatar: string | null;
+    tokenUsage: number;
+  }>;
+}

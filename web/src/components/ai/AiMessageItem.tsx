@@ -125,6 +125,7 @@ export function AiMessageItem({
             {message.metrics.totalTime && (
               <span>Total: {(message.metrics.totalTime / 1000).toFixed(2)}s</span>
             )}
+            {message.metrics.usage && <span>Tokens: {message.metrics.usage.total_tokens}</span>}
           </div>
         )}
         {message.role === 'assistant' && !message.isStreaming && !message.error && (

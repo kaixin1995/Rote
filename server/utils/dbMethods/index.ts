@@ -19,3 +19,4 @@ export * from './userOAuth';
 export * from './userPasskey';
 export * from './userProfile';
 export * from './userSettings';
+export * from './aiToken';

@@ -106,6 +106,11 @@ export type AiChatStreamHandlers = {
   onSources?: (sources: AiSemanticResult[]) => void;
   onThinking?: (phase: 'planning' | 'answer', text: string) => void;
   onDelta?: (text: string) => void;
+  onUsage?: (usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  }) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -218,6 +223,13 @@ export async function aiChatStream(
     } else if (parsed.event === 'delta') {
       const text = (parsed.data as { text?: string })?.text;
       if (typeof text === 'string') handlers.onDelta?.(text);
+    } else if (parsed.event === 'usage') {
+      const usage = parsed.data as {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
+      };
+      if (usage) handlers.onUsage?.(usage);
     } else if (parsed.event === 'done') {
       doneReceived = true;
       handlers.onDone?.();

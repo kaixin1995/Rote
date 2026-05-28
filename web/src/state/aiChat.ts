@@ -6,6 +6,11 @@ export type AiMessageMetrics = {
   sourcesTime?: number;
   firstTokenTime?: number;
   totalTime?: number;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 };
 
 export type AiMemoryMessage = {
