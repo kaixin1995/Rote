@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { rotes } from '../../drizzle/schema';
 import type { AiConfig } from '../../types/config';
 import db from '../drizzle';
-import { createChatCompletionStreamParts } from './client';
+import { createChatCompletionStreamParts, type ChatCompletionUsage } from './client';
 
 export type AiRetrievalOperation =
   | 'summarize'
@@ -1141,6 +1141,7 @@ export async function createRetrievalPlan(params: {
   clarificationAnswer?: string;
   history?: { role: 'user' | 'assistant'; content: string }[];
   onThinkingDelta?: (text: string) => Promise<void> | void;
+  onUsage?: (usage: ChatCompletionUsage) => Promise<void> | void;
 }): Promise<AiRetrievalPlan> {
   const availableTags = await getUserRoteTags(params.ownerId);
   const clarificationPlan =
@@ -1187,6 +1188,8 @@ export async function createRetrievalPlan(params: {
         await params.onThinkingDelta?.(part.text);
       } else if (part.type === 'content') {
         raw += part.text;
+      } else if (part.type === 'usage') {
+        await params.onUsage?.(part.usage);
       }
     }
     const parsed = parsePlannerJson(raw);

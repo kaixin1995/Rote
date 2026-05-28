@@ -26,7 +26,7 @@ import {
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import type { AiProviderConfig, AiProviderPreset, SystemConfig } from '../types';
 
 const DEFAULT_AI_CONFIG: NonNullable<SystemConfig['ai']> = {
@@ -113,6 +113,7 @@ export default function AIConfigTab({
   onMutate,
 }: AIConfigTabProps) {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.admin' });
+  const { mutate: mutateGlobal } = useSWRConfig();
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const config = useMemo(() => mergeAiConfig(aiConfig), [aiConfig]);
 
@@ -174,7 +175,7 @@ export default function AIConfigTab({
         config,
       });
       toast.success(t('saveSuccess'));
-      onMutate();
+      await Promise.all([Promise.resolve(onMutate()), mutateGlobal('site-status')]);
     } catch (error: any) {
       const errorMessage =
         error?.response?.data?.message ||
@@ -192,7 +193,12 @@ export default function AIConfigTab({
     try {
       const res = await action();
       toast.success(res?.message || success);
-      await Promise.all([mutateVectorStatus(), mutateJobStats(), onMutate()]);
+      await Promise.all([
+        mutateVectorStatus(),
+        mutateJobStats(),
+        Promise.resolve(onMutate()),
+        mutateGlobal('site-status'),
+      ]);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error?.message || 'Unknown error');
     } finally {

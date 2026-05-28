@@ -12,6 +12,7 @@ import {
   createChatCompletion,
   createEmbedding,
   vectorToLiteral,
+  type ChatCompletionUsage,
   type ChatMessage,
 } from '../ai/client';
 import { DEFAULT_AI_CONFIG, mergeAiConfig } from '../ai/providers';
@@ -95,6 +96,21 @@ function buildTextArraySql(values: string[]) {
 
 function vectorIndexName(dimensions: number): string {
   return `document_embeddings_embedding_hnsw_${dimensions}_idx`;
+}
+
+async function logChatTokenUsage(
+  ownerId: string,
+  model: string,
+  usage: ChatCompletionUsage
+): Promise<void> {
+  await logAiTokenUsage({
+    userid: ownerId,
+    model,
+    type: 'chat',
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+  });
 }
 
 function splitIntoChunks(text: string, chunkSize: number, overlap: number): string[] {
@@ -768,14 +784,7 @@ export async function chatWithRoteContext(params: {
   const { content: answer, usage } = await createChatCompletion(config.chat, messages);
 
   if (usage) {
-    logAiTokenUsage({
-      userid: params.ownerId,
-      model: config.chat.model,
-      type: 'chat',
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-      totalTokens: usage.total_tokens,
-    });
+    await logChatTokenUsage(params.ownerId, config.chat.model, usage);
   }
 
   return { answer, sources, plan };
@@ -810,6 +819,7 @@ export async function prepareRoteChatContext(params: {
     clarificationAnswer: params.clarificationAnswer,
     history: params.history,
     onThinkingDelta: params.onPlanThinkingDelta,
+    onUsage: (usage) => logChatTokenUsage(params.ownerId, config.chat.model, usage),
   });
 
   if (params.onPlanGenerated) {

@@ -10,11 +10,17 @@ export type ChatCompletionOptions = {
   enableThinking?: boolean;
 };
 
+export type ChatCompletionUsage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+};
+
 export type ChatCompletionStreamPart =
   | { type: 'content' | 'reasoning'; text: string }
   | {
       type: 'usage';
-      usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+      usage: ChatCompletionUsage;
     };
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -128,7 +134,7 @@ export async function createChatCompletion(
   options: ChatCompletionOptions = {}
 ): Promise<{
   content: string;
-  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  usage?: ChatCompletionUsage;
 }> {
   ensureProviderConfig(config);
 
