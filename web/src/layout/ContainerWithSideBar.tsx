@@ -13,12 +13,16 @@ function ContainerWithSideBar({
   floatButtons,
   children,
   className,
+  hideSidebarToggleButton,
+  hideFloatBtnsOnMobile,
 }: {
   sidebar?: ReactNode;
   sidebarHeader?: ReactNode;
   floatButtons?: ReactNode;
   children?: ReactNode;
   className?: string;
+  hideSidebarToggleButton?: boolean;
+  hideFloatBtnsOnMobile?: boolean;
 }) {
   const [drawOpen, setDrawOpen] = useState(false);
 
@@ -35,17 +39,19 @@ function ContainerWithSideBar({
         </SideContentLayout>
       )}
 
-      <FloatBtns>
+      <FloatBtns hideOnMobile={hideFloatBtnsOnMobile}>
         {floatButtons}
-        <Button
-          size="icon"
-          className="rounded-md shadow-md md:hidden"
-          onClick={() => setDrawOpen(!drawOpen)}
-          aria-label="Open sidebar"
-          title="Open sidebar"
-        >
-          <Layers className="size-4" />
-        </Button>
+        {!hideSidebarToggleButton && (
+          <Button
+            size="icon"
+            className="rounded-md shadow-md md:hidden"
+            onClick={() => setDrawOpen(!drawOpen)}
+            aria-label="Open sidebar"
+            title="Open sidebar"
+          >
+            <Layers className="size-4" />
+          </Button>
+        )}
       </FloatBtns>
 
       <Drawer open={drawOpen} onOpenChange={setDrawOpen}>

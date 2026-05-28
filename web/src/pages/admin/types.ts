@@ -37,4 +37,40 @@ export interface SystemConfig {
     allowUserVideoUpload?: boolean;
     maxVideoUploadSizeMB?: number;
   };
+  ai?: {
+    enabled?: boolean;
+    vectorEnabled?: boolean;
+    autoIndexEnabled?: boolean;
+    publicExploreVectorEnabled?: boolean;
+    chat?: AiProviderConfig;
+    embedding?: AiProviderConfig & {
+      dimensions?: number;
+    };
+    indexing?: {
+      chunkSize?: number;
+      chunkOverlap?: number;
+      batchSize?: number;
+      maxRetries?: number;
+      paused?: boolean;
+    };
+  };
+}
+
+export interface AiProviderConfig {
+  providerId: string;
+  apiFormat?: 'openai_compatible';
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+}
+
+export interface AiProviderPreset {
+  id: string;
+  name: string;
+  apiFormat: 'openai_compatible';
+  baseUrl: string;
+  capabilities: Array<'chat' | 'embedding'>;
+  chatModels: string[];
+  embeddingModels: string[];
+  requiresApiKey: boolean;
 }

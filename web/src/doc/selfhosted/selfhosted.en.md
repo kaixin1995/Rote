@@ -92,10 +92,23 @@ Rote is configured via environment variables.
   IMAGE_TAG=v1.0.0
   ```
 
+- **POSTGRES_IMAGE**
+  PostgreSQL image used by the database service. The default is `pgvector/pgvector:pg17-trixie`,
+  which keeps PostgreSQL 17 behavior and adds the optional pgvector extension for AI semantic search.
+  If you want to keep using plain PostgreSQL, set:
+
+  ```bash
+  POSTGRES_IMAGE=postgres:17
+  ```
+
 ### 3. Advanced configuration
 
 More options (OAuth, file storage, mail service, etc.) can be configured in the admin UI after deployment.  
 On first launch, Rote will show an initialization wizard where you can complete the detailed setup.
+
+AI Memory and vector search are disabled by default. After deployment, an administrator can configure
+model providers and enable vector storage in the Admin dashboard. Before enabling vector storage on an
+existing instance, back up the database and make sure the database image supports pgvector.
 
 ---
 

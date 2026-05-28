@@ -52,7 +52,9 @@ services:
     restart: unless-stopped
 
   rote-postgres:
-    image: postgres:17
+    # pgvector image keeps Postgres 17 behavior and adds the optional vector extension.
+    # To keep using plain Postgres, set POSTGRES_IMAGE=postgres:17 before docker-compose up.
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg17-trixie}
     container_name: rote-postgres
     restart: unless-stopped
     environment:

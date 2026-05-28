@@ -88,10 +88,22 @@ Rote 使用环境变量进行配置，主要配置项如下。
   IMAGE_TAG=v1.0.0
   ```
 
+- **POSTGRES_IMAGE：**
+  数据库服务使用的 PostgreSQL 镜像。默认值为 `pgvector/pgvector:pg17-trixie`，
+  它保持 PostgreSQL 17 的使用方式，同时提供 AI 语义检索所需的可选 pgvector 扩展。
+  如果你希望继续使用普通 PostgreSQL，可以设置：
+
+  ```bash
+  POSTGRES_IMAGE=postgres:17
+  ```
+
 ### 3. 高级配置
 
 更多配置选项（如 OAuth、文件存储、邮件服务等）可以在部署后通过管理后台进行配置。  
 首次部署完成后，打开链接会进入初始化引导，可进行详细配置。
+
+AI 记忆和向量检索默认关闭。部署完成后，管理员可以在后台配置模型供应商并启用向量存储。
+如果是已有实例，启用向量存储前请先备份数据库，并确认数据库镜像支持 pgvector。
 
 ---
 

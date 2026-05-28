@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
 import { useAuthState } from '@/state/profile';
 import { get } from '@/utils/api';
-import { Database, Globe, Settings, Shield, Users } from 'lucide-react';
+import { Brain, Database, Globe, Settings, Shield, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
+import AIConfigTab from './components/AIConfigTab';
 import OAuthConfigTab from './components/OAuthConfigTab';
 import SiteConfigTab from './components/SiteConfigTab';
 import StorageConfigTab from './components/StorageConfigTab';
@@ -20,7 +21,9 @@ export default function AdminDashboard() {
   const { authReady, profile } = useAuthState();
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'site' | 'storage' | 'ui' | 'oauth' | 'users'>('site');
+  const [activeTab, setActiveTab] = useState<'site' | 'storage' | 'ui' | 'oauth' | 'users' | 'ai'>(
+    'site'
+  );
 
   const {
     data: configs,
@@ -43,6 +46,7 @@ export default function AdminDashboard() {
   const [securityConfig, setSecurityConfig] = useState<SystemConfig['security'] | undefined>(
     undefined
   );
+  const [aiConfig, setAiConfig] = useState<SystemConfig['ai'] | undefined>(undefined);
 
   useEffect(() => {
     if (configs) {
@@ -73,6 +77,7 @@ export default function AdminDashboard() {
           requireVerifiedEmailForExplore: false,
         }
       );
+      setAiConfig(configs.ai);
     }
   }, [configs]);
 
@@ -136,6 +141,14 @@ export default function AdminDashboard() {
             {t('tabs.users')}
           </Button>
           <Button
+            variant={activeTab === 'ai' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('ai')}
+            className="flex items-center gap-2 rounded-none"
+          >
+            <Brain className="size-4" />
+            {t('tabs.ai')}
+          </Button>
+          <Button
             variant={activeTab === 'oauth' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('oauth')}
             className="flex items-center gap-2 rounded-none"
@@ -187,6 +200,17 @@ export default function AdminDashboard() {
           <OAuthConfigTab
             securityConfig={securityConfig}
             setSecurityConfig={setSecurityConfig}
+            isSaving={isSaving}
+            setIsSaving={setIsSaving}
+            onMutate={mutate}
+          />
+        )}
+
+        {/* AI 配置 */}
+        {activeTab === 'ai' && (
+          <AIConfigTab
+            aiConfig={aiConfig}
+            setAiConfig={setAiConfig}
             isSaving={isSaving}
             setIsSaving={setIsSaving}
             onMutate={mutate}

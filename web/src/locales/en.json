@@ -98,6 +98,7 @@
       "leftNavBar": {
         "home": "Home",
         "explore": "Explore",
+        "aiMemory": "AI Memory",
         "archived": "Archive",
         "profile": "Profile",
         "experiment": "Experiment",
@@ -361,7 +362,72 @@
       "none": "NONE",
       "data": "Data Statistics",
       "note": "Note",
-      "attachment": "Attachment"
+      "attachment": "Attachment",
+      "searchMode": {
+        "keyword": "Keyword",
+        "semantic": "Semantic"
+      },
+      "semantic": {
+        "emptyQuery": "Enter a question to search semantically",
+        "empty": "No related notes found",
+        "match": "Semantic match {{score}}%"
+      }
+    },
+    "aiMemory": {
+      "title": "AI Memory",
+      "sideBarTitle": "Memory Sources",
+      "send": "Send",
+      "clear": "Clear chat",
+      "saveAsNote": "Save as note",
+      "saved": "Saved",
+      "savedNoteTitle": "AI Memory Answer",
+      "savedSourceTitle": "Sources",
+      "inputPlaceholder": "Ask your Rote...",
+      "empty": {
+        "title": "Ask Rote",
+        "desc": "Find context from your notes and articles."
+      },
+      "quick": {
+        "title": "Quick Start",
+        "theme": "What themes keep appearing in my recent notes?",
+        "mbti": "Test the MBTI between my lines",
+        "flags": "What flags have I set recently that haven't been wrapped up?",
+        "timelineMonth": "String together the fragments of the last month into a timeline",
+        "focus": "Compared to last month, where has my focus shifted recently?",
+        "mood": "Under what mood or time do I usually want to record the most?",
+        "stress": "What is the core source of stress in my recent mutterings?",
+        "expand": "Expand",
+        "collapse": "Collapse"
+      },
+      "status": {
+        "title": "AI Status",
+        "checking": "Checking...",
+        "ready": "Ready",
+        "unavailable": "AI or vector index is not available"
+      },
+      "sources": {
+        "title": "Sources",
+        "inlineTitle": "Sources",
+        "empty": "No sources yet"
+      },
+      "scope": {
+        "title": "Scope"
+      },
+      "thinkingTrace": {
+        "planning": "Determining scope",
+        "answer": "Thinking through answer",
+        "separator": ": ",
+        "expand": "View thoughts",
+        "collapse": "Collapse"
+      },
+      "messages": {
+        "thinking": "Thinking...",
+        "searching": "Searching...",
+        "reading": "Reading and generating...",
+        "askFailed": "Request failed",
+        "saveSuccess": "Saved as note",
+        "saveFailed": "Save failed"
+      }
     },
     "explore": {
       "title": "Explore",
@@ -619,6 +685,7 @@
         "ui": "System Settings",
         "security": "Security Settings",
         "oauth": "OAuth Login",
+        "ai": "AI Settings",
         "users": "User Management"
       },
       "site": {
@@ -743,6 +810,63 @@
           "callbackUrl": "Callback URL",
           "callbackUrlDesc": "Note: This URL is the backend URL. Callback URL configured in Apple Developer, typically: https://yourdomain.com/v2/api/auth/oauth/apple/callback."
         }
+      },
+      "ai": {
+        "title": "AI Settings",
+        "description": "Configure model providers, semantic indexing, and Rote memory search.",
+        "enabled": "Enable AI",
+        "enabledDesc": "Allow AI endpoints to use the configured chat model.",
+        "vectorEnabled": "Enable Vector Storage",
+        "vectorEnabledDesc": "Allow semantic indexing and pgvector search.",
+        "autoIndexEnabled": "Auto Index New Content",
+        "autoIndexEnabledDesc": "Queue embedding jobs after notes or articles change.",
+        "publicExploreVectorEnabled": "Enable Public Explore Semantics",
+        "publicExploreVectorEnabledDesc": "Allow public notes to be used in semantic Explore search.",
+        "chatTitle": "Chat Model",
+        "embeddingTitle": "Embedding Model",
+        "chatProvider": "Chat Provider",
+        "embeddingProvider": "Embedding Provider",
+        "model": "Model",
+        "baseUrl": "Base URL",
+        "apiKey": "API Key",
+        "dimensions": "Dimensions",
+        "chunkSize": "Chunk Size",
+        "chunkOverlap": "Chunk Overlap",
+        "batchSize": "Batch Size",
+        "maxRetries": "Max Retries",
+        "test": "Test Connection",
+        "testing": "Testing...",
+        "testSuccess": "Connection test successful",
+        "pgvectorStatus": "pgvector available: {{available}}, installed: {{installed}}, index: {{index}}",
+        "jobStats": "Jobs pending: {{pending}}, running: {{running}}, succeeded: {{succeeded}}, failed: {{failed}}",
+        "yes": "yes",
+        "no": "no",
+        "none": "none",
+        "enablePgvector": "Enable pgvector",
+        "pgvectorReady": "pgvector is ready",
+        "backfill": "Index Existing Data",
+        "backfillQueued": "Backfill jobs queued",
+        "process": "Process Now",
+        "processed": "Embedding jobs processed",
+        "pause": "Pause",
+        "paused": "Indexing paused",
+        "resume": "Resume",
+        "resumed": "Indexing resumed",
+        "retryFailed": "Retry Failed",
+        "failedJobsRequeued": "Failed jobs requeued",
+        "clearIndex": "Clear Index",
+        "indexCleared": "Vector index cleared",
+        "enabledStatus": "AI enabled",
+        "disabledStatus": "AI disabled",
+        "vectorReady": "Vector ready",
+        "vectorNotReady": "Vector not ready",
+        "providerSummary": "Chat provider",
+        "embeddingSummary": "Embedding provider",
+        "pendingJobs": "Pending jobs",
+        "failedJobs": "Failed jobs",
+        "basicSwitches": "Basic switches",
+        "modelProviders": "Model providers",
+        "advancedSettings": "Advanced indexing and maintenance"
       },
       "users": {
         "title": "User Management",
@@ -874,6 +998,17 @@
     },
     "sidebarSearch": {
       "placeholder": "Search notes..."
+    },
+    "aiSourceList": {
+      "empty": "No sources",
+      "untitled": "Untitled",
+      "rote": "Note",
+      "article": "Article"
+    },
+    "relatedNotes": {
+      "title": "Related Notes",
+      "empty": "No related notes",
+      "unavailable": "Related notes are not available"
     },
     "randomRote": {
       "title": "Random Review",

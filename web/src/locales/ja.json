@@ -98,6 +98,7 @@
       "leftNavBar": {
         "home": "ホーム",
         "explore": "探索",
+        "aiMemory": "AI メモリー",
         "archived": "アーカイブ",
         "profile": "プロフィール",
         "experiment": "実験",
@@ -361,7 +362,72 @@
       "none": "なし",
       "data": "データ統計",
       "note": "ノート",
-      "attachment": "添付ファイル"
+      "attachment": "添付ファイル",
+      "searchMode": {
+        "keyword": "キーワード",
+        "semantic": "意味検索"
+      },
+      "semantic": {
+        "emptyQuery": "質問を入力して意味検索を開始",
+        "empty": "関連ノートが見つかりません",
+        "match": "意味一致 {{score}}%"
+      }
+    },
+    "aiMemory": {
+      "title": "AI メモリー",
+      "sideBarTitle": "記憶ソース",
+      "send": "送信",
+      "clear": "チャットをクリア",
+      "saveAsNote": "ノートとして保存",
+      "saved": "保存済み",
+      "savedNoteTitle": "AI メモリー回答",
+      "savedSourceTitle": "ソース",
+      "inputPlaceholder": "Rote に質問...",
+      "empty": {
+        "title": "Rote に聞く",
+        "desc": "ノートと記事から文脈を探します。"
+      },
+      "quick": {
+        "title": "クイック開始",
+        "theme": "最近の記録で繰り返し出てくるテーマは？",
+        "mbti": "行間から私のMBTIを診断して",
+        "flags": "最近立てたまま終わっていないフラグは何？",
+        "timelineMonth": "直近1ヶ月の断片をタイムラインにまとめて",
+        "focus": "先月と比べて、最近の私の焦点はどこに変わった？",
+        "mood": "私は普段どんな気分や時間に一番記録したくなる？",
+        "stress": "最近のつぶやきの中で、中心的なストレス源は何？",
+        "expand": "展開",
+        "collapse": "折りたたむ"
+      },
+      "status": {
+        "title": "AI 状態",
+        "checking": "確認中...",
+        "ready": "準備完了",
+        "unavailable": "AI またはベクトル索引を利用できません"
+      },
+      "sources": {
+        "title": "ソース",
+        "inlineTitle": "参照ソース",
+        "empty": "まだソースがありません"
+      },
+      "scope": {
+        "title": "範囲"
+      },
+      "thinkingTrace": {
+        "planning": "範囲を確認中",
+        "answer": "回答を整理中",
+        "separator": "：",
+        "expand": "思考を見る",
+        "collapse": "閉じる"
+      },
+      "messages": {
+        "thinking": "思考中...",
+        "searching": "検索中...",
+        "reading": "ソースを読んで生成中...",
+        "askFailed": "リクエスト失敗",
+        "saveSuccess": "ノートとして保存しました",
+        "saveFailed": "保存失敗"
+      }
     },
     "explore": {
       "title": "探索",
@@ -619,6 +685,7 @@
         "ui": "システム設定",
         "security": "セキュリティ設定",
         "oauth": "OAuth ログイン",
+        "ai": "AI 関連",
         "users": "ユーザー管理"
       },
       "site": {
@@ -743,6 +810,63 @@
           "callbackUrl": "コールバックURL",
           "callbackUrlDesc": "注意：このURLはバックエンドURLです。Apple Developerで設定されたコールバックURL、通常は：https://yourdomain.com/v2/api/auth/oauth/apple/callback"
         }
+      },
+      "ai": {
+        "title": "AI 関連",
+        "description": "モデルプロバイダー、セマンティックインデックス、Rote メモリ検索を設定します。",
+        "enabled": "AI を有効化",
+        "enabledDesc": "設定済みのチャットモデルを AI API で使用します。",
+        "vectorEnabled": "ベクトル保存を有効化",
+        "vectorEnabledDesc": "セマンティックインデックスと pgvector 検索を許可します。",
+        "autoIndexEnabled": "新規コンテンツを自動インデックス",
+        "autoIndexEnabledDesc": "ノートまたは記事の変更後に埋め込みジョブをキューに追加します。",
+        "publicExploreVectorEnabled": "公開 Explore のセマンティック検索",
+        "publicExploreVectorEnabledDesc": "公開ノートを Explore のセマンティック検索に使用します。",
+        "chatTitle": "チャットモデル",
+        "embeddingTitle": "埋め込みモデル",
+        "chatProvider": "チャットプロバイダー",
+        "embeddingProvider": "埋め込みプロバイダー",
+        "model": "モデル",
+        "baseUrl": "Base URL",
+        "apiKey": "API Key",
+        "dimensions": "次元数",
+        "chunkSize": "チャンクサイズ",
+        "chunkOverlap": "チャンク重複",
+        "batchSize": "バッチサイズ",
+        "maxRetries": "最大リトライ数",
+        "test": "接続テスト",
+        "testing": "テスト中...",
+        "testSuccess": "接続テストに成功しました",
+        "pgvectorStatus": "pgvector 利用可能: {{available}}, インストール済み: {{installed}}, インデックス: {{index}}",
+        "jobStats": "ジョブ pending: {{pending}}, running: {{running}}, succeeded: {{succeeded}}, failed: {{failed}}",
+        "yes": "はい",
+        "no": "いいえ",
+        "none": "なし",
+        "enablePgvector": "pgvector を有効化",
+        "pgvectorReady": "pgvector の準備ができました",
+        "backfill": "既存データをインデックス",
+        "backfillQueued": "バックフィルジョブをキューに追加しました",
+        "process": "今すぐ処理",
+        "processed": "埋め込みジョブを処理しました",
+        "pause": "一時停止",
+        "paused": "インデックスを一時停止しました",
+        "resume": "再開",
+        "resumed": "インデックスを再開しました",
+        "retryFailed": "失敗ジョブを再試行",
+        "failedJobsRequeued": "失敗ジョブを再キューしました",
+        "clearIndex": "インデックスをクリア",
+        "indexCleared": "ベクトルインデックスをクリアしました",
+        "enabledStatus": "AI 有効",
+        "disabledStatus": "AI 無効",
+        "vectorReady": "ベクトル準備済み",
+        "vectorNotReady": "ベクトル未準備",
+        "providerSummary": "チャットプロバイダー",
+        "embeddingSummary": "埋め込みプロバイダー",
+        "pendingJobs": "保留中ジョブ",
+        "failedJobs": "失敗ジョブ",
+        "basicSwitches": "基本スイッチ",
+        "modelProviders": "モデルプロバイダー",
+        "advancedSettings": "高度なインデックスとメンテナンス"
       },
       "users": {
         "title": "ユーザー管理",
@@ -874,6 +998,17 @@
     },
     "sidebarSearch": {
       "placeholder": "ノートを検索..."
+    },
+    "aiSourceList": {
+      "empty": "ソースなし",
+      "untitled": "無題",
+      "rote": "ノート",
+      "article": "記事"
+    },
+    "relatedNotes": {
+      "title": "関連ノート",
+      "empty": "関連ノートなし",
+      "unavailable": "関連ノートを利用できません"
     },
     "randomRote": {
       "title": "ランダムレビュー",

@@ -361,6 +361,80 @@ export const roteChanges = pgTable(
   })
 );
 
+// AI document embeddings 表
+// Embeddings are stored as text so base migrations keep working on plain Postgres.
+// pgvector is used only when the admin explicitly enables vector search.
+export const documentEmbeddings = pgTable(
+  'document_embeddings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('ownerId').notNull(),
+    sourceType: varchar('sourceType', { length: 20 }).notNull(),
+    sourceId: uuid('sourceId').notNull(),
+    chunkIndex: integer('chunkIndex').notNull(),
+    contentHash: varchar('contentHash', { length: 64 }).notNull(),
+    embeddingModel: text('embeddingModel').notNull(),
+    embeddingDimensions: integer('embeddingDimensions').notNull(),
+    embedding: text('embedding').notNull(),
+    text: text('text').notNull(),
+    metadata: jsonb('metadata').notNull().default({}),
+    createdAt: timestamp('createdAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    ownerIdIdx: index('document_embeddings_ownerId_idx').on(table.ownerId),
+    sourceIdx: index('document_embeddings_source_idx').on(table.sourceType, table.sourceId),
+    ownerSourceIdx: index('document_embeddings_owner_source_idx').on(
+      table.ownerId,
+      table.sourceType
+    ),
+    modelDimensionsIdx: index('document_embeddings_model_dimensions_idx').on(
+      table.embeddingModel,
+      table.embeddingDimensions
+    ),
+    uniqueSourceChunk: unique('document_embeddings_source_chunk_unique').on(
+      table.sourceType,
+      table.sourceId,
+      table.chunkIndex
+    ),
+    ownerFk: foreignKey({
+      columns: [table.ownerId],
+      foreignColumns: [users.id],
+    })
+      .onDelete('cascade')
+      .onUpdate('cascade'),
+  })
+);
+
+// AI embedding jobs 表
+export const embeddingJobs = pgTable(
+  'embedding_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('ownerId').notNull(),
+    sourceType: varchar('sourceType', { length: 20 }).notNull(),
+    sourceId: uuid('sourceId').notNull(),
+    action: varchar('action', { length: 20 }).notNull().default('upsert'),
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    error: text('error'),
+    lockedAt: timestamp('lockedAt', { withTimezone: true, precision: 6 }),
+    createdAt: timestamp('createdAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index('embedding_jobs_status_idx').on(table.status, table.createdAt),
+    sourceIdx: index('embedding_jobs_source_idx').on(table.sourceType, table.sourceId),
+    ownerIdx: index('embedding_jobs_ownerId_idx').on(table.ownerId),
+    ownerFk: foreignKey({
+      columns: [table.ownerId],
+      foreignColumns: [users.id],
+    })
+      .onDelete('cascade')
+      .onUpdate('cascade'),
+  })
+);
+
 // User OAuth Bindings 表 - 支持多个 OAuth 绑定
 export const userOAuthBindings = pgTable(
   'user_oauth_bindings',
@@ -431,6 +505,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   userswsubscription: many(userSwSubscriptions),
   oauthBindings: many(userOAuthBindings),
   passkeys: many(userPasskeys),
+  documentEmbeddings: many(documentEmbeddings),
+  embeddingJobs: many(embeddingJobs),
 }));
 
 export const userSettingsRelations = relations(userSettings, ({ one }) => ({
@@ -513,6 +589,20 @@ export const roteChangesRelations = relations(roteChanges, ({ one }) => ({
   }),
 }));
 
+export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one }) => ({
+  owner: one(users, {
+    fields: [documentEmbeddings.ownerId],
+    references: [users.id],
+  }),
+}));
+
+export const embeddingJobsRelations = relations(embeddingJobs, ({ one }) => ({
+  owner: one(users, {
+    fields: [embeddingJobs.ownerId],
+    references: [users.id],
+  }),
+}));
+
 export const articlesRelations = relations(articles, ({ one, many }) => ({
   author: one(users, {
     fields: [articles.authorId],
@@ -556,6 +646,10 @@ export type Setting = typeof settings.$inferSelect;
 export type NewSetting = typeof settings.$inferInsert;
 export type RoteChange = typeof roteChanges.$inferSelect;
 export type NewRoteChange = typeof roteChanges.$inferInsert;
+export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
+export type NewDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
+export type EmbeddingJob = typeof embeddingJobs.$inferSelect;
+export type NewEmbeddingJob = typeof embeddingJobs.$inferInsert;
 export type Article = typeof articles.$inferSelect;
 export type NewArticle = typeof articles.$inferInsert;
 export type UserOAuthBinding = typeof userOAuthBindings.$inferSelect;

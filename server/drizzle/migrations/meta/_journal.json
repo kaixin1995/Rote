@@ -99,6 +99,13 @@
       "when": 1779428594602,
       "tag": "0013_fuzzy_payback",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1779848623895,
+      "tag": "0014_freezing_scarecrow",
+      "breakpoints": true
     }
   ]
 }

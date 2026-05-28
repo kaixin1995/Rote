@@ -7,6 +7,7 @@ import { ProtectedRoute } from './protectedRoute';
 
 import ErrorPage from '@/pages/404';
 import AdminDashboard from '@/pages/admin';
+import AiMemoryPage from '@/pages/ai';
 import PrivacyPolicyPage from '@/pages/app/privacy';
 import TermsOfServicePage from '@/pages/app/terms';
 import ArchivedPage from '@/pages/archived';
@@ -124,6 +125,15 @@ export default function GlobalRouterProvider() {
               element: (
                 <ProtectedRoute>
                   <MineFilter />
+                </ProtectedRoute>
+              ),
+              errorElement: <ErrorPage />,
+            },
+            {
+              path: 'ai',
+              element: (
+                <ProtectedRoute>
+                  <AiMemoryPage />
                 </ProtectedRoute>
               ),
               errorElement: <ErrorPage />,

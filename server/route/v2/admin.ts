@@ -7,6 +7,7 @@ import {
   requireSuperAdmin,
 } from '../../middleware/jwtAuth';
 import type {
+  AiConfig,
   ConfigTestResult,
   InitializationStatus,
   SetupRequest,
@@ -23,6 +24,7 @@ import {
   refreshConfigCache,
   setConfig,
 } from '../../utils/config';
+import { resolveIncomingAiConfig, sanitizeAiConfig } from '../../utils/ai/providers';
 import { ConfigTester } from '../../utils/configTester';
 import {
   checkDatabaseConnection,
@@ -98,6 +100,14 @@ const getStorageFriendlyError = (details: any, fallbackMessage?: string) => {
   }
 
   return 'Please verify the endpoint, bucket, and credentials.';
+};
+
+const sanitizeSettingsForAdmin = (configs: Record<string, any>) => {
+  if (!configs.ai) return configs;
+  return {
+    ...configs,
+    ai: sanitizeAiConfig(configs.ai),
+  };
 };
 
 const logStorageTestStart = (source: string, config: any) => {
@@ -386,14 +396,14 @@ adminRouter.get('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
       return c.json(
         createResponse({
           group,
-          config,
+          config: group === 'ai' ? sanitizeAiConfig(config as AiConfig) : config,
         }),
         200
       );
     } else {
       // 获取所有配置
       const allConfigs = await getAllConfigs();
-      return c.json(createResponse(allConfigs), 200);
+      return c.json(createResponse(sanitizeSettingsForAdmin(allConfigs)), 200);
     }
   } catch (error: any) {
     console.error('Failed to get settings:', error);
@@ -405,14 +415,15 @@ adminRouter.get('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
 adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContext) => {
   try {
     const body = await c.req.json();
-    const { group, config } = body as { group: string; config: any };
+    const { group } = body as { group: string; config: any };
+    let { config } = body as { group: string; config: any };
 
     if (!group || !config) {
       return c.json(createResponse(null, 'Group and config are required'), 400);
     }
 
     // 验证分组是否有效
-    const validGroups = ['site', 'storage', 'security', 'notification', 'ui', 'system'];
+    const validGroups = ['site', 'storage', 'security', 'notification', 'ui', 'system', 'ai'];
     if (!validGroups.includes(group)) {
       return c.json(createResponse(null, 'Invalid configuration group'), 400);
     }
@@ -512,6 +523,19 @@ adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
       }
     }
 
+    if (group === 'ai') {
+      const existing = await getConfig<AiConfig>('ai');
+      config = resolveIncomingAiConfig(config as Partial<AiConfig>, existing);
+      if (
+        config.embedding?.dimensions !== undefined &&
+        (typeof config.embedding.dimensions !== 'number' ||
+          config.embedding.dimensions < 1 ||
+          config.embedding.dimensions > 4000)
+      ) {
+        return c.json(createResponse(null, 'Embedding dimensions must be between 1 and 4000'), 400);
+      }
+    }
+
     // 更新配置
     const success = await setConfig(group as any, config, {
       isRequired: ['site', 'storage', 'security'].includes(group),
@@ -523,7 +547,13 @@ adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
       return c.json(createResponse(null, 'Failed to update configuration'), 500);
     }
 
-    return c.json(createResponse({ group, config }, 'Configuration updated successfully'), 200);
+    return c.json(
+      createResponse(
+        { group, config: group === 'ai' ? sanitizeAiConfig(config as AiConfig) : config },
+        'Configuration updated successfully'
+      ),
+      200
+    );
   } catch (error: any) {
     console.error('Failed to update settings:', error);
     return c.json(createResponse(null, 'Failed to update settings'), 500);

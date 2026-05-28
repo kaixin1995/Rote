@@ -1,5 +1,6 @@
 // 统一导出所有数据库操作方法
 export * from './admin';
+export * from './ai';
 export * from './apikey';
 export * from './article';
 export * from './attachment';

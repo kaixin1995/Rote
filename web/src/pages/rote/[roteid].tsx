@@ -1,13 +1,16 @@
 import { VerifiedIcon } from '@/components/icons/Verified';
+import { RelatedNotesBlock } from '@/components/ai/RelatedNotesBlock';
 import NavBar from '@/components/layout/navBar';
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
 import UserAvatar from '@/components/others/UserAvatar';
 import RoteItem from '@/components/rote/roteItem';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
+import { profileAtom } from '@/state/profile';
 
 import type { Rote } from '@/types/main';
 import { API_URL, get } from '@/utils/api';
 import { useAPIGet } from '@/utils/fetcher';
+import { useAtomValue } from 'jotai';
 import { Navigation, RefreshCw, Rss } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +20,7 @@ function SingleRotePage() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.rote' });
   const navigate = useNavigate();
   const { roteid } = useParams();
+  const profile = useAtomValue(profileAtom);
 
   const {
     data: rote,
@@ -79,6 +83,8 @@ function SingleRotePage() {
     return null;
   }
 
+  const isOwner = Boolean(profile?.username && rote?.author?.username === profile.username);
+
   const SideBar = () =>
     isLoading ? (
       <LoadingPlaceholder className="py-8" size={6} />
@@ -122,6 +128,7 @@ function SingleRotePage() {
             <div className="text-xl">🤓</div>
           </div>
         </div>
+        <RelatedNotesBlock roteId={rote?.id} enabled={isOwner} />
       </div>
     );
 

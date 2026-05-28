@@ -88,6 +88,7 @@
       "leftNavBar": {
         "home": "首页",
         "explore": "探索",
+        "aiMemory": "AI 记忆",
         "archived": "归档",
         "profile": "我的",
         "experiment": "实验",
@@ -351,7 +352,72 @@
       "none": "无",
       "data": "数据统计",
       "note": "笔记",
-      "attachment": "附件"
+      "attachment": "附件",
+      "searchMode": {
+        "keyword": "关键词",
+        "semantic": "语义"
+      },
+      "semantic": {
+        "emptyQuery": "输入一个问题开始语义搜索",
+        "empty": "没有找到相关笔记",
+        "match": "语义匹配 {{score}}%"
+      }
+    },
+    "aiMemory": {
+      "title": "AI 记忆",
+      "sideBarTitle": "记忆来源",
+      "send": "发送",
+      "clear": "清空对话",
+      "saveAsNote": "保存为笔记",
+      "saved": "已保存",
+      "savedNoteTitle": "AI 记忆回答",
+      "savedSourceTitle": "来源",
+      "inputPlaceholder": "问问你的 Rote...",
+      "empty": {
+        "title": "问 Rote",
+        "desc": "从你的笔记和文章里找上下文。"
+      },
+      "quick": {
+        "title": "快速开始",
+        "theme": "最近我的记录里有哪些反复出现的主题？",
+        "mbti": "测测我字里行间的 MBTI",
+        "flags": "我最近立了哪些还没收尾的 Flag？",
+        "timelineMonth": "把最近一个月的碎片串成时间线",
+        "focus": "对比上月，我最近的重心变到了哪？",
+        "mood": "我一般在什么心境/时间下最想记录？",
+        "stress": "我最近碎碎念里的核心压力源是什么？",
+        "expand": "展开",
+        "collapse": "收起"
+      },
+      "status": {
+        "title": "AI 状态",
+        "checking": "检测中...",
+        "ready": "已就绪",
+        "unavailable": "AI 或向量索引暂不可用"
+      },
+      "sources": {
+        "title": "来源",
+        "inlineTitle": "引用来源",
+        "empty": "还没有来源"
+      },
+      "scope": {
+        "title": "范围"
+      },
+      "thinkingTrace": {
+        "planning": "正在确定范围",
+        "answer": "正在组织回答",
+        "separator": "：",
+        "expand": "查看思考",
+        "collapse": "收起"
+      },
+      "messages": {
+        "thinking": "思考中...",
+        "searching": "检索中...",
+        "reading": "阅读并生成中...",
+        "askFailed": "请求失败",
+        "saveSuccess": "已保存为笔记",
+        "saveFailed": "保存失败"
+      }
     },
     "explore": {
       "title": "探索 / Explore",
@@ -609,6 +675,7 @@
         "ui": "系统设置",
         "security": "安全设置",
         "oauth": "OAuth 登录",
+        "ai": "AI 相关",
         "users": "用户管理"
       },
       "site": {
@@ -733,6 +800,63 @@
           "callbackUrl": "回调 URL",
           "callbackUrlDesc": "注意：此 URL 为后端 URL。Apple Developer 中配置的回调 URL，通常为：https://yourdomain.com/v2/api/auth/oauth/apple/callback。"
         }
+      },
+      "ai": {
+        "title": "AI 相关",
+        "description": "配置模型供应商、语义索引和 Rote 记忆检索。",
+        "enabled": "启用 AI",
+        "enabledDesc": "允许 AI 接口使用已配置的对话模型。",
+        "vectorEnabled": "启用向量存储",
+        "vectorEnabledDesc": "允许语义索引和 pgvector 检索。",
+        "autoIndexEnabled": "自动索引新内容",
+        "autoIndexEnabledDesc": "笔记或文章变更后自动加入向量任务队列。",
+        "publicExploreVectorEnabled": "启用公开探索语义检索",
+        "publicExploreVectorEnabledDesc": "允许公开笔记用于探索页语义发现。",
+        "chatTitle": "对话模型",
+        "embeddingTitle": "向量模型",
+        "chatProvider": "对话供应商",
+        "embeddingProvider": "向量供应商",
+        "model": "模型",
+        "baseUrl": "Base URL",
+        "apiKey": "API Key",
+        "dimensions": "维度",
+        "chunkSize": "分块大小",
+        "chunkOverlap": "分块重叠",
+        "batchSize": "批处理数量",
+        "maxRetries": "最大重试次数",
+        "test": "测试连接",
+        "testing": "测试中...",
+        "testSuccess": "连接测试成功",
+        "pgvectorStatus": "pgvector 可用：{{available}}，已安装：{{installed}}，索引：{{index}}",
+        "jobStats": "任务 待处理：{{pending}}，运行中：{{running}}，成功：{{succeeded}}，失败：{{failed}}",
+        "yes": "是",
+        "no": "否",
+        "none": "无",
+        "enablePgvector": "启用 pgvector",
+        "pgvectorReady": "pgvector 已就绪",
+        "backfill": "索引存量数据",
+        "backfillQueued": "存量索引任务已加入队列",
+        "process": "立即处理",
+        "processed": "向量任务已处理",
+        "pause": "暂停",
+        "paused": "索引已暂停",
+        "resume": "恢复",
+        "resumed": "索引已恢复",
+        "retryFailed": "重试失败任务",
+        "failedJobsRequeued": "失败任务已重新入队",
+        "clearIndex": "清空索引",
+        "indexCleared": "向量索引已清空",
+        "enabledStatus": "AI 已启用",
+        "disabledStatus": "AI 未启用",
+        "vectorReady": "向量已就绪",
+        "vectorNotReady": "向量未就绪",
+        "providerSummary": "对话供应商",
+        "embeddingSummary": "向量供应商",
+        "pendingJobs": "待处理任务",
+        "failedJobs": "失败任务",
+        "basicSwitches": "基础开关",
+        "modelProviders": "模型供应商",
+        "advancedSettings": "高级索引与维护"
       },
       "users": {
         "title": "用户管理",
@@ -864,6 +988,17 @@
     },
     "sidebarSearch": {
       "placeholder": "搜索笔记..."
+    },
+    "aiSourceList": {
+      "empty": "暂无来源",
+      "untitled": "未命名",
+      "rote": "笔记",
+      "article": "文章"
+    },
+    "relatedNotes": {
+      "title": "相关笔记",
+      "empty": "暂无相关笔记",
+      "unavailable": "相关笔记暂不可用"
     },
     "randomRote": {
       "title": "随机回顾",
