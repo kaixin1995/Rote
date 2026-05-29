@@ -47,6 +47,8 @@ export interface SemanticSearchResult {
 
 const VALID_SOURCE_TYPES = new Set<AiSourceType>(['rote', 'article']);
 const MAX_VECTOR_SEARCH_LIMIT = 50;
+const DEFAULT_CHAT_LIMIT = 15;
+const MAX_RETRIEVAL_PASSES = 3;
 
 function getRuntimeAiConfig(): AiConfig {
   return mergeAiConfig(getGlobalConfig<AiConfig>('ai') || DEFAULT_AI_CONFIG);
@@ -816,6 +818,78 @@ export async function semanticSearch(params: {
     .slice(0, limit);
 }
 
+async function buildRetrievalContext(params: {
+  ownerId: string;
+  plan: AiRetrievalPlan;
+  limit: number;
+  excludeIds?: string[];
+}): Promise<{ sources: SemanticSearchResult[]; context: string }> {
+  const { plan } = params;
+  const safeExcludeIds = sanitizeExcludeIds(params.excludeIds);
+
+  const baseSearch = async (filters: AiRetrievalFilters, limit: number) =>
+    semanticSearch({
+      query: plan.query,
+      ownerId: params.ownerId,
+      limit,
+      sourceTypes: filters.sourceTypes,
+      timeRange: filters.time?.normalizedRange || null,
+      tags: filters.tags,
+      semanticScope: filters.semanticScope,
+      state: filters.state,
+      archived: filters.archived,
+      excludeIds: safeExcludeIds,
+    });
+
+  const groupedResults: Array<{ label: string; sources: SemanticSearchResult[] }> = [];
+  if (plan.comparison?.groups.length) {
+    for (const group of plan.comparison.groups) {
+      groupedResults.push({
+        label: group.label,
+        sources: await baseSearch(group.filters, Math.max(4, Math.ceil(params.limit / 2))),
+      });
+    }
+  } else {
+    groupedResults.push({
+      label: 'Context',
+      sources: await baseSearch(plan.filters, params.limit),
+    });
+  }
+
+  const sourceByKey = new Map<string, SemanticSearchResult>();
+  groupedResults.forEach((group) => {
+    group.sources.forEach((source) => {
+      const key = `${source.sourceType}:${source.sourceId}`;
+      const existing = sourceByKey.get(key);
+      if (!existing || source.similarity > existing.similarity) {
+        sourceByKey.set(key, source);
+      }
+    });
+  });
+  const sources = Array.from(sourceByKey.values())
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, params.limit);
+
+  const sourceIndex = new Map(
+    sources.map((source, index) => [`${source.sourceType}:${source.sourceId}`, index + 1])
+  );
+  const context = groupedResults
+    .map((group) => {
+      const groupContext = group.sources
+        .map((source) => {
+          const index = sourceIndex.get(`${source.sourceType}:${source.sourceId}`);
+          if (!index) return '';
+          return `[${index}] ${source.sourceType}:${source.sourceId}\n${source.text.slice(0, 1800)}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+      return `${group.label}:\n${groupContext || '(no relevant context found)'}`;
+    })
+    .join('\n\n');
+
+  return { sources, context };
+}
+
 export async function chatWithRoteContext(params: {
   ownerId: string;
   message: string;
@@ -842,13 +916,57 @@ export async function chatWithRoteContext(params: {
       clarification: { question, pendingPlan: plan },
     };
   }
-  const { content: answer, usage } = await createChatCompletion(config.chat, messages);
 
-  if (usage) {
-    await logChatTokenUsage(params.ownerId, config.chat.model, usage);
+  let allSources = [...sources];
+  let currentMessages = [...messages];
+  let answer = '';
+  const seenIds = new Set<string>(sources.map((s) => `${s.sourceType}:${s.sourceId}`));
+
+  for (let pass = 0; pass < MAX_RETRIEVAL_PASSES; pass++) {
+    const { content, usage } = await createChatCompletion(config.chat, currentMessages);
+    if (usage) {
+      await logChatTokenUsage(params.ownerId, config.chat.model, usage);
+    }
+
+    if (!content.startsWith('<needs_more/>') || pass === MAX_RETRIEVAL_PASSES - 1) {
+      answer = content.startsWith('<needs_more/>')
+        ? content.slice('<needs_more/>'.length).trim()
+        : content;
+      break;
+    }
+
+    answer = content.slice('<needs_more/>'.length).trim();
+
+    // Re-fetch with excluded IDs
+    const excludeIds = Array.from(seenIds);
+    const { sources: newSources, context: newContext } = await buildRetrievalContext({
+      ownerId: params.ownerId,
+      plan,
+      limit: params.limit || DEFAULT_CHAT_LIMIT,
+      excludeIds,
+    });
+
+    if (!newSources.length) break;
+
+    for (const s of newSources) {
+      const key = `${s.sourceType}:${s.sourceId}`;
+      seenIds.add(key);
+    }
+    allSources = [...allSources, ...newSources];
+
+    // Rebuild prompt with accumulated context
+    const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
+    const operations = plan.operations.join(', ');
+    const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext:\n${newContext}\n\nPrevious answer (continue from here, do not repeat):\n${answer}\n\nQuestion:\n${plan.originalMessage || params.message}`;
+
+    currentMessages = [
+      currentMessages[0], // keep system prompt
+      ...currentMessages.slice(1, -1), // keep history
+      { role: 'user' as const, content: prompt },
+    ];
   }
 
-  return { answer, sources, plan };
+  return { answer, sources: allSources, plan };
 }
 
 function createDefaultFilters(): import('../ai/retrievalPlan').AiRetrievalFilters {
@@ -928,7 +1046,6 @@ export async function prepareRoteChatContext(params: {
 
   const availableTags = await getUserRoteTags(params.ownerId);
   const safePreviousPlan = sanitizePreviousPlan(params.previousPlan, availableTags);
-  const safeExcludeIds = sanitizeExcludeIds(params.excludeIds);
 
   const plan = await createRetrievalPlan({
     ownerId: params.ownerId,
@@ -977,63 +1094,13 @@ export async function prepareRoteChatContext(params: {
     return { config, messages: chatMessages, sources: [], plan };
   }
 
-  const baseSearch = async (filters: AiRetrievalFilters, limit: number) =>
-    semanticSearch({
-      query: plan.query,
-      ownerId: params.ownerId,
-      limit,
-      sourceTypes: filters.sourceTypes,
-      timeRange: filters.time?.normalizedRange || null,
-      tags: filters.tags,
-      semanticScope: filters.semanticScope,
-      state: filters.state,
-      archived: filters.archived,
-      excludeIds: plan.pagination === 'more' ? safeExcludeIds : undefined,
-    });
-
-  const limit = params.limit || 8;
-  const groupedResults: Array<{ label: string; sources: SemanticSearchResult[] }> = [];
-  if (plan.comparison?.groups.length) {
-    for (const group of plan.comparison.groups) {
-      groupedResults.push({
-        label: group.label,
-        sources: await baseSearch(group.filters, Math.max(4, Math.ceil(limit / 2))),
-      });
-    }
-  } else {
-    groupedResults.push({ label: 'Context', sources: await baseSearch(plan.filters, limit) });
-  }
-
-  const sourceByKey = new Map<string, SemanticSearchResult>();
-  groupedResults.forEach((group) => {
-    group.sources.forEach((source) => {
-      const key = `${source.sourceType}:${source.sourceId}`;
-      const existing = sourceByKey.get(key);
-      if (!existing || source.similarity > existing.similarity) {
-        sourceByKey.set(key, source);
-      }
-    });
+  const limit = params.limit || DEFAULT_CHAT_LIMIT;
+  const { sources, context } = await buildRetrievalContext({
+    ownerId: params.ownerId,
+    plan,
+    limit,
+    excludeIds: params.excludeIds,
   });
-  const sources = Array.from(sourceByKey.values())
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit);
-
-  const sourceIndex = new Map(
-    sources.map((source, index) => [`${source.sourceType}:${source.sourceId}`, index + 1])
-  );
-  const context = groupedResults
-    .map((group) => {
-      const groupContext = group.sources
-        .map((source) => {
-          const index = sourceIndex.get(`${source.sourceType}:${source.sourceId}`);
-          if (!index) return '';
-          return `[${index}] ${source.sourceType}:${source.sourceId}\n${source.text.slice(0, 1800)}`;
-        })
-        .filter(Boolean)
-        .join('\n\n');
-      return `${group.label}:\n${groupContext || '(no relevant context found)'}`;
-    })
-    .join('\n\n');
 
   const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
   const operations = plan.operations.join(', ');
@@ -1045,8 +1112,13 @@ export async function prepareRoteChatContext(params: {
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content:
-        'You answer questions using the user provided Rote notes and articles. If the context is insufficient, say so clearly and avoid inventing facts. Cite source numbers when useful. Respect the retrieval scope and mention when the answer is limited by that scope.',
+      content: `You answer questions using the user provided Rote notes and articles. Cite source numbers when useful. Respect the retrieval scope and mention when the answer is limited by that scope.
+
+If you believe MORE notes would meaningfully change or improve your answer — for example when performing personality analysis, mood tracking, pattern detection, or comprehensive summaries — output the tag <needs_more/> at the VERY BEGINNING of your response (before any other text), then provide your best answer with the current context. The system will fetch additional notes automatically.
+
+Only use <needs_more/> when you genuinely think more data would lead to a significantly different or better conclusion. Do NOT use it for simple factual lookups where the current context already answers the question.
+
+If the context is insufficient and <needs_more/> would not help (e.g., the user has very few notes), say so clearly and avoid inventing facts.`,
     },
   ];
 
