@@ -27,6 +27,7 @@ import {
   semanticSearch,
   setIndexingPaused,
   logAiTokenUsage,
+  buildRetrievalContext,
 } from '../../utils/dbMethods';
 import { bodyTypeCheck, createResponse } from '../../utils/main';
 
@@ -260,7 +261,7 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
   return streamSSE(c, async (stream) => {
     try {
       await stream.write(': connected\n\n');
-      const { config, messages, sources, clarification } = await prepareRoteChatContext({
+      const { config, messages, sources, plan, clarification } = await prepareRoteChatContext({
         ownerId: user.id,
         message,
         limit: body?.limit,
@@ -285,24 +286,106 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
 
       await writeSseEvent(stream, 'sources', { sources });
 
-      for await (const part of createChatCompletionStreamParts(config.chat, messages, {
-        enableThinking: true,
-      })) {
-        if (part.type === 'reasoning') {
-          await writeSseEvent(stream, 'thinking', { phase: 'answer', text: part.text });
-        } else if (part.type === 'usage') {
+      const MAX_STREAM_PASSES = 3;
+      const seenIds = new Set<string>(sources.map((s) => `${s.sourceType}:${s.sourceId}`));
+      let currentMessages = [...messages];
+      let allSources = [...sources];
+
+      for (let pass = 0; pass < MAX_STREAM_PASSES; pass++) {
+        let buffer = '';
+        let sentAny = false;
+        let needsMore = false;
+        let lastUsage: any = null;
+
+        for await (const part of createChatCompletionStreamParts(config.chat, currentMessages, {
+          enableThinking: true,
+        })) {
+          if (part.type === 'reasoning') {
+            await writeSseEvent(stream, 'thinking', { phase: 'answer', text: part.text });
+          } else if (part.type === 'usage') {
+            lastUsage = part.usage;
+          } else {
+            buffer += part.text;
+            // Still buffering the <needs_more/> tag at start
+            if (!sentAny && buffer.startsWith('<needs_more/>')) {
+              continue;
+            }
+            // Flush everything after the tag
+            if (!sentAny && !buffer.startsWith('<needs_more/>')) {
+              // Tag not present — flush entire buffer
+              await writeSseEvent(stream, 'delta', { text: buffer });
+              sentAny = true;
+            } else if (sentAny) {
+              await writeSseEvent(stream, 'delta', { text: part.text });
+            }
+          }
+        }
+
+        if (!sentAny && buffer.startsWith('<needs_more/>')) {
+          needsMore = true;
+        }
+
+        if (lastUsage) {
           logAiTokenUsage({
             userid: user.id,
             model: config.chat.model,
             type: 'chat',
-            promptTokens: part.usage.prompt_tokens,
-            completionTokens: part.usage.completion_tokens,
-            totalTokens: part.usage.total_tokens,
+            promptTokens: lastUsage.prompt_tokens,
+            completionTokens: lastUsage.completion_tokens,
+            totalTokens: lastUsage.total_tokens,
           });
-          await writeSseEvent(stream, 'usage', part.usage);
-        } else {
-          await writeSseEvent(stream, 'delta', { text: part.text });
+          await writeSseEvent(stream, 'usage', lastUsage);
         }
+
+        if (!needsMore || pass === MAX_STREAM_PASSES - 1) {
+          // Stream the remaining buffered content (after <needs_more/>)
+          if (sentAny && buffer.startsWith('<needs_more/>')) {
+            // Already streamed everything after tag via delta events
+          } else if (buffer.startsWith('<needs_more/>')) {
+            await writeSseEvent(stream, 'delta', {
+              text: buffer.slice('<needs_more/>'.length).trim(),
+            });
+          }
+          break;
+        }
+
+        // More notes needed — re-fetch and continue
+        await writeSseEvent(stream, 'thinking', {
+          phase: 'retrieval',
+          text: 'Fetching more notes for deeper analysis...',
+        });
+
+        const excludeIds = Array.from(seenIds);
+        const { sources: newSources, context: newContext } = await buildRetrievalContext({
+          ownerId: user.id,
+          plan,
+          limit: body?.limit || 15,
+          excludeIds,
+        });
+
+        if (!newSources.length) {
+          await writeSseEvent(stream, 'delta', {
+            text: buffer.slice('<needs_more/>'.length).trim(),
+          });
+          break;
+        }
+
+        for (const s of newSources) {
+          seenIds.add(`${s.sourceType}:${s.sourceId}`);
+        }
+        allSources = [...allSources, ...newSources];
+        await writeSseEvent(stream, 'sources', { sources: newSources });
+
+        const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
+        const operations = plan.operations.join(', ');
+        const previousAnswer = buffer.slice('<needs_more/>'.length).trim();
+        const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext:\n${newContext}\n\nPrevious answer (continue from here, do not repeat):\n${previousAnswer}\n\nQuestion:\n${plan.originalMessage || message}`;
+
+        currentMessages = [
+          currentMessages[0],
+          ...currentMessages.slice(1, -1),
+          { role: 'user' as const, content: prompt },
+        ];
       }
 
       await writeSseEvent(stream, 'done', {});

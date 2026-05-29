@@ -818,7 +818,7 @@ export async function semanticSearch(params: {
     .slice(0, limit);
 }
 
-async function buildRetrievalContext(params: {
+export async function buildRetrievalContext(params: {
   ownerId: string;
   plan: AiRetrievalPlan;
   limit: number;
