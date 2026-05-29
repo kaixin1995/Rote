@@ -18,6 +18,7 @@ import {
 } from '../ai/client';
 import { DEFAULT_AI_CONFIG, mergeAiConfig } from '../ai/providers';
 import {
+  createDefaultFilters,
   createRetrievalPlan,
   getUserRoteTags,
   type AiRetrievalFilters,
@@ -49,6 +50,43 @@ const VALID_SOURCE_TYPES = new Set<AiSourceType>(['rote', 'article']);
 const MAX_VECTOR_SEARCH_LIMIT = 50;
 const DEFAULT_CHAT_LIMIT = 15;
 const MAX_RETRIEVAL_PASSES = 3;
+
+export const NEEDS_MORE_TAG = '<needs_more/>';
+
+/**
+ * Strip the `<needs_more/>` prefix from an LLM response.
+ */
+export function stripNeedsMoreTag(text: string): string {
+  return text.startsWith(NEEDS_MORE_TAG) ? text.slice(NEEDS_MORE_TAG.length).trim() : text;
+}
+
+/**
+ * Rebuild the messages array for a subsequent multi-pass retrieval round.
+ * Keeps the system prompt and history, replaces the last user message with
+ * a prompt that includes ALL accumulated sources.
+ */
+export function rebuildMultiPassMessages(
+  currentMessages: ChatMessage[],
+  plan: AiRetrievalPlan,
+  allSources: SemanticSearchResult[],
+  fallbackMessage: string
+): ChatMessage[] {
+  const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
+  const operations = plan.operations.join(', ');
+  const fullContext = allSources
+    .map(
+      (source, i) =>
+        `[${i + 1}] ${source.sourceType}:${source.sourceId}\n${source.text.slice(0, 1800)}`
+    )
+    .join('\n\n');
+  const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext (includes ${allSources.length} notes):\n${fullContext}\n\nQuestion:\n${plan.originalMessage || fallbackMessage}`;
+
+  return [
+    currentMessages[0], // keep system prompt
+    ...currentMessages.slice(1, -1), // keep history
+    { role: 'user' as const, content: prompt },
+  ];
+}
 
 function getRuntimeAiConfig(): AiConfig {
   return mergeAiConfig(getGlobalConfig<AiConfig>('ai') || DEFAULT_AI_CONFIG);
@@ -928,14 +966,12 @@ export async function chatWithRoteContext(params: {
       await logChatTokenUsage(params.ownerId, config.chat.model, usage);
     }
 
-    if (!content.startsWith('<needs_more/>') || pass === MAX_RETRIEVAL_PASSES - 1) {
-      answer = content.startsWith('<needs_more/>')
-        ? content.slice('<needs_more/>'.length).trim()
-        : content;
+    if (!content.startsWith(NEEDS_MORE_TAG) || pass === MAX_RETRIEVAL_PASSES - 1) {
+      answer = stripNeedsMoreTag(content);
       break;
     }
 
-    answer = content.slice('<needs_more/>'.length).trim();
+    answer = stripNeedsMoreTag(content);
 
     // Re-fetch with excluded IDs
     const excludeIds = Array.from(seenIds);
@@ -952,63 +988,44 @@ export async function chatWithRoteContext(params: {
       seenIds.add(`${s.sourceType}:${s.sourceId}`);
     }
     allSources = [...allSources, ...newSources];
-
-    // Rebuild full context from ALL accumulated sources
-    const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
-    const operations = plan.operations.join(', ');
-    const fullContext = allSources
-      .map(
-        (source, i) =>
-          `[${i + 1}] ${source.sourceType}:${source.sourceId}\n${source.text.slice(0, 1800)}`
-      )
-      .join('\n\n');
-    const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext (includes ${allSources.length} notes):\n${fullContext}\n\nQuestion:\n${plan.originalMessage || params.message}`;
-
-    currentMessages = [
-      currentMessages[0], // keep system prompt
-      ...currentMessages.slice(1, -1), // keep history
-      { role: 'user' as const, content: prompt },
-    ];
+    currentMessages = rebuildMultiPassMessages(currentMessages, plan, allSources, params.message);
   }
 
   return { answer, sources: allSources, plan };
 }
 
-function createDefaultFilters(): import('../ai/retrievalPlan').AiRetrievalFilters {
-  return {
-    time: null,
-    tags: { include: [], exclude: [], match: 'any', unresolved: [], confidence: 1 },
-    semanticScope: [],
-    sourceTypes: ['rote', 'article'],
-    state: 'all',
-    archived: null,
-  };
-}
-
 export function sanitizePreviousPlan(plan: any, availableTags: string[]): AiRetrievalPlan | null {
   if (!plan || typeof plan !== 'object') return null;
   const tagSet = new Set(availableTags);
+  const defaults = createDefaultFilters();
+  const rawFilters = plan.filters && typeof plan.filters === 'object' ? plan.filters : {};
   return {
     originalMessage: String(plan.originalMessage || ''),
     operations: Array.isArray(plan.operations) ? plan.operations : ['summarize'],
     query: String(plan.query || ''),
     filters: {
-      ...createDefaultFilters(),
-      ...(plan.filters || {}),
+      time:
+        rawFilters.time && typeof rawFilters.time === 'object' ? rawFilters.time : defaults.time,
       tags: {
-        include: Array.isArray(plan.filters?.tags?.include)
-          ? plan.filters.tags.include.filter((t: string) => tagSet.has(t))
+        include: Array.isArray(rawFilters.tags?.include)
+          ? rawFilters.tags.include.filter((t: string) => tagSet.has(t))
           : [],
-        exclude: Array.isArray(plan.filters?.tags?.exclude)
-          ? plan.filters.tags.exclude.filter((t: string) => tagSet.has(t))
+        exclude: Array.isArray(rawFilters.tags?.exclude)
+          ? rawFilters.tags.exclude.filter((t: string) => tagSet.has(t))
           : [],
-        match: plan.filters?.tags?.match === 'all' ? 'all' : 'any',
+        match: rawFilters.tags?.match === 'all' ? 'all' : 'any',
         unresolved: [],
         confidence: 1,
       },
-      sourceTypes: Array.isArray(plan.filters?.sourceTypes)
-        ? plan.filters.sourceTypes.filter((t: string) => t === 'rote' || t === 'article')
+      semanticScope: Array.isArray(rawFilters.semanticScope)
+        ? rawFilters.semanticScope.filter((s: unknown) => typeof s === 'string').slice(0, 20)
+        : [],
+      sourceTypes: Array.isArray(rawFilters.sourceTypes)
+        ? rawFilters.sourceTypes.filter((t: string) => t === 'rote' || t === 'article')
         : ['rote', 'article'],
+      state:
+        rawFilters.state === 'private' || rawFilters.state === 'public' ? rawFilters.state : 'all',
+      archived: typeof rawFilters.archived === 'boolean' ? rawFilters.archived : null,
     },
     comparison: null,
     confidence: typeof plan.confidence === 'number' ? plan.confidence : 0.5,

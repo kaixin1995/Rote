@@ -28,6 +28,9 @@ import {
   setIndexingPaused,
   logAiTokenUsage,
   buildRetrievalContext,
+  NEEDS_MORE_TAG,
+  stripNeedsMoreTag,
+  rebuildMultiPassMessages,
 } from '../../utils/dbMethods';
 import { bodyTypeCheck, createResponse } from '../../utils/main';
 
@@ -308,12 +311,21 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
             if (sentAny) {
               // Already past the tag — stream directly
               await writeSseEvent(stream, 'delta', { text: part.text });
-            } else if (!buffer.startsWith('<needs_more/>')) {
-              // No tag — flush entire buffer and start streaming
+            } else if (buffer.length < NEEDS_MORE_TAG.length) {
+              // Buffer is shorter than the tag — check if it's still a valid prefix
+              if (!NEEDS_MORE_TAG.startsWith(buffer)) {
+                // Not a prefix of the tag — flush entire buffer and stream
+                await writeSseEvent(stream, 'delta', { text: buffer });
+                sentAny = true;
+              }
+              // else: still a valid prefix, keep buffering
+            } else if (buffer.startsWith(NEEDS_MORE_TAG)) {
+              // Full tag detected — don't flush (handled after loop)
+            } else {
+              // Buffer is long enough but doesn't match — flush
               await writeSseEvent(stream, 'delta', { text: buffer });
               sentAny = true;
             }
-            // else: still buffering potential <needs_more/> prefix
           }
         }
 
@@ -329,14 +341,12 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
           await writeSseEvent(stream, 'usage', lastUsage);
         }
 
-        const needsMore = !sentAny && buffer.startsWith('<needs_more/>');
+        const needsMore = !sentAny && buffer.startsWith(NEEDS_MORE_TAG);
 
         if (!needsMore || pass === MAX_STREAM_PASSES - 1) {
           // Final answer — send remaining buffer
-          if (buffer.startsWith('<needs_more/>')) {
-            const remaining = buffer.slice('<needs_more/>'.length).trim();
-            if (remaining) await writeSseEvent(stream, 'delta', { text: remaining });
-          }
+          const remaining = stripNeedsMoreTag(buffer);
+          if (remaining) await writeSseEvent(stream, 'delta', { text: remaining });
           break;
         }
 
@@ -355,7 +365,7 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
         });
 
         if (!newSources.length) {
-          const remaining = buffer.slice('<needs_more/>'.length).trim();
+          const remaining = stripNeedsMoreTag(buffer);
           if (remaining) await writeSseEvent(stream, 'delta', { text: remaining });
           break;
         }
@@ -366,19 +376,7 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
         allSources = [...allSources, ...newSources];
         await writeSseEvent(stream, 'sources', { sources: newSources });
 
-        // Rebuild full context from ALL accumulated sources
-        const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
-        const operations = plan.operations.join(', ');
-        const fullContext = allSources
-          .map((s, i) => `[${i + 1}] ${s.sourceType}:${s.sourceId}\n${s.text.slice(0, 1800)}`)
-          .join('\n\n');
-        const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext (includes ${allSources.length} notes):\n${fullContext}\n\nQuestion:\n${plan.originalMessage || message}`;
-
-        currentMessages = [
-          currentMessages[0],
-          ...currentMessages.slice(1, -1),
-          { role: 'user' as const, content: prompt },
-        ];
+        currentMessages = rebuildMultiPassMessages(currentMessages, plan, allSources, message);
       }
 
       await writeSseEvent(stream, 'done', {});

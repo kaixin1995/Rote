@@ -149,7 +149,7 @@ const DEFAULT_FILTERS: AiRetrievalFilters = {
   archived: null,
 };
 
-function createDefaultFilters(): AiRetrievalFilters {
+export function createDefaultFilters(): AiRetrievalFilters {
   return {
     ...DEFAULT_FILTERS,
     tags: emptyTagPlan(),
