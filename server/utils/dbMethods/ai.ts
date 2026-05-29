@@ -939,7 +939,7 @@ export async function chatWithRoteContext(params: {
 
     // Re-fetch with excluded IDs
     const excludeIds = Array.from(seenIds);
-    const { sources: newSources, context: newContext } = await buildRetrievalContext({
+    const { sources: newSources } = await buildRetrievalContext({
       ownerId: params.ownerId,
       plan,
       limit: params.limit || DEFAULT_CHAT_LIMIT,
@@ -949,15 +949,20 @@ export async function chatWithRoteContext(params: {
     if (!newSources.length) break;
 
     for (const s of newSources) {
-      const key = `${s.sourceType}:${s.sourceId}`;
-      seenIds.add(key);
+      seenIds.add(`${s.sourceType}:${s.sourceId}`);
     }
     allSources = [...allSources, ...newSources];
 
-    // Rebuild prompt with accumulated context
+    // Rebuild full context from ALL accumulated sources
     const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
     const operations = plan.operations.join(', ');
-    const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext:\n${newContext}\n\nPrevious answer (continue from here, do not repeat):\n${answer}\n\nQuestion:\n${plan.originalMessage || params.message}`;
+    const fullContext = allSources
+      .map(
+        (source, i) =>
+          `[${i + 1}] ${source.sourceType}:${source.sourceId}\n${source.text.slice(0, 1800)}`
+      )
+      .join('\n\n');
+    const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext (includes ${allSources.length} notes):\n${fullContext}\n\nQuestion:\n${plan.originalMessage || params.message}`;
 
     currentMessages = [
       currentMessages[0], // keep system prompt

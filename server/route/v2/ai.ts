@@ -294,7 +294,6 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
       for (let pass = 0; pass < MAX_STREAM_PASSES; pass++) {
         let buffer = '';
         let sentAny = false;
-        let needsMore = false;
         let lastUsage: any = null;
 
         for await (const part of createChatCompletionStreamParts(config.chat, currentMessages, {
@@ -306,23 +305,16 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
             lastUsage = part.usage;
           } else {
             buffer += part.text;
-            // Still buffering the <needs_more/> tag at start
-            if (!sentAny && buffer.startsWith('<needs_more/>')) {
-              continue;
-            }
-            // Flush everything after the tag
-            if (!sentAny && !buffer.startsWith('<needs_more/>')) {
-              // Tag not present — flush entire buffer
+            if (sentAny) {
+              // Already past the tag — stream directly
+              await writeSseEvent(stream, 'delta', { text: part.text });
+            } else if (!buffer.startsWith('<needs_more/>')) {
+              // No tag — flush entire buffer and start streaming
               await writeSseEvent(stream, 'delta', { text: buffer });
               sentAny = true;
-            } else if (sentAny) {
-              await writeSseEvent(stream, 'delta', { text: part.text });
             }
+            // else: still buffering potential <needs_more/> prefix
           }
-        }
-
-        if (!sentAny && buffer.startsWith('<needs_more/>')) {
-          needsMore = true;
         }
 
         if (lastUsage) {
@@ -337,14 +329,13 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
           await writeSseEvent(stream, 'usage', lastUsage);
         }
 
+        const needsMore = !sentAny && buffer.startsWith('<needs_more/>');
+
         if (!needsMore || pass === MAX_STREAM_PASSES - 1) {
-          // Stream the remaining buffered content (after <needs_more/>)
-          if (sentAny && buffer.startsWith('<needs_more/>')) {
-            // Already streamed everything after tag via delta events
-          } else if (buffer.startsWith('<needs_more/>')) {
-            await writeSseEvent(stream, 'delta', {
-              text: buffer.slice('<needs_more/>'.length).trim(),
-            });
+          // Final answer — send remaining buffer
+          if (buffer.startsWith('<needs_more/>')) {
+            const remaining = buffer.slice('<needs_more/>'.length).trim();
+            if (remaining) await writeSseEvent(stream, 'delta', { text: remaining });
           }
           break;
         }
@@ -356,7 +347,7 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
         });
 
         const excludeIds = Array.from(seenIds);
-        const { sources: newSources, context: newContext } = await buildRetrievalContext({
+        const { sources: newSources } = await buildRetrievalContext({
           ownerId: user.id,
           plan,
           limit: body?.limit || 15,
@@ -364,9 +355,8 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
         });
 
         if (!newSources.length) {
-          await writeSseEvent(stream, 'delta', {
-            text: buffer.slice('<needs_more/>'.length).trim(),
-          });
+          const remaining = buffer.slice('<needs_more/>'.length).trim();
+          if (remaining) await writeSseEvent(stream, 'delta', { text: remaining });
           break;
         }
 
@@ -376,10 +366,13 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
         allSources = [...allSources, ...newSources];
         await writeSseEvent(stream, 'sources', { sources: newSources });
 
+        // Rebuild full context from ALL accumulated sources
         const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
         const operations = plan.operations.join(', ');
-        const previousAnswer = buffer.slice('<needs_more/>'.length).trim();
-        const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext:\n${newContext}\n\nPrevious answer (continue from here, do not repeat):\n${previousAnswer}\n\nQuestion:\n${plan.originalMessage || message}`;
+        const fullContext = allSources
+          .map((s, i) => `[${i + 1}] ${s.sourceType}:${s.sourceId}\n${s.text.slice(0, 1800)}`)
+          .join('\n\n');
+        const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext (includes ${allSources.length} notes):\n${fullContext}\n\nQuestion:\n${plan.originalMessage || message}`;
 
         currentMessages = [
           currentMessages[0],
