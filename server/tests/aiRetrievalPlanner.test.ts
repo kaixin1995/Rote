@@ -253,6 +253,22 @@ describe('sanitizePlannerOutput', () => {
     const result = sanitizePlannerOutput(raw, 'test');
     expect(result.patch?.operations).toEqual(['summarize', 'compare']);
   });
+
+  it('parses Rote domain scope options', () => {
+    const raw = {
+      intent: 'new_search',
+      patch: {
+        query: '未完成的任务',
+        taskStatusScope: 'open',
+        archivedScope: 'active',
+      },
+      confidence: 0.9,
+      reasonCode: 'note_analysis',
+    };
+    const result = sanitizePlannerOutput(raw, '未完成的任务');
+    expect(result.patch?.taskStatusScope).toBe('open');
+    expect(result.patch?.archivedScope).toBe('active');
+  });
 });
 
 // ─── reducePlan ─────────────────────────────────────────────────────────────
@@ -541,6 +557,56 @@ describe('buildNewSearchPlan', () => {
       AVAILABLE_TAGS
     );
     expect(plan.operations).toEqual(['find_open_loops']);
+  });
+
+  it('excludes archived notes by default for open-loop queries', () => {
+    const plan = buildNewSearchPlan(
+      { query: '最近没收尾的 Flag', operations: ['find_open_loops'] },
+      AVAILABLE_TAGS
+    );
+    expect(plan.filters.archived).toBe(false);
+    expect(plan.summary).toContain('未归档内容');
+  });
+
+  it('respects explicit archived scope even for task queries', () => {
+    const plan = buildNewSearchPlan(
+      {
+        query: '归档的任务有哪些',
+        operations: ['find_open_loops'],
+        archivedScope: 'archived',
+      },
+      AVAILABLE_TAGS
+    );
+    expect(plan.filters.archived).toBe(true);
+    expect(plan.summary).toContain('归档内容');
+  });
+
+  it('preserves explicit all scope for open-loop queries', () => {
+    const plan = buildNewSearchPlan(
+      {
+        query: '包括归档的所有 TODO',
+        operations: ['find_open_loops'],
+        taskStatusScope: 'all',
+      },
+      AVAILABLE_TAGS
+    );
+    expect(plan.filters.archived).toBeNull();
+    expect(plan.summary || []).not.toContain('未归档内容');
+  });
+
+  it('does not infer archived scope from task-like wording without structured scope', () => {
+    const plan = buildNewSearchPlan({ query: '还有哪些任务没完成' }, AVAILABLE_TAGS);
+    expect(plan.operations).toEqual(['summarize']);
+    expect(plan.filters.archived).toBeNull();
+  });
+
+  it('maps taskStatusScope=open to active notes', () => {
+    const plan = buildNewSearchPlan(
+      { query: '还有哪些任务没完成', taskStatusScope: 'open' },
+      AVAILABLE_TAGS
+    );
+    expect(plan.filters.archived).toBe(false);
+    expect(plan.summary).toContain('未归档内容');
   });
 });
 

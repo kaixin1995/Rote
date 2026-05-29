@@ -24,6 +24,8 @@ export type AiTimeKind =
 export type AiTimeUnit = 'day' | 'week' | 'month' | 'year';
 export type AiTimeDirection = 'current' | 'previous';
 export type AiTagMatch = 'any' | 'all';
+export type AiArchivedScope = 'active' | 'archived' | 'all' | 'unspecified';
+export type AiTaskStatusScope = 'open' | 'closed' | 'all' | 'unspecified';
 
 export interface AiTimePlan {
   timeExpression: string | null;
@@ -53,6 +55,7 @@ export interface AiRetrievalFilters {
   sourceTypes: ('rote' | 'article')[];
   state: 'private' | 'public' | 'all';
   archived: boolean | null;
+  archivedScopeSpecified?: boolean;
 }
 
 export interface AiRetrievalComparison {
@@ -93,9 +96,17 @@ export interface PlannerOutput {
     timeExpression?: string;
     sourceTypes?: ('rote' | 'article')[];
     operations?: AiRetrievalOperation[];
+    archivedScope?: AiArchivedScope;
+    taskStatusScope?: AiTaskStatusScope;
     comparison?: {
       mode: 'time' | 'tag_groups' | 'filter_groups';
-      groups: Array<{ label: string; tags?: string[]; timeExpression?: string }>;
+      groups: Array<{
+        label: string;
+        tags?: string[];
+        timeExpression?: string;
+        archivedScope?: AiArchivedScope;
+        taskStatusScope?: AiTaskStatusScope;
+      }>;
     };
   };
   confidence: number;
@@ -231,6 +242,31 @@ const VALID_REASON_CODES = new Set<PlannerReasonCode>([
   'ambiguous_retrieve',
   'followup_needs_context',
 ]);
+const VALID_ARCHIVED_SCOPES = new Set<AiArchivedScope>([
+  'active',
+  'archived',
+  'all',
+  'unspecified',
+]);
+const VALID_TASK_STATUS_SCOPES = new Set<AiTaskStatusScope>([
+  'open',
+  'closed',
+  'all',
+  'unspecified',
+]);
+type ArchivedScopeResolution = boolean | null | undefined;
+
+function normalizeArchivedScopeOption(value: unknown): AiArchivedScope | undefined {
+  return VALID_ARCHIVED_SCOPES.has(value as AiArchivedScope)
+    ? (value as AiArchivedScope)
+    : undefined;
+}
+
+function normalizeTaskStatusScopeOption(value: unknown): AiTaskStatusScope | undefined {
+  return VALID_TASK_STATUS_SCOPES.has(value as AiTaskStatusScope)
+    ? (value as AiTaskStatusScope)
+    : undefined;
+}
 
 export function sanitizePlannerOutput(raw: any, message: string): PlannerOutput {
   const intent: PlannerIntent = VALID_INTENTS.has(raw?.intent) ? raw.intent : 'new_search';
@@ -253,6 +289,8 @@ export function sanitizePlannerOutput(raw: any, message: string): PlannerOutput 
       patch.timeExpression = raw.patch.timeExpression;
     if (Array.isArray(raw.patch.sourceTypes))
       patch.sourceTypes = normalizeSourceTypes(raw.patch.sourceTypes);
+    patch.archivedScope = normalizeArchivedScopeOption(raw.patch.archivedScope);
+    patch.taskStatusScope = normalizeTaskStatusScopeOption(raw.patch.taskStatusScope);
     if (Array.isArray(raw.patch.operations)) {
       patch.operations = raw.patch.operations.filter((op: unknown): op is AiRetrievalOperation =>
         VALID_OPERATIONS.has(op as AiRetrievalOperation)
@@ -268,6 +306,8 @@ export function sanitizePlannerOutput(raw: any, message: string): PlannerOutput 
               label: String(g?.label || '').trim() || 'Group',
               tags: Array.isArray(g?.tags) ? uniqueStrings(g.tags) : undefined,
               timeExpression: typeof g?.timeExpression === 'string' ? g.timeExpression : undefined,
+              archivedScope: normalizeArchivedScopeOption(g?.archivedScope),
+              taskStatusScope: normalizeTaskStatusScopeOption(g?.taskStatusScope),
             }))
           : [],
       };
@@ -385,6 +425,44 @@ function hasAmbiguousTimeExpression(time?: AiTimePlan | null): boolean {
     time?.timeKind === 'ambiguous' &&
     /(那段|开始|以后|之前|低落|这阵子|那时候|那会儿)/.test(expression)
   );
+}
+
+function normalizeArchivedScope(
+  operations: AiRetrievalOperation[],
+  archived: boolean | null,
+  archivedScopeSpecified?: boolean
+): boolean | null {
+  if (operations.includes('find_open_loops') && archived === null && !archivedScopeSpecified) {
+    return false;
+  }
+  return archived;
+}
+
+function archivedFromDomainScopes(
+  archivedScope?: AiArchivedScope,
+  taskStatusScope?: AiTaskStatusScope
+): ArchivedScopeResolution {
+  if (archivedScope === 'active') return false;
+  if (archivedScope === 'archived') return true;
+  if (archivedScope === 'all') return null;
+
+  if (taskStatusScope === 'open') return false;
+  if (taskStatusScope === 'closed') return true;
+  if (taskStatusScope === 'all') return null;
+
+  return undefined;
+}
+
+function applyArchivedScopeResolution<T extends { archived: boolean | null }>(
+  filters: T,
+  resolution: ArchivedScopeResolution
+): T & { archivedScopeSpecified?: boolean } {
+  if (resolution === undefined) return filters;
+  return {
+    ...filters,
+    archived: resolution,
+    archivedScopeSpecified: true,
+  };
 }
 
 function isPlainRecentExpression(expression: string): boolean {
@@ -663,6 +741,11 @@ function normalizeFilterScope(
     filters: {
       ...tagResult.filters,
       time: timeResult.time,
+      archived: normalizeArchivedScope(
+        operations,
+        tagResult.filters.archived,
+        tagResult.filters.archivedScopeSpecified
+      ),
     },
     needsClarification: tagResult.needsClarification || timeResult.needsClarification,
   };
@@ -785,6 +868,8 @@ export function buildNewSearchPlan(
   if (patch?.timeExpression) {
     filters.time = detectFastTime(patch.timeExpression);
   }
+  const archivedFromScopes = archivedFromDomainScopes(patch?.archivedScope, patch?.taskStatusScope);
+  const scopedFilters = applyArchivedScopeResolution(filters, archivedFromScopes);
   filters.tags.match = filters.tags.include.length > 1 ? 'all' : 'any';
 
   let comparison: AiRetrievalComparison | null = null;
@@ -795,8 +880,16 @@ export function buildNewSearchPlan(
         const groupFilters = createDefaultFilters();
         if (g.tags) groupFilters.tags.include = g.tags;
         if (g.timeExpression) groupFilters.time = detectFastTime(g.timeExpression);
+        const groupArchivedFromScopes = archivedFromDomainScopes(
+          g.archivedScope,
+          g.taskStatusScope
+        );
+        const scopedGroupFilters = applyArchivedScopeResolution(
+          groupFilters,
+          groupArchivedFromScopes
+        );
         groupFilters.tags.match = groupFilters.tags.include.length > 1 ? 'all' : 'any';
-        return { label: g.label, filters: groupFilters };
+        return { label: g.label, filters: scopedGroupFilters };
       }),
     };
   }
@@ -807,7 +900,7 @@ export function buildNewSearchPlan(
       originalMessage: message,
       operations,
       query: message,
-      filters,
+      filters: scopedFilters,
       comparison,
       confidence: 0.9,
       needsClarification: false,
@@ -834,6 +927,9 @@ export function mergePlan(
   if (patch.timeExpression) {
     merged.filters = { ...merged.filters, time: detectFastTime(patch.timeExpression) };
   }
+
+  const archivedFromScopes = archivedFromDomainScopes(patch.archivedScope, patch.taskStatusScope);
+  merged.filters = applyArchivedScopeResolution(merged.filters, archivedFromScopes);
 
   if (patch.tags) {
     const prevInclude = new Set(merged.filters.tags.include);
@@ -990,7 +1086,9 @@ Schema:
     "timeExpression": string (optional - e.g. "最近90天", "本月"),
     "sourceTypes": ("rote" | "article")[] (optional),
     "operations": ("summarize" | "compare" | "timeline" | "find_open_loops" | "analyze_mood" | "analyze_stress" | "analyze_personality")[] (optional),
-    "comparison": {"mode": "tag_groups" | "filter_groups" | "time", "groups": [{"label": string, "tags": string[] (optional), "timeExpression": string (optional)}]} (optional - required when operations includes "compare")
+    "archivedScope": "active" | "archived" | "all" | "unspecified" (optional - Rote lifecycle filter),
+    "taskStatusScope": "open" | "closed" | "all" | "unspecified" (optional - Rote task/open-loop status),
+    "comparison": {"mode": "tag_groups" | "filter_groups" | "time", "groups": [{"label": string, "tags": string[] (optional), "timeExpression": string (optional), "archivedScope": string (optional), "taskStatusScope": string (optional)}]} (optional - required when operations includes "compare")
   },
   "confidence": number (0-1),
   "reasonCode": "greeting" | "thanks" | "explicit_tag" | "bare_tag" | "explicit_time" | "note_analysis" | "more_results" | "replace_filter" | "exclude_filter" | "ambiguous_retrieve" | "followup_needs_context"
@@ -1010,6 +1108,9 @@ PATCH RULES:
 - patch only fills fields that CHANGE. Do NOT copy the full plan.
 - Bare tag names matching available tags → intent="new_search", patch.tags.include=["tagname"].
 - For operations: 没收尾/Flag/TODO/待办/还没做 → "find_open_loops"; 心境/情绪/心情 → "analyze_mood"; 压力/焦虑 → "analyze_stress"; MBTI/性格 → "analyze_personality"; 时间线 → "timeline"; 对比/比较 → "compare".
+- Rote domain scopes: archivedScope filters the note lifecycle ("active" = not archived, "archived" = archived notes, "all" = both). taskStatusScope describes task semantics ("open" = unfinished/open task, "closed" = completed/closed task, "all" = both).
+- Archived notes are considered closed/completed for task analysis. For open-loop/TODO/Flag queries, set patch.taskStatusScope="open". If the user explicitly asks for archived/completed tasks, set taskStatusScope="closed" or archivedScope="archived".
+- Do NOT set archivedScope just because the word "归档/archive" is the topic of the note or feature (e.g. "归档功能 bug"). In that case keep archivedScope="unspecified" or omit it and keep the word in query.
 - When operations includes "compare", you MUST also fill patch.comparison with mode="tag_groups" (for comparing tags) or mode="time" (for comparing time periods). Each group needs a label and its own tags/timeExpression.
 - 笔记/记录 → patch.sourceTypes=["rote"]; 文章/长文 → ["article"].
 

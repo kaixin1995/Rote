@@ -198,6 +198,10 @@ function buildEvidenceBlock(
   const meta = [
     `Type: ${source.sourceType}`,
     groupLabels.length ? `Groups: ${groupLabels.join(', ')}` : '',
+    source.sourceType === 'rote' ? `State: ${source.metadata?.state || 'unknown'}` : '',
+    source.sourceType === 'rote'
+      ? `Archived: ${source.metadata?.archived === true ? 'true (closed/completed)' : 'false'}`
+      : '',
     date ? `Date: ${date}` : '',
     tags ? `Tags: ${tags}` : '',
     `Similarity: ${source.similarity.toFixed(3)}`,
@@ -1255,6 +1259,7 @@ Evidence policy:
 - If the evidence summary says "limited_sample", still answer when useful, but clearly label the answer as tentative and explain that the sample is small.
 - For personality, MBTI, mood, stress, or pattern analysis, prefer signals and hypotheses over firm conclusions unless the evidence summary says the sample is adequate.
 - If sources were omitted because of context budget, answer from the included evidence and mention that the view is limited when relevant.
+- For TODO, Flag, task, or open-loop analysis, treat archived Rote notes as closed/completed. Do not list archived notes as unfinished work.
 
 Answer in the user's language.`,
     },
