@@ -1116,7 +1116,18 @@ export async function prepareRoteChatContext(params: {
     return { config, messages: chatMessages, sources: [], plan };
   }
 
-  const limit = params.limit || DEFAULT_CHAT_LIMIT;
+  let limit = params.limit || DEFAULT_CHAT_LIMIT;
+  const deepOperations = new Set([
+    'analyze_personality',
+    'analyze_mood',
+    'find_open_loops',
+    'timeline',
+    'compare',
+  ]);
+  if (plan.operations.some((op) => deepOperations.has(op))) {
+    limit = Math.max(limit, 40);
+  }
+
   const { sources, context } = await buildRetrievalContext({
     ownerId: params.ownerId,
     plan,
@@ -1136,11 +1147,13 @@ export async function prepareRoteChatContext(params: {
       role: 'system',
       content: `You answer questions using the user provided Rote notes and articles. Cite source numbers when useful. Respect the retrieval scope and mention when the answer is limited by that scope.
 
-If you believe MORE notes would meaningfully change or improve your answer — for example when performing personality analysis, mood tracking, pattern detection, or comprehensive summaries — output the tag <needs_more/> at the VERY BEGINNING of your response (before any other text), then provide your best answer with the current context. The system will fetch additional notes automatically.
+CRITICAL INSTRUCTION FOR COMPLEX ANALYSIS (e.g., personality analysis, MBTI, mood tracking, pattern detection):
+If you do not have a sufficiently large sample size of notes to make a highly confident assessment, you MUST output the tag <needs_more/> at the VERY BEGINNING of your response (before ANY other text). 
+Do NOT attempt to "do your best" or "guess" with limited data. Output <needs_more/> immediately so the system can automatically fetch more notes for you.
 
-Only use <needs_more/> when you genuinely think more data would lead to a significantly different or better conclusion. Do NOT use it for simple factual lookups where the current context already answers the question.
+Only use <needs_more/> when you genuinely need a larger sample size. Do NOT use it for simple factual lookups where the current context already answers the question.
 
-If the context is insufficient and <needs_more/> would not help (e.g., the user has very few notes), say so clearly and avoid inventing facts.`,
+If the context is insufficient and <needs_more/> would not help (e.g., the user simply has very few notes in total), say so clearly and avoid inventing facts.`,
     },
   ];
 
