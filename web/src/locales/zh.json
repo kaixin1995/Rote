@@ -418,6 +418,7 @@
         "thinking": "思考中...",
         "searching": "检索中...",
         "reading": "阅读并生成中...",
+        "interrupted": "上次回答已中断",
         "askFailed": "请求失败",
         "saveSuccess": "已保存为笔记",
         "saveFailed": "保存失败"

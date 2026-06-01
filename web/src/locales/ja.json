@@ -428,6 +428,7 @@
         "thinking": "思考中...",
         "searching": "検索中...",
         "reading": "ソースを読んで生成中...",
+        "interrupted": "前回の回答は中断されました",
         "askFailed": "リクエスト失敗",
         "saveSuccess": "ノートとして保存しました",
         "saveFailed": "保存失敗"

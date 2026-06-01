@@ -428,6 +428,7 @@
         "thinking": "Thinking...",
         "searching": "Searching...",
         "reading": "Reading and generating...",
+        "interrupted": "Previous answer was interrupted",
         "askFailed": "Request failed",
         "saveSuccess": "Saved as note",
         "saveFailed": "Save failed"
