@@ -1,5 +1,5 @@
 import type { AiMemoryMessage } from '@/state/aiChat';
-import { Brain, Check, Loader, SlidersHorizontal, Workflow } from 'lucide-react';
+import { Brain, Check, CircleAlert, Loader, SlidersHorizontal, Workflow } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -62,6 +62,8 @@ export function AgentTimeline({ message, title }: { message: AiMemoryMessage; ti
           <div key={item.id} className="text-muted-foreground flex min-w-0 items-center gap-1.5">
             {item.status === 'done' ? (
               <Check className="size-3 shrink-0" />
+            ) : item.status === 'error' ? (
+              <CircleAlert className="size-3 shrink-0" />
             ) : (
               <Loader className="size-3 shrink-0 animate-spin" />
             )}

@@ -14,6 +14,7 @@ import {
   getLatestAiSources,
   getSeenSourceIdsForActiveAiPlan,
   sanitizeAiChatMessages,
+  settleAiMessageTimeline,
 } from '@/state/aiChat';
 import {
   aiAgentStream,
@@ -416,19 +417,22 @@ function AiMemoryPage() {
             setMessagesForActiveRun(assistantId, (prev) =>
               prev.map((message) =>
                 message.id === assistantId
-                  ? {
-                      ...message,
-                      content: clarification.question,
-                      plan: clarification.pendingPlan,
-                      pendingPlan: clarification.pendingPlan,
-                      clarification: true,
-                      isStreaming: false,
-                      metrics: {
-                        ...message.metrics,
-                        planTime,
-                        totalTime: performance.now() - start,
+                  ? settleAiMessageTimeline(
+                      {
+                        ...message,
+                        content: clarification.question,
+                        plan: clarification.pendingPlan,
+                        pendingPlan: clarification.pendingPlan,
+                        clarification: true,
+                        isStreaming: false,
+                        metrics: {
+                          ...message.metrics,
+                          planTime,
+                          totalTime: performance.now() - start,
+                        },
                       },
-                    }
+                      'done'
+                    )
                   : message
               )
             );
@@ -513,12 +517,15 @@ function AiMemoryPage() {
         const totalTime = performance.now() - start;
         return prev.map((message) =>
           message.id === assistantId
-            ? {
-                ...message,
-                isStreaming: false,
-                pendingPlan: receivedClarification ? message.pendingPlan : undefined,
-                metrics: { ...message.metrics, totalTime },
-              }
+            ? settleAiMessageTimeline(
+                {
+                  ...message,
+                  isStreaming: false,
+                  pendingPlan: receivedClarification ? message.pendingPlan : undefined,
+                  metrics: { ...message.metrics, totalTime },
+                },
+                'done'
+              )
             : message
         );
       });
@@ -533,12 +540,15 @@ function AiMemoryPage() {
       setMessagesForActiveRun(assistantId, (prev) =>
         prev.map((message) =>
           message.id === assistantId
-            ? {
-                ...message,
-                content: streamContent || fallbackMessage,
-                error: streamContent ? message.error : true,
-                isStreaming: false,
-              }
+            ? settleAiMessageTimeline(
+                {
+                  ...message,
+                  content: streamContent || fallbackMessage,
+                  error: streamContent ? message.error : true,
+                  isStreaming: false,
+                },
+                'error'
+              )
             : message
         )
       );

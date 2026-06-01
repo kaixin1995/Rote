@@ -13,6 +13,16 @@ export type AiMessageMetrics = {
   };
 };
 
+export type AiMessageTimelineItem = {
+  id: string;
+  type: 'progress' | 'tool';
+  phase?: AiAgentPhase;
+  toolName?: string;
+  message: string;
+  status: 'running' | 'done' | 'error';
+  updatedAt: number;
+};
+
 export type AiMemoryMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -28,21 +38,29 @@ export type AiMemoryMessage = {
     planning?: string;
     answer?: string;
   };
-  timeline?: Array<{
-    id: string;
-    type: 'progress' | 'tool';
-    phase?: AiAgentPhase;
-    toolName?: string;
-    message: string;
-    status: 'running' | 'done' | 'error';
-    updatedAt: number;
-  }>;
+  timeline?: AiMessageTimelineItem[];
   /** Transient — never persisted. */
   isStreaming?: boolean;
 };
 
 export function getAiSourceKey(source: AiSemanticResult): string {
   return `${source.sourceType}:${source.sourceId}`;
+}
+
+export function settleAiMessageTimeline(
+  message: AiMemoryMessage,
+  status: 'done' | 'error'
+): AiMemoryMessage {
+  if (!message.timeline?.some((entry) => entry.status === 'running')) {
+    return message;
+  }
+
+  return {
+    ...message,
+    timeline: message.timeline.map((entry) =>
+      entry.status === 'running' ? { ...entry, status } : entry
+    ),
+  };
 }
 
 export function sanitizeAiChatMessages(
@@ -66,12 +84,7 @@ export function sanitizeAiChatMessages(
 
     if (next.timeline?.some((entry) => entry.status === 'running')) {
       changed = true;
-      next = {
-        ...next,
-        timeline: next.timeline.map((entry) =>
-          entry.status === 'running' ? { ...entry, status: 'error' as const } : entry
-        ),
-      };
+      next = settleAiMessageTimeline(next, 'error');
     }
 
     return next;
