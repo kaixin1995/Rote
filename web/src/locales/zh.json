@@ -365,7 +365,7 @@
     },
     "aiMemory": {
       "title": "AI 记忆",
-      "sideBarTitle": "记忆来源",
+      "sideBarTitle": "助手面板",
       "send": "发送",
       "clear": "清空对话",
       "backToBottom": "回到底部",
@@ -396,6 +396,10 @@
         "ready": "已就绪",
         "unverified": "验证邮箱后可使用 AI",
         "unavailable": "AI 或向量索引暂不可用"
+      },
+      "privacy": {
+        "title": "对话说明",
+        "description": "AI 对话只保存在当前浏览器会话中，不会持久化写入数据库。"
       },
       "sources": {
         "title": "来源",

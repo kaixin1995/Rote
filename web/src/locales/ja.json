@@ -375,7 +375,7 @@
     },
     "aiMemory": {
       "title": "AI メモリー",
-      "sideBarTitle": "記憶ソース",
+      "sideBarTitle": "アシスタントパネル",
       "send": "送信",
       "clear": "チャットをクリア",
       "backToBottom": "一番下へ戻る",
@@ -406,6 +406,10 @@
         "ready": "準備完了",
         "unverified": "メール確認後に AI を利用できます",
         "unavailable": "AI またはベクトル索引を利用できません"
+      },
+      "privacy": {
+        "title": "会話について",
+        "description": "AI との会話は現在のブラウザセッション内にのみ保存され、データベースには永続保存されません。"
       },
       "sources": {
         "title": "ソース",

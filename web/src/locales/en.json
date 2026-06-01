@@ -375,7 +375,7 @@
     },
     "aiMemory": {
       "title": "AI Memory",
-      "sideBarTitle": "Memory Sources",
+      "sideBarTitle": "Assistant Panel",
       "send": "Send",
       "clear": "Clear chat",
       "backToBottom": "Back to bottom",
@@ -406,6 +406,10 @@
         "ready": "Ready",
         "unverified": "Verify your email to use AI",
         "unavailable": "AI or vector index is not available"
+      },
+      "privacy": {
+        "title": "Conversation Note",
+        "description": "AI conversations stay in the current browser session and are not persisted to the database."
       },
       "sources": {
         "title": "Sources",
