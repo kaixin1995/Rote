@@ -6,11 +6,13 @@ export type AiMessageMetrics = {
   sourcesTime?: number;
   firstTokenTime?: number;
   totalTime?: number;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
+  usage?: AiMessageTokenUsage;
+};
+
+export type AiMessageTokenUsage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
 };
 
 export type AiMessageTimelineItem = {
@@ -45,6 +47,17 @@ export type AiMemoryMessage = {
 
 export function getAiSourceKey(source: AiSemanticResult): string {
   return `${source.sourceType}:${source.sourceId}`;
+}
+
+export function mergeAiTokenUsage(
+  current: AiMessageTokenUsage | undefined,
+  incoming: AiMessageTokenUsage
+): AiMessageTokenUsage {
+  return {
+    prompt_tokens: (current?.prompt_tokens || 0) + (incoming.prompt_tokens || 0),
+    completion_tokens: (current?.completion_tokens || 0) + (incoming.completion_tokens || 0),
+    total_tokens: (current?.total_tokens || 0) + (incoming.total_tokens || 0),
+  };
 }
 
 export function settleAiMessageTimeline(

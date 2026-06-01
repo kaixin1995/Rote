@@ -43,6 +43,36 @@ export type ChatCompletionStreamPart =
       usage: ChatCompletionUsage;
     };
 
+function toTokenCount(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
+}
+
+function normalizeUsage(usage: any, fallbackCompletionTokens = 0): ChatCompletionUsage | undefined {
+  if (!usage || typeof usage !== 'object') return undefined;
+
+  const promptTokens = toTokenCount(
+    usage.prompt_tokens ?? usage.input_tokens ?? usage.promptTokens ?? usage.inputTokens
+  );
+  const completionTokens = toTokenCount(
+    usage.completion_tokens ??
+      usage.output_tokens ??
+      usage.completionTokens ??
+      usage.outputTokens ??
+      fallbackCompletionTokens
+  );
+  const explicitTotalTokens = toTokenCount(usage.total_tokens ?? usage.totalTokens);
+  const totalTokens = explicitTotalTokens || promptTokens + completionTokens;
+
+  if (totalTokens === 0) return undefined;
+
+  return {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: totalTokens,
+  };
+}
+
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, '');
 }
@@ -142,12 +172,7 @@ export async function createEmbedding(
 
   return {
     embedding,
-    usage: body?.usage
-      ? {
-          prompt_tokens: body.usage.prompt_tokens || 0,
-          total_tokens: body.usage.total_tokens || 0,
-        }
-      : undefined,
+    usage: normalizeUsage(body?.usage),
   };
 }
 
@@ -181,13 +206,7 @@ export async function createChatCompletion(
 
   return {
     content,
-    usage: body?.usage
-      ? {
-          prompt_tokens: body.usage.prompt_tokens || 0,
-          completion_tokens: body.usage.completion_tokens || 0,
-          total_tokens: body.usage.total_tokens || 0,
-        }
-      : undefined,
+    usage: normalizeUsage(body?.usage),
   };
 }
 
@@ -246,13 +265,7 @@ export async function createChatCompletionWithTools(
       content: typeof message.content === 'string' ? message.content : null,
       tool_calls: toolCalls,
     },
-    usage: body?.usage
-      ? {
-          prompt_tokens: body.usage.prompt_tokens || 0,
-          completion_tokens: body.usage.completion_tokens || 0,
-          total_tokens: body.usage.total_tokens || 0,
-        }
-      : undefined,
+    usage: normalizeUsage(body?.usage),
   };
 }
 
@@ -322,14 +335,11 @@ export async function* createChatCompletionStreamParts(
           yield { type: 'content', text: content };
         }
 
-        if (chunk?.usage) {
+        const usage = normalizeUsage(chunk?.usage);
+        if (usage) {
           yield {
             type: 'usage',
-            usage: {
-              prompt_tokens: chunk.usage.prompt_tokens || 0,
-              completion_tokens: chunk.usage.completion_tokens || 0,
-              total_tokens: chunk.usage.total_tokens || 0,
-            },
+            usage,
           };
         }
       }

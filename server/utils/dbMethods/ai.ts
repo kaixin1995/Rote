@@ -601,8 +601,7 @@ async function processJob(job: EmbeddingJob, config: AiConfig): Promise<void> {
     const { embedding, usage } = await createEmbedding(config.embedding, chunk);
 
     if (usage) {
-      // Background log
-      logAiTokenUsage({
+      await logAiTokenUsage({
         userid: ownerId,
         model: config.embedding.model,
         type: 'embedding',
@@ -745,7 +744,7 @@ export async function semanticSearch(params: {
     usage = result.usage;
   }
   if (usage && params.ownerId) {
-    logAiTokenUsage({
+    await logAiTokenUsage({
       userid: params.ownerId,
       model: config.embedding.model,
       type: 'embedding',

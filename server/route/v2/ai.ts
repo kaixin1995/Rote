@@ -106,7 +106,7 @@ async function streamLegacyChatResponse(
   }
 
   if (lastUsage) {
-    logAiTokenUsage({
+    await logAiTokenUsage({
       userid: user.id,
       model: config.chat.model,
       type: 'chat',

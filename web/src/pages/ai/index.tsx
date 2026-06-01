@@ -13,6 +13,7 @@ import {
   getLatestAiAssistantPlan,
   getLatestAiSources,
   getSeenSourceIdsForActiveAiPlan,
+  mergeAiTokenUsage,
   sanitizeAiChatMessages,
   settleAiMessageTimeline,
 } from '@/state/aiChat';
@@ -26,6 +27,7 @@ import { post } from '@/utils/api';
 import { useAPIGet } from '@/utils/fetcher';
 import { useAtom } from 'jotai';
 import {
+  ArrowDown,
   ArrowDownLeft,
   ArrowUpRight,
   BrainCircuit,
@@ -86,6 +88,7 @@ function AiMemoryPage() {
   const [isSending, setIsSending] = useState(false);
   const [savingMessageId, setSavingMessageId] = useState<string | null>(null);
   const [isPromptsExpanded, setIsPromptsExpanded] = useState(false);
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const activeStreamRef = useRef<ActiveStream | null>(null);
   const activeRunRef = useRef<ActiveRun | null>(null);
@@ -136,9 +139,37 @@ function AiMemoryPage() {
     status?.eligible === false ? t('status.unverified') : t('status.unavailable');
   const canSend = !isSending && !unavailable && input.trim().length > 0;
 
+  const scrollToMessageEnd = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messageEndRef.current?.scrollIntoView({ block: 'end', behavior });
+  }, []);
+
+  const returnToBottom = useCallback(() => {
+    setIsAutoScrollPaused(false);
+    scrollToMessageEnd();
+  }, [scrollToMessageEnd]);
+
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages, isSending]);
+    const handleScroll = () => {
+      const scrollRoot = document.documentElement;
+      const distanceToBottom = scrollRoot.scrollHeight - window.innerHeight - window.scrollY;
+      setIsAutoScrollPaused(distanceToBottom > 160);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Keep the chat pinned while the user has not intentionally scrolled away.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
+    if (isAutoScrollPaused) return;
+    scrollToMessageEnd('auto');
+  }, [messages, isSending, isAutoScrollPaused, scrollToMessageEnd]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -181,6 +212,7 @@ function AiMemoryPage() {
     isSendingRef.current = false;
     activeStreamRef.current = null;
     currentIsMoreRef.current = false;
+    setIsAutoScrollPaused(false);
     setIsSending(false);
     setMessages([]);
     seenSourceIdsRef.current.clear();
@@ -291,6 +323,7 @@ function AiMemoryPage() {
 
     const activePendingPlan = options.ignorePendingPlan ? null : pendingPlan;
     setInput('');
+    setIsAutoScrollPaused(false);
     isSendingRef.current = true;
     setIsSending(true);
     currentIsMoreRef.current = false;
@@ -489,7 +522,13 @@ function AiMemoryPage() {
             setMessagesForActiveRun(assistantId, (prev) =>
               prev.map((message) =>
                 message.id === assistantId
-                  ? { ...message, metrics: { ...message.metrics, usage } }
+                  ? {
+                      ...message,
+                      metrics: {
+                        ...message.metrics,
+                        usage: mergeAiTokenUsage(message.metrics?.usage, usage),
+                      },
+                    }
                   : message
               )
             );
@@ -772,6 +811,20 @@ function AiMemoryPage() {
           )}
           <div ref={messageEndRef} className="h-24 shrink-0" />
         </div>
+
+        {isAutoScrollPaused && messages.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="fixed right-4 bottom-28 z-20 size-8 rounded-full shadow-sm sm:bottom-16"
+            onClick={returnToBottom}
+            aria-label={t('backToBottom')}
+            title={t('backToBottom')}
+          >
+            <ArrowDown className="size-4" />
+          </Button>
+        )}
 
         <form
           className="bg-background sticky bottom-16 z-10 border-t px-3 py-1 sm:bottom-0"
