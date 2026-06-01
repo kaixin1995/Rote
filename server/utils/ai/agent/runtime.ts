@@ -1,6 +1,6 @@
 import {
   createChatCompletionStreamParts,
-  createChatCompletionWithTools,
+  createChatCompletionWithToolsStreaming,
   type ChatMessage,
   type ChatToolCall,
 } from '../client';
@@ -67,7 +67,6 @@ function sanitizeAgentState(request: RoteAgentRequest): RoteAgentClientState {
     conversationId: typeof state.conversationId === 'string' ? state.conversationId : undefined,
     previousPlan: state.previousPlan || request.previousPlan || null,
     seenSourceIds,
-    lastSources: Array.isArray(state.lastSources) ? state.lastSources.slice(0, 30) : [],
     selectedContext: state.selectedContext || request.selectedContext || null,
     stateVersion: Number.isFinite(state.stateVersion) ? state.stateVersion : 1,
   };
@@ -79,6 +78,14 @@ function parseToolArguments(call: ChatToolCall): unknown {
   } catch {
     return {};
   }
+}
+
+function buildToolRegistryCorrection(unknownToolNames: string[], availableToolNames: string[]) {
+  return [
+    `The requested tool name is not registered: ${unknownToolNames.join(', ')}.`,
+    `Available tools are: ${availableToolNames.join(', ')}.`,
+    'Choose one of the registered tools exactly as named, or answer without tools if no tool is needed.',
+  ].join('\n');
 }
 
 function isLikelyToolUnsupportedError(error: any): boolean {
@@ -97,12 +104,15 @@ async function emitWithHeartbeat<T>(
   emit: RoteAgentEmitter,
   policy: RoteAgentPolicy,
   phase: RoteAgentPhase,
-  message: string,
   task: () => Promise<T>
 ): Promise<T> {
-  await emit({ type: 'progress', phase, message });
+  await emit({ type: 'progress', phase });
+  let heartbeatSeq = 0;
   const timer = setInterval(() => {
-    void Promise.resolve(emit({ type: 'heartbeat', phase, message })).catch(() => {});
+    heartbeatSeq += 1;
+    void Promise.resolve(
+      emit({ type: 'heartbeat', phase, seq: heartbeatSeq, timestamp: new Date().toISOString() })
+    ).catch(() => {});
   }, policy.heartbeatMs);
 
   try {
@@ -146,18 +156,8 @@ function buildInitialMessages(request: RoteAgentRequest): ChatMessage[] {
   return messages;
 }
 
-async function emitText(emit: RoteAgentEmitter, text: string): Promise<boolean> {
-  const clean = text.trim();
-  if (!clean) return false;
-  const chunkSize = 120;
-  for (let index = 0; index < clean.length; index += chunkSize) {
-    await emit({ type: 'delta', text: clean.slice(index, index + chunkSize) });
-  }
-  return true;
-}
-
 async function streamFinalAnswer(ctx: RoteAgentContext, messages: ChatMessage[]): Promise<boolean> {
-  await ctx.emit({ type: 'progress', phase: 'answering', message: '正在组织回答' });
+  await ctx.emit({ type: 'progress', phase: 'answering' });
   let emittedText = false;
   let lastUsage: any = null;
 
@@ -176,13 +176,24 @@ async function streamFinalAnswer(ctx: RoteAgentContext, messages: ChatMessage[])
 
   if (lastUsage) {
     await logChatUsage(ctx.userId, ctx.config.chat.model, lastUsage);
-    await ctx.emit({ type: 'usage', usage: lastUsage });
+    await ctx.emit({ type: 'usage', phase: 'answer', usage: lastUsage });
   }
 
   return emittedText;
 }
 
-function fallbackAnswer(sources: SemanticSearchResult[]): string {
+function isLikelyChinese(text: string): boolean {
+  return /[\u3400-\u9fff]/.test(text);
+}
+
+function fallbackAnswer(sources: SemanticSearchResult[], question: string): string {
+  if (isLikelyChinese(question)) {
+    if (sources.length) {
+      return '我找到了相关的 Rote 记忆，但模型没有返回可用回答。可以换个问法，或把范围收窄后再试一次。';
+    }
+    return '没有找到匹配的 Rote 记忆，所以我现在还不能基于你的笔记回答这个问题。';
+  }
+
   if (sources.length) {
     return 'I found related Rote memory, but the model did not return a usable answer. Please try again or narrow the scope.';
   }
@@ -222,29 +233,33 @@ export async function runRoteAgentStream(params: {
   let emittedText = false;
 
   await params.emit({ type: 'run_started', runId });
-  await params.emit({ type: 'progress', phase: 'understanding', message: '正在理解问题和目标' });
+  await params.emit({ type: 'progress', phase: 'understanding' });
 
   for (let step = 0; step < policy.maxIterations; step += 1) {
     const phase: RoteAgentPhase = step === 0 ? 'planning' : 'tool_calling';
     let assistantMessage: ChatMessage;
     try {
-      const response = await emitWithHeartbeat(
-        params.emit,
-        policy,
-        phase,
-        step === 0 ? '正在判断是否需要读取记录' : '正在确认是否需要更多证据',
-        () =>
-          createChatCompletionWithTools(
-            params.config.chat,
-            messages,
-            tools.map((tool) => tool.definition),
-            { temperature: 0.2, enableThinking: true }
-          )
+      const response = await emitWithHeartbeat(params.emit, policy, phase, () =>
+        createChatCompletionWithToolsStreaming(
+          params.config.chat,
+          messages,
+          tools.map((tool) => tool.definition),
+          {
+            temperature: 0.2,
+            enableThinking: true,
+            onReasoning: (text) =>
+              params.emit({
+                type: 'thinking',
+                phase: step === 0 ? 'route_decision' : 'evidence_decision',
+                text,
+              }),
+          }
+        )
       );
       assistantMessage = response.message;
       if (response.usage) {
         await logChatUsage(params.userId, params.config.chat.model, response.usage);
-        await params.emit({ type: 'usage', usage: response.usage });
+        await params.emit({ type: 'usage', phase: 'tool_decision', usage: response.usage });
       }
     } catch (error: any) {
       if (step === 0 && isLikelyToolUnsupportedError(error)) {
@@ -255,17 +270,36 @@ export async function runRoteAgentStream(params: {
 
     const toolCalls = assistantMessage.tool_calls || [];
     if (!toolCalls.length) {
-      emittedText = await emitText(params.emit, assistantMessage.content || '');
       break;
+    }
+
+    const validToolCalls = toolCalls.filter((toolCall) => toolByName.has(toolCall.function.name));
+    const unknownToolNames = Array.from(
+      new Set(
+        toolCalls
+          .map((toolCall) => toolCall.function.name)
+          .filter((toolName) => !toolByName.has(toolName))
+      )
+    );
+
+    if (unknownToolNames.length > 0) {
+      messages.push({
+        role: 'system',
+        content: buildToolRegistryCorrection(unknownToolNames, Array.from(toolByName.keys())),
+      });
+    }
+
+    if (validToolCalls.length === 0) {
+      continue;
     }
 
     messages.push({
       role: 'assistant',
       content: assistantMessage.content || null,
-      tool_calls: toolCalls,
+      tool_calls: validToolCalls,
     });
 
-    for (const toolCall of toolCalls) {
+    for (const toolCall of validToolCalls) {
       if (toolCallCount >= policy.maxToolCalls) {
         messages.push({
           role: 'tool',
@@ -289,26 +323,8 @@ export async function runRoteAgentStream(params: {
       const args = parseToolArguments(toolCall);
       await params.emit({ type: 'tool_started', toolName: toolCall.function.name, args });
 
-      if (!tool) {
-        const errorContent = JSON.stringify({
-          status: 'error',
-          message: `Unknown tool: ${toolCall.function.name}`,
-        });
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: errorContent });
-        await params.emit({
-          type: 'tool_finished',
-          toolName: toolCall.function.name,
-          summary: 'Unknown tool',
-        });
-        continue;
-      }
-
-      const result = await emitWithHeartbeat(
-        params.emit,
-        policy,
-        'tool_calling',
-        `正在执行 ${toolCall.function.name}`,
-        () => tool.execute(args, ctx, toolCall)
+      const result = await emitWithHeartbeat(params.emit, policy, 'tool_calling', () =>
+        tool!.execute(args, ctx, toolCall)
       );
 
       if (result.plan) await params.emit({ type: 'plan', plan: result.plan });
@@ -349,7 +365,7 @@ export async function runRoteAgentStream(params: {
   }
 
   if (!emittedText) {
-    await params.emit({ type: 'delta', text: fallbackAnswer(ctx.getSources()) });
+    await params.emit({ type: 'delta', text: fallbackAnswer(ctx.getSources(), request.message) });
   }
 
   await params.emit({
@@ -357,7 +373,6 @@ export async function runRoteAgentStream(params: {
     state: {
       seenSourceIds: ctx.state.seenSourceIds,
       previousPlan: ctx.state.previousPlan,
-      lastSources: ctx.getSources(),
     },
   });
   await params.emit({ type: 'done' });

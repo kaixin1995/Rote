@@ -1,3 +1,4 @@
+import { AiMessageItem, preloadAiStreamingMarkdown } from '@/components/ai/AiMessageItem';
 import { AiSourceList, getAiSourcePath } from '@/components/ai/AiSourceList';
 import NavBar from '@/components/layout/navBar';
 import { SoftBottom } from '@/components/others/SoftBottom';
@@ -11,9 +12,9 @@ import {
   getCurrentAiAssistantSources,
   getAiSourceKey,
   getLatestAiAssistantPlan,
-  getLatestAiSources,
   getSeenSourceIdsForActiveAiPlan,
   mergeAiTokenUsage,
+  mergeAiTokenUsageByPhase,
   sanitizeAiChatMessages,
   settleAiMessageTimeline,
 } from '@/state/aiChat';
@@ -22,6 +23,7 @@ import {
   getAiStatus,
   type AiAgentClientState,
   type AiAgentPhase,
+  type AiAgentToolProgressStatus,
 } from '@/utils/aiApi';
 import { post } from '@/utils/api';
 import { useAPIGet } from '@/utils/fetcher';
@@ -56,7 +58,10 @@ import { toast } from 'sonner';
 type ActiveStream = {
   id: string;
   content: string;
+  targetContent: string;
   frame: number | null;
+  done: boolean;
+  drainResolver?: () => void;
 };
 
 type ActiveRun = {
@@ -66,6 +71,12 @@ type ActiveRun = {
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getStreamRevealSize(backlog: number) {
+  if (backlog > 1200) return 240;
+  if (backlog > 500) return 160;
+  return 80;
 }
 
 function buildSavedNoteContent(message: AiMemoryMessage, sourceTitle: string) {
@@ -78,8 +89,6 @@ function buildSavedNoteContent(message: AiMemoryMessage, sourceTitle: string) {
     ? `${message.content}\n\n---\n${sourceTitle}\n${sourceLines}`
     : message.content;
 }
-
-import { AiMessageItem } from '@/components/ai/AiMessageItem';
 
 function AiMemoryPage() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.aiMemory' });
@@ -125,7 +134,6 @@ function AiMemoryPage() {
   );
 
   const visibleSources = useMemo(() => getCurrentAiAssistantSources(messages), [messages]);
-  const latestSources = useMemo(() => getLatestAiSources(messages), [messages]);
   const pendingPlan = useMemo(() => {
     const lastMessage = messages[messages.length - 1];
     return lastMessage?.role === 'assistant' && lastMessage.pendingPlan
@@ -138,6 +146,24 @@ function AiMemoryPage() {
   const unavailableText =
     status?.eligible === false ? t('status.unverified') : t('status.unavailable');
   const canSend = !isSending && !unavailable && input.trim().length > 0;
+
+  function getAgentPhaseLabel(phase: AiAgentPhase) {
+    return t(`timeline.phases.${phase}`);
+  }
+
+  function getToolStartedLabel(toolName: string) {
+    return t(`timeline.tools.${toolName}`, { defaultValue: toolName });
+  }
+
+  function getToolStatusLabel(status: AiAgentToolProgressStatus) {
+    return t(`timeline.toolStatus.${status}`);
+  }
+
+  function getToolFinishedLabel(toolName: string) {
+    return t(`timeline.toolDone.${toolName}`, {
+      defaultValue: t('timeline.toolDone.default'),
+    });
+  }
 
   const scrollToMessageEnd = useCallback((behavior: ScrollBehavior = 'smooth') => {
     messageEndRef.current?.scrollIntoView({ block: 'end', behavior });
@@ -172,6 +198,10 @@ function AiMemoryPage() {
   }, [messages, isSending, isAutoScrollPaused, scrollToMessageEnd]);
 
   useEffect(() => {
+    void preloadAiStreamingMarkdown();
+  }, []);
+
+  useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
@@ -201,7 +231,6 @@ function AiMemoryPage() {
       ...agentStateRef.current,
       previousPlan: getLatestAiAssistantPlan(messages),
       seenSourceIds,
-      lastSources: getLatestAiSources(messages),
       stateVersion: 1,
     };
   }, [messages, isSending]);
@@ -241,11 +270,28 @@ function AiMemoryPage() {
     if (!stream || stream.id !== assistantId) return;
 
     stream.frame = null;
+    const backlog = stream.targetContent.length - stream.content.length;
+    if (backlog > 0) {
+      stream.content = stream.targetContent.slice(
+        0,
+        stream.content.length + getStreamRevealSize(backlog)
+      );
+    }
     setMessagesForActiveRun(assistantId, (prev) =>
       prev.map((message) =>
         message.id === assistantId ? { ...message, content: stream.content } : message
       )
     );
+
+    if (stream.content.length < stream.targetContent.length) {
+      stream.frame = window.requestAnimationFrame(() => flushStreamContent(assistantId));
+      return;
+    }
+
+    if (stream.done) {
+      stream.drainResolver?.();
+      stream.drainResolver = undefined;
+    }
   }
 
   function queueStreamDelta(assistantId: string, text: string) {
@@ -253,10 +299,36 @@ function AiMemoryPage() {
     const stream = activeStreamRef.current;
     if (!stream || stream.id !== assistantId) return;
 
-    stream.content += text;
+    stream.targetContent += text;
     if (stream.frame === null) {
       stream.frame = window.requestAnimationFrame(() => flushStreamContent(assistantId));
     }
+  }
+
+  function drainStreamContent(assistantId: string): Promise<void> {
+    if (!isActiveRun(assistantId)) return Promise.resolve();
+    const stream = activeStreamRef.current;
+    if (!stream || stream.id !== assistantId) return Promise.resolve();
+
+    stream.done = true;
+    if (stream.content.length >= stream.targetContent.length) return Promise.resolve();
+
+    if (stream.frame === null) {
+      stream.frame = window.requestAnimationFrame(() => flushStreamContent(assistantId));
+    }
+    return new Promise((resolve) => {
+      let resolved = false;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        if (stream.drainResolver === finish) {
+          stream.drainResolver = undefined;
+        }
+        resolve();
+      };
+      stream.drainResolver = finish;
+      window.setTimeout(finish, 3000);
+    });
   }
 
   function updateTimeline(
@@ -266,6 +338,7 @@ function AiMemoryPage() {
       type: 'progress' | 'tool';
       phase?: AiAgentPhase;
       toolName?: string;
+      toolStatus?: AiAgentToolProgressStatus;
       message: string;
       status?: 'running' | 'done' | 'error';
     }
@@ -282,6 +355,7 @@ function AiMemoryPage() {
           type: item.type,
           phase: item.phase,
           toolName: item.toolName,
+          toolStatus: item.toolStatus,
           message: item.message,
           status: item.status || 'running',
           updatedAt,
@@ -334,7 +408,13 @@ function AiMemoryPage() {
     let firstTokenTime: number | undefined;
 
     activeRunRef.current = { assistantId, controller };
-    activeStreamRef.current = { id: assistantId, content: '', frame: null };
+    activeStreamRef.current = {
+      id: assistantId,
+      content: '',
+      targetContent: '',
+      frame: null,
+      done: false,
+    };
     setMessages((prev) => [
       ...prev,
       {
@@ -362,7 +442,6 @@ function AiMemoryPage() {
       await aiAgentStream(
         {
           message: question,
-          limit: 8,
           pendingPlan: activePendingPlan,
           clarificationAnswer: activePendingPlan ? question : undefined,
           previousPlan,
@@ -372,7 +451,6 @@ function AiMemoryPage() {
             ...agentStateRef.current,
             previousPlan,
             seenSourceIds: excludeIds,
-            lastSources: latestSources,
             stateVersion: 1,
           },
         },
@@ -381,20 +459,12 @@ function AiMemoryPage() {
             if (!isActiveRun(assistantId)) return;
             mergeAgentState({ conversationId: runId });
           },
-          onProgress: (phase, message) => {
+          onProgress: (phase) => {
             updateTimeline(assistantId, {
               id: `progress-${phase}`,
               type: 'progress',
               phase,
-              message,
-            });
-          },
-          onHeartbeat: (phase, message) => {
-            updateTimeline(assistantId, {
-              id: `progress-${phase}`,
-              type: 'progress',
-              phase,
-              message: message || '...',
+              message: getAgentPhaseLabel(phase),
             });
           },
           onToolStarted: (toolName) => {
@@ -402,23 +472,25 @@ function AiMemoryPage() {
               id: `tool-${toolName}`,
               type: 'tool',
               toolName,
-              message: toolName,
+              message: getToolStartedLabel(toolName),
             });
           },
-          onToolProgress: (toolName, message) => {
+          onToolProgress: (toolName, status) => {
             updateTimeline(assistantId, {
               id: `tool-${toolName}`,
               type: 'tool',
               toolName,
-              message,
+              toolStatus: status,
+              message: getToolStatusLabel(status),
             });
           },
-          onToolFinished: (toolName, summary) => {
+          onToolFinished: (toolName) => {
+            if (toolName === 'rote_search_notes') return;
             updateTimeline(assistantId, {
               id: `tool-${toolName}`,
               type: 'tool',
               toolName,
-              message: summary || toolName,
+              message: getToolFinishedLabel(toolName),
               status: 'done',
             });
           },
@@ -475,12 +547,18 @@ function AiMemoryPage() {
             sources.forEach((source) => seenSourceIdsRef.current.add(getAiSourceKey(source)));
             mergeAgentState(
               {
-                lastSources: sources,
                 seenSourceIds: Array.from(seenSourceIdsRef.current),
               },
               { replaceSeenSourceIds: !currentIsMoreRef.current }
             );
             const sourcesTime = performance.now() - start;
+            updateTimeline(assistantId, {
+              id: 'tool-rote_search_notes',
+              type: 'tool',
+              toolName: 'rote_search_notes',
+              message: t('timeline.sourcesFound', { count: sources.length }),
+              status: 'done',
+            });
             setMessagesForActiveRun(assistantId, (prev) =>
               prev.map((message) =>
                 message.id === assistantId
@@ -518,7 +596,7 @@ function AiMemoryPage() {
             }
             queueStreamDelta(assistantId, text);
           },
-          onUsage: (usage) => {
+          onUsage: (usage, phase) => {
             setMessagesForActiveRun(assistantId, (prev) =>
               prev.map((message) =>
                 message.id === assistantId
@@ -527,6 +605,11 @@ function AiMemoryPage() {
                       metrics: {
                         ...message.metrics,
                         usage: mergeAiTokenUsage(message.metrics?.usage, usage),
+                        usageByPhase: mergeAiTokenUsageByPhase(
+                          message.metrics?.usageByPhase,
+                          phase,
+                          usage
+                        ),
                       },
                     }
                   : message
@@ -550,7 +633,7 @@ function AiMemoryPage() {
         controller.signal
       );
       if (!receivedClarification) {
-        flushStreamContent(assistantId);
+        await drainStreamContent(assistantId);
       }
       setMessagesForActiveRun(assistantId, (prev) => {
         const totalTime = performance.now() - start;
@@ -574,7 +657,8 @@ function AiMemoryPage() {
 
       const fallbackMessage =
         error?.response?.data?.message || error?.message || t('messages.askFailed');
-      const streamContent = activeStreamRef.current?.content || '';
+      const streamContent =
+        activeStreamRef.current?.targetContent || activeStreamRef.current?.content || '';
       flushStreamContent(assistantId);
       setMessagesForActiveRun(assistantId, (prev) =>
         prev.map((message) =>
@@ -652,22 +736,25 @@ function AiMemoryPage() {
   }
 
   const StatusBlock = () => (
-    <div className="flex items-center justify-between border-b p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold">
+    <div className="flex min-w-0 items-center justify-between gap-3 border-b p-4">
+      <div className="flex min-w-0 items-center gap-2 text-sm font-semibold">
         {status?.available ? (
-          <ToggleRight className="size-4" />
+          <ToggleRight className="size-4 shrink-0" />
         ) : (
-          <ToggleLeft className="text-error size-4" />
+          <ToggleLeft className="text-error size-4 shrink-0" />
         )}
-        {t('status.title')}
+        <span className="min-w-0 truncate">{t('status.title')}</span>
       </div>
-      <div className="text-info flex items-center gap-2 text-xs">
+      <div className="text-info flex min-w-0 items-center justify-end gap-2 text-right text-xs">
         {isStatusLoading ? (
-          t('status.checking')
+          <span className="min-w-0 truncate">{t('status.checking')}</span>
         ) : status?.available ? (
-          t('status.ready')
+          <span className="min-w-0 truncate">{t('status.ready')}</span>
         ) : (
-          <button className="hover:text-theme duration-200" onClick={() => refreshStatus()}>
+          <button
+            className="hover:text-theme min-w-0 truncate duration-200"
+            onClick={() => refreshStatus()}
+          >
             {unavailableText}
           </button>
         )}
@@ -687,7 +774,7 @@ function AiMemoryPage() {
               key={prompt}
               type="button"
               variant="link"
-              className="h-auto cursor-pointer justify-start p-0 text-sm font-normal whitespace-normal underline"
+              className="h-auto w-full min-w-0 cursor-pointer justify-start p-0 text-left text-sm font-normal break-all whitespace-normal underline"
               disabled={isSending || unavailable}
               onClick={() => sendMessage(prompt, { ignorePendingPlan: true })}
             >
@@ -728,9 +815,9 @@ function AiMemoryPage() {
     <ContainerWithSideBar
       sidebar={<SideBar />}
       sidebarHeader={
-        <div className="flex items-center gap-2 p-3 text-lg font-semibold">
-          <BrainCog className="size-5" />
-          {t('sideBarTitle')}
+        <div className="flex min-w-0 items-center gap-2 p-3 text-lg font-semibold">
+          <BrainCog className="size-5 shrink-0" />
+          <span className="min-w-0 truncate">{t('sideBarTitle')}</span>
         </div>
       }
       hideSidebarToggleButton={true}

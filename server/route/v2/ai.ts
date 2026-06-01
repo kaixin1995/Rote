@@ -50,12 +50,44 @@ async function writeSseEvent(
   });
 }
 
+function normalizeSourcePreview(text: unknown): string {
+  return String(text || '')
+    .replace(/^(Title:[^\n]*\n)?(Tags:[^\n]*\n)?/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+}
+
+function toClientSource(source: any) {
+  const metadata = source?.metadata || {};
+  const tags = Array.isArray(metadata.tags)
+    ? metadata.tags.filter((tag: unknown) => typeof tag === 'string').slice(0, 8)
+    : [];
+
+  return {
+    sourceType: source.sourceType,
+    sourceId: source.sourceId,
+    similarity: Number(source.similarity) || 0,
+    preview: normalizeSourcePreview(source.text),
+    metadata: {
+      title: typeof metadata.title === 'string' ? metadata.title : '',
+      tags,
+      state: typeof metadata.state === 'string' ? metadata.state : undefined,
+      archived: typeof metadata.archived === 'boolean' ? metadata.archived : undefined,
+      createdAt: metadata.createdAt,
+    },
+  };
+}
+
 async function writeAgentSseEvent(
   stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
   event: RoteAgentStreamEvent
 ): Promise<void> {
   const data = { ...(event as any) };
   delete data.type;
+  if (event.type === 'sources') {
+    data.sources = Array.isArray(event.sources) ? event.sources.map(toClientSource) : [];
+  }
   await writeSseEvent(stream, event.type, data);
 }
 
@@ -75,7 +107,7 @@ async function streamLegacyChatResponse(
     excludeIds: body?.excludeIds,
     history: body?.history,
     onPlanThinkingDelta: async (text) => {
-      await writeSseEvent(stream, 'thinking', { phase: 'planning', text });
+      await writeSseEvent(stream, 'thinking', { phase: 'retrieval_planning', text });
     },
     onPlanGenerated: async (generatedPlan) => {
       await writeSseEvent(stream, 'plan', { plan: generatedPlan });
@@ -114,7 +146,7 @@ async function streamLegacyChatResponse(
       completionTokens: lastUsage.completion_tokens,
       totalTokens: lastUsage.total_tokens,
     });
-    await writeSseEvent(stream, 'usage', lastUsage);
+    await writeSseEvent(stream, 'usage', { phase: 'answer', usage: lastUsage });
   }
 
   if (!emittedText) {

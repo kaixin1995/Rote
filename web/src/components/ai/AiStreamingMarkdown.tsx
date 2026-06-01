@@ -30,7 +30,7 @@ function linkifyCitations(content: string, sources: AiSemanticResult[]): string 
     if (index < 0 || index >= sources.length) return match;
     const source = sources[index];
     const path = getAiSourcePath(source);
-    const cleanText = cleanSourceText(source.text);
+    const cleanText = source.preview || cleanSourceText(source.text || '');
     const title = source.metadata?.title || cleanText.slice(0, 30).replace(/\s+/g, ' ').trim();
     return `[\\[${numStr}\\]](${path} "${title}")`;
   });
@@ -72,8 +72,8 @@ function AiStreamingMarkdown({
       <Streamdown
         className="prose prose-neutral dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-pre:bg-muted prose-pre:text-foreground prose-code:wrap-break-word max-w-none text-sm leading-7 wrap-break-word"
         mode={isStreaming ? 'streaming' : 'static'}
-        animated={{ animation: 'blurIn' }}
-        isAnimating={isStreaming}
+        animated={false}
+        isAnimating={false}
         plugins={{ cjk }}
         linkSafety={{ enabled: false }}
         controls={{

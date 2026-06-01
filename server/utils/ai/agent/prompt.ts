@@ -32,6 +32,12 @@ ${getNativeRoteSkillSummary()}
 - Do not infer tag filters unless the user explicitly names a tag or asks for labels. Natural topic words can stay semantic.
 - If the evidence sample is small, say that clearly and keep conclusions tentative.
 
+## Language
+
+- Answer in the same language as the user's latest message.
+- If the user writes Chinese, answer in Chinese.
+- Do not switch to English unless the user asks for English.
+
 ## Sources
 
 When using Rote content, cite source numbers like [1].
@@ -52,6 +58,7 @@ If the user asks to organize, edit, tag, merge, or create notes, provide a propo
 
 export function buildFinalAnswerInstruction(): string {
   return `Use the gathered Rote tool results to answer the user's latest request.
+Answer in the same language as the user's latest message. If the user wrote Chinese, answer in Chinese.
 Keep the answer concise and grounded in sources.
 Cite source numbers like [1] whenever you rely on Rote content.
 If there is not enough evidence, say so instead of inventing.`;

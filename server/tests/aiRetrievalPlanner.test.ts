@@ -17,7 +17,6 @@ const AVAILABLE_TAGS = ['大喜', '大悲', '工作', '生活', '技术', '植�
 function makePreviousPlan(overrides?: Partial<AiRetrievalPlan>): AiRetrievalPlan {
   return {
     originalMessage: '最近开心的事',
-    operations: ['summarize'],
     query: '开心的事',
     filters: {
       time: null,
@@ -243,7 +242,7 @@ describe('sanitizePlannerOutput', () => {
     expect(result.patch?.tags?.include).not.toContain('#大喜');
   });
 
-  it('normalizes operations', () => {
+  it('ignores legacy operation fields', () => {
     const raw = {
       intent: 'new_search',
       patch: { operations: ['summarize', 'invalid_op', 'compare'] },
@@ -251,7 +250,7 @@ describe('sanitizePlannerOutput', () => {
       reasonCode: 'note_analysis',
     };
     const result = sanitizePlannerOutput(raw, 'test');
-    expect(result.patch?.operations).toEqual(['summarize', 'compare']);
+    expect(result.patch).not.toHaveProperty('operations');
   });
 
   it('parses Rote domain scope options', () => {
@@ -567,58 +566,33 @@ describe('buildNewSearchPlan', () => {
     expect(plan.filters.time!.timeKind).toBe('rolling');
   });
 
-  it('defaults to summarize operation', () => {
-    const plan = buildNewSearchPlan({ query: 'test' }, AVAILABLE_TAGS);
-    expect(plan.operations).toEqual(['summarize']);
-  });
-
-  it('uses patch operations when provided', () => {
-    const plan = buildNewSearchPlan(
-      { query: 'test', operations: ['find_open_loops'] },
-      AVAILABLE_TAGS
-    );
-    expect(plan.operations).toEqual(['find_open_loops']);
-  });
-
-  it('excludes archived notes by default for open-loop queries', () => {
-    const plan = buildNewSearchPlan(
-      { query: '最近没收尾的 Flag', operations: ['find_open_loops'] },
-      AVAILABLE_TAGS
-    );
-    expect(plan.filters.archived).toBe(false);
-    expect(plan.summary).toContain('未归档内容');
+  it('does not infer archived scope from task-like wording without structured scope', () => {
+    const plan = buildNewSearchPlan({ query: '最近没收尾的 Flag' }, AVAILABLE_TAGS);
+    expect(plan.filters.archived).toBeNull();
   });
 
   it('respects explicit archived scope even for task queries', () => {
     const plan = buildNewSearchPlan(
       {
         query: '归档的任务有哪些',
-        operations: ['find_open_loops'],
         archivedScope: 'archived',
       },
       AVAILABLE_TAGS
     );
     expect(plan.filters.archived).toBe(true);
-    expect(plan.summary).toContain('归档内容');
+    expect(plan.summary).toContain('归档范围：仅归档');
   });
 
   it('preserves explicit all scope for open-loop queries', () => {
     const plan = buildNewSearchPlan(
       {
         query: '包括归档的所有 TODO',
-        operations: ['find_open_loops'],
         taskStatusScope: 'all',
       },
       AVAILABLE_TAGS
     );
     expect(plan.filters.archived).toBeNull();
-    expect(plan.summary || []).not.toContain('未归档内容');
-  });
-
-  it('does not infer archived scope from task-like wording without structured scope', () => {
-    const plan = buildNewSearchPlan({ query: '还有哪些任务没完成' }, AVAILABLE_TAGS);
-    expect(plan.operations).toEqual(['summarize']);
-    expect(plan.filters.archived).toBeNull();
+    expect(plan.summary || []).not.toContain('归档范围：未归档');
   });
 
   it('maps taskStatusScope=open to active notes', () => {
@@ -627,7 +601,7 @@ describe('buildNewSearchPlan', () => {
       AVAILABLE_TAGS
     );
     expect(plan.filters.archived).toBe(false);
-    expect(plan.summary).toContain('未归档内容');
+    expect(plan.summary).toContain('归档范围：未归档');
   });
 });
 
@@ -673,7 +647,6 @@ describe('sanitizePreviousPlan', () => {
     const raw = {
       originalMessage: 'test',
       query: 'test query',
-      operations: ['summarize'],
       confidence: 0.8,
       retrievalNeeded: false,
       pagination: 'more',

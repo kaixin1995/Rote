@@ -413,13 +413,66 @@
         "empty": "No sources yet"
       },
       "scope": {
-        "title": "Scope"
+        "title": "Scope",
+        "paginationMore": "More results",
+        "time": "Time: {{label}}",
+        "tags": "Tags: {{tags}}",
+        "excludeTags": "Exclude tags: {{tags}}",
+        "semanticScope": "Keywords: {{keywords}}",
+        "sourceTypes": {
+          "rote": "Content: notes",
+          "article": "Content: articles",
+          "all": "Content: notes + articles"
+        },
+        "visibility": {
+          "private": "Visibility: private",
+          "public": "Visibility: public",
+          "all": "Visibility: private + public"
+        },
+        "archive": {
+          "active": "Archive: unarchived",
+          "archived": "Archive: archived only",
+          "all": "Archive: all"
+        },
+        "comparison": "Compare: {{groups}}"
       },
       "timeline": {
-        "title": "Progress"
+        "title": "Progress",
+        "sourcesFound": "Found {{count}} related source(s)",
+        "phases": {
+          "understanding": "Understanding the question",
+          "planning": "Deciding whether to read Rote",
+          "tool_calling": "Checking whether more evidence is needed",
+          "retrieving": "Retrieving records",
+          "reading": "Reading records",
+          "answering": "Organizing the answer"
+        },
+        "tools": {
+          "rote_search_notes": "Querying Rote",
+          "rote_get_note": "Reading a record",
+          "rote_find_related_notes": "Finding related records",
+          "rote_get_tags": "Loading tags",
+          "rote_skill_view": "Choosing workflow"
+        },
+        "toolStatus": {
+          "determining_scope": "Determining query scope",
+          "retrieving_sources": "Retrieving related records",
+          "reading_source": "Reading record content",
+          "finding_related": "Finding related records",
+          "loading_tags": "Loading tags"
+        },
+        "toolDone": {
+          "default": "Done",
+          "rote_get_note": "Record read",
+          "rote_find_related_notes": "Related records found",
+          "rote_get_tags": "Tags loaded",
+          "rote_skill_view": "Workflow selected"
+        }
       },
       "thinkingTrace": {
-        "planning": "Determining scope",
+        "route_decision": "Deciding whether to query Rote",
+        "evidence_decision": "Deciding whether more evidence is needed",
+        "retrieval_planning": "Determining query scope",
         "answer": "Thinking through answer",
         "separator": ": ",
         "expand": "View thoughts",

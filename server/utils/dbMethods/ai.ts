@@ -52,8 +52,9 @@ const DEFAULT_CHAT_LIMIT = 15;
 const DEFAULT_EVIDENCE_CONTEXT_BUDGET = 16_000;
 const DEFAULT_EVIDENCE_SNIPPET_LENGTH = 900;
 const MAX_EVIDENCE_SOURCE_COUNT = 18;
-const MIN_DEEP_SAMPLE_SIZE = 8;
 const MIN_COMPARISON_GROUP_SAMPLE_SIZE = 3;
+const MIN_EVIDENCE_SIMILARITY = 0.3;
+const MIN_FILTER_ONLY_EVIDENCE_SIMILARITY = 0;
 const LEGACY_NEEDS_MORE_TAG = '<needs_more/>';
 
 export type EvidenceSampleStatus = 'no_evidence' | 'limited_sample' | 'adequate';
@@ -63,6 +64,7 @@ export interface RetrievalContextDiagnostics {
   contextSourceCount: number;
   omittedSourceCount: number;
   minUsefulSourceCount: number;
+  minEvidenceSimilarity: number;
   sampleStatus: EvidenceSampleStatus;
   groupStats: Array<{
     label: string;
@@ -133,33 +135,33 @@ function vectorIndexName(dimensions: number): string {
   return `document_embeddings_embedding_hnsw_${dimensions}_idx`;
 }
 
-function isDeepAnalysisPlan(plan: AiRetrievalPlan): boolean {
-  const deepOperations = new Set([
-    'analyze_personality',
-    'analyze_mood',
-    'analyze_stress',
-    'find_open_loops',
-    'timeline',
-    'compare',
-  ]);
-  return plan.operations.some((operation) => deepOperations.has(operation));
+function resolveRetrievalLimit(requestedLimit?: number): number {
+  return requestedLimit || DEFAULT_CHAT_LIMIT;
 }
 
-function resolveRetrievalLimit(plan: AiRetrievalPlan, requestedLimit?: number): number {
-  const baseLimit = requestedLimit || DEFAULT_CHAT_LIMIT;
-  return isDeepAnalysisPlan(plan) ? Math.max(baseLimit, 40) : baseLimit;
-}
-
-function getMinUsefulSourceCount(plan: AiRetrievalPlan): number {
+function getMinUsefulSourceCount(plan: AiRetrievalPlan, targetSourceCount: number): number {
   if (plan.comparison?.groups.length) {
     return plan.comparison.groups.length * MIN_COMPARISON_GROUP_SAMPLE_SIZE;
   }
-  return isDeepAnalysisPlan(plan) ? MIN_DEEP_SAMPLE_SIZE : 1;
+  return Math.min(Math.max(targetSourceCount, 1), 12);
 }
 
 function classifySampleStatus(count: number, minUsefulCount: number): EvidenceSampleStatus {
   if (count <= 0) return 'no_evidence';
   return count < minUsefulCount ? 'limited_sample' : 'adequate';
+}
+
+function hasSemanticQuery(plan: AiRetrievalPlan): boolean {
+  return Boolean(plan.query.trim() || plan.filters.semanticScope.length);
+}
+
+function resolveEvidenceMinSimilarity(plan: AiRetrievalPlan): number {
+  return hasSemanticQuery(plan) ? MIN_EVIDENCE_SIMILARITY : MIN_FILTER_ONLY_EVIDENCE_SIMILARITY;
+}
+
+function getEvidenceQueryVariants(plan: AiRetrievalPlan): string[] {
+  const query = plan.query.trim();
+  return query ? [query] : [''];
 }
 
 function stripLegacyNeedsMoreTag(text: string): string {
@@ -931,6 +933,7 @@ export async function buildRetrievalContext(params: {
   ownerId: string;
   plan: AiRetrievalPlan;
   limit: number;
+  sourceLimit?: number;
   excludeIds?: string[];
 }): Promise<{
   sources: SemanticSearchResult[];
@@ -939,23 +942,39 @@ export async function buildRetrievalContext(params: {
 }> {
   const { plan } = params;
   const safeExcludeIds = sanitizeExcludeIds(params.excludeIds);
-  const minUsefulSourceCount = getMinUsefulSourceCount(plan);
-  const maxSnippetLength = isDeepAnalysisPlan(plan) ? 700 : DEFAULT_EVIDENCE_SNIPPET_LENGTH;
+  const minEvidenceSimilarity = resolveEvidenceMinSimilarity(plan);
+  const finalSourceLimit = normalizeLimit(params.sourceLimit ?? params.limit);
+  const minUsefulSourceCount = getMinUsefulSourceCount(plan, finalSourceLimit);
+  const maxSnippetLength = DEFAULT_EVIDENCE_SNIPPET_LENGTH;
   const hasComparisonGroups = Boolean(plan.comparison?.groups.length);
 
-  const baseSearch = async (filters: AiRetrievalFilters, limit: number) =>
-    semanticSearch({
-      query: plan.query,
-      ownerId: params.ownerId,
-      limit,
-      sourceTypes: filters.sourceTypes,
-      timeRange: filters.time?.normalizedRange || null,
-      tags: filters.tags,
-      semanticScope: filters.semanticScope,
-      state: filters.state,
-      archived: filters.archived,
-      excludeIds: safeExcludeIds,
-    });
+  const baseSearch = async (filters: AiRetrievalFilters, limit: number) => {
+    const bestBySource = new Map<string, SemanticSearchResult>();
+    for (const query of getEvidenceQueryVariants(plan)) {
+      const results = await semanticSearch({
+        query,
+        ownerId: params.ownerId,
+        limit,
+        sourceTypes: filters.sourceTypes,
+        timeRange: filters.time?.normalizedRange || null,
+        tags: filters.tags,
+        semanticScope: filters.semanticScope,
+        state: filters.state,
+        archived: filters.archived,
+        excludeIds: safeExcludeIds,
+      });
+      for (const source of results) {
+        const key = `${source.sourceType}:${source.sourceId}`;
+        const existing = bestBySource.get(key);
+        if (!existing || source.similarity > existing.similarity) {
+          bestBySource.set(key, source);
+        }
+      }
+    }
+    return Array.from(bestBySource.values())
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+  };
 
   const groupedResults: Array<{ label: string; sources: SemanticSearchResult[] }> = [];
   if (plan.comparison?.groups.length) {
@@ -984,7 +1003,8 @@ export async function buildRetrievalContext(params: {
   });
   const sources = Array.from(sourceByKey.values())
     .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, params.limit);
+    .filter((source) => source.similarity >= minEvidenceSimilarity)
+    .slice(0, finalSourceLimit);
 
   const contextSources: SemanticSearchResult[] = [];
   const contextBlocks: string[] = [];
@@ -1025,7 +1045,9 @@ export async function buildRetrievalContext(params: {
   );
   const groupStats = groupedResults.map((group) => {
     const groupKeys = new Set(
-      group.sources.map((source) => `${source.sourceType}:${source.sourceId}`)
+      group.sources
+        .filter((source) => source.similarity >= minEvidenceSimilarity)
+        .map((source) => `${source.sourceType}:${source.sourceId}`)
     );
     const groupMinUsefulCount = plan.comparison?.groups.length
       ? MIN_COMPARISON_GROUP_SAMPLE_SIZE
@@ -1050,6 +1072,7 @@ export async function buildRetrievalContext(params: {
     contextSourceCount: contextSources.length,
     omittedSourceCount: Math.max(sources.length - contextSources.length, 0),
     minUsefulSourceCount,
+    minEvidenceSimilarity,
     sampleStatus,
     groupStats,
   };
@@ -1063,7 +1086,8 @@ export async function buildRetrievalContext(params: {
 - Candidate sources found: ${diagnostics.candidateCount}
 - Sources included in answer context: ${diagnostics.contextSourceCount}
 - Omitted because of context budget: ${diagnostics.omittedSourceCount}
-- Minimum useful sources for this operation: ${diagnostics.minUsefulSourceCount}
+- Minimum useful sources for this scope: ${diagnostics.minUsefulSourceCount}
+- Minimum similarity for evidence: ${diagnostics.minEvidenceSimilarity.toFixed(3)}
 - Sample status: ${diagnostics.sampleStatus}
 ${groupSummary ? `\nGroup coverage:\n${groupSummary}` : ''}`;
   const context = `${evidenceSummary}\n\nEvidence:\n${
@@ -1116,7 +1140,6 @@ export function sanitizePreviousPlan(plan: any, availableTags: string[]): AiRetr
   const rawFilters = plan.filters && typeof plan.filters === 'object' ? plan.filters : {};
   return {
     originalMessage: String(plan.originalMessage || ''),
-    operations: Array.isArray(plan.operations) ? plan.operations : ['summarize'],
     query: String(plan.query || ''),
     filters: {
       time:
@@ -1231,7 +1254,7 @@ export async function prepareRoteChatContext(params: {
     return { config, messages: chatMessages, sources: [], plan };
   }
 
-  const limit = resolveRetrievalLimit(plan, params.limit);
+  const limit = resolveRetrievalLimit(params.limit);
 
   const { sources, context } = await buildRetrievalContext({
     ownerId: params.ownerId,
@@ -1241,9 +1264,8 @@ export async function prepareRoteChatContext(params: {
   });
 
   const scopeSummary = plan.summary?.length ? plan.summary.join('；') : '默认范围';
-  const operations = plan.operations.join(', ');
 
-  const prompt = `Retrieval scope: ${scopeSummary}\nOperations: ${operations}\n\nContext:\n${
+  const prompt = `Retrieval scope: ${scopeSummary}\n\nContext:\n${
     context || '(no relevant context found)'
   }\n\nQuestion:\n${plan.originalMessage || params.message}`;
 

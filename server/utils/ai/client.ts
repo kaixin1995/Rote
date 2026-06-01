@@ -77,6 +77,26 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, '');
 }
 
+function normalizeToolCalls(value: unknown): ChatToolCall[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const toolCalls = value
+    .filter(
+      (call: any) =>
+        typeof call?.id === 'string' &&
+        call?.type === 'function' &&
+        typeof call?.function?.name === 'string'
+    )
+    .map((call: any) => ({
+      id: call.id,
+      type: 'function' as const,
+      function: {
+        name: call.function.name,
+        arguments: typeof call.function.arguments === 'string' ? call.function.arguments : '{}',
+      },
+    }));
+  return toolCalls.length ? toolCalls : undefined;
+}
+
 function buildHeaders(config: AiProviderConfig): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -241,31 +261,140 @@ export async function createChatCompletionWithTools(
     throw new Error('Chat provider returned an invalid tool completion response');
   }
 
-  const toolCalls = Array.isArray(message.tool_calls)
-    ? message.tool_calls
-        .filter(
-          (call: any) =>
-            typeof call?.id === 'string' &&
-            call?.type === 'function' &&
-            typeof call?.function?.name === 'string'
-        )
-        .map((call: any) => ({
-          id: call.id,
-          type: 'function' as const,
-          function: {
-            name: call.function.name,
-            arguments: typeof call.function.arguments === 'string' ? call.function.arguments : '{}',
-          },
-        }))
-    : undefined;
-
   return {
     message: {
       role: 'assistant',
       content: typeof message.content === 'string' ? message.content : null,
-      tool_calls: toolCalls,
+      tool_calls: normalizeToolCalls(message.tool_calls),
     },
     usage: normalizeUsage(body?.usage),
+  };
+}
+
+export async function createChatCompletionWithToolsStreaming(
+  config: AiProviderConfig,
+  messages: ChatMessage[],
+  tools: ChatToolDefinition[],
+  options: ChatCompletionOptions & {
+    onReasoning?: (text: string) => Promise<void> | void;
+  } = {}
+): Promise<{
+  message: ChatMessage;
+  usage?: ChatCompletionUsage;
+}> {
+  ensureProviderConfig(config);
+
+  const response = await fetch(`${normalizeBaseUrl(config.baseUrl)}/chat/completions`, {
+    method: 'POST',
+    headers: buildHeaders(config),
+    body: JSON.stringify(
+      buildChatRequestBody(config, {
+        messages,
+        tools,
+        toolChoice: 'auto',
+        temperature: options.temperature ?? 0.2,
+        stream: true,
+        enableThinking: options.enableThinking,
+      })
+    ),
+  });
+
+  if (!response.ok) {
+    await readJsonResponse(response);
+  }
+
+  if (!response.body) {
+    throw new Error('Chat provider returned an empty tool stream response');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const toolCallsByIndex = new Map<number, ChatToolCall>();
+  let buffer = '';
+  let content = '';
+  let usage: ChatCompletionUsage | undefined;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(':') || !trimmed.startsWith('data:')) continue;
+
+        const data = trimmed.slice(5).trim();
+        if (data === '[DONE]') {
+          return {
+            message: {
+              role: 'assistant',
+              content: content || null,
+              tool_calls: normalizeToolCalls(Array.from(toolCallsByIndex.values())),
+            },
+            usage,
+          };
+        }
+
+        let chunk: any;
+        try {
+          chunk = JSON.parse(data);
+        } catch {
+          continue;
+        }
+
+        const delta = chunk?.choices?.[0]?.delta || {};
+        const reasoning = delta.reasoning_content || delta.reasoning;
+        if (typeof reasoning === 'string' && reasoning.length > 0) {
+          await options.onReasoning?.(reasoning);
+        }
+
+        if (typeof delta.content === 'string' && delta.content.length > 0) {
+          content += delta.content;
+        }
+
+        if (Array.isArray(delta.tool_calls)) {
+          for (const deltaCall of delta.tool_calls) {
+            const index = Number.isInteger(deltaCall?.index)
+              ? deltaCall.index
+              : toolCallsByIndex.size;
+            const existing =
+              toolCallsByIndex.get(index) ||
+              ({
+                id: typeof deltaCall?.id === 'string' ? deltaCall.id : `call_${index}`,
+                type: 'function',
+                function: { name: '', arguments: '' },
+              } satisfies ChatToolCall);
+
+            if (typeof deltaCall?.id === 'string') existing.id = deltaCall.id;
+            if (typeof deltaCall?.function?.name === 'string') {
+              existing.function.name = deltaCall.function.name;
+            }
+            if (typeof deltaCall?.function?.arguments === 'string') {
+              existing.function.arguments += deltaCall.function.arguments;
+            }
+            toolCallsByIndex.set(index, existing);
+          }
+        }
+
+        const chunkUsage = normalizeUsage(chunk?.usage);
+        if (chunkUsage) usage = chunkUsage;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return {
+    message: {
+      role: 'assistant',
+      content: content || null,
+      tool_calls: normalizeToolCalls(Array.from(toolCallsByIndex.values())),
+    },
+    usage,
   };
 }
 

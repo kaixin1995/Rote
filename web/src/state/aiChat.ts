@@ -1,5 +1,13 @@
 import { atomWithStorage } from 'jotai/utils';
-import type { AiAgentPhase, AiRetrievalPlan, AiSemanticResult } from '@/utils/aiApi';
+import type {
+  AiAgentPhase,
+  AiAgentToolProgressStatus,
+  AiThinkingPhase,
+  AiTokenUsage,
+  AiRetrievalPlan,
+  AiSemanticResult,
+  AiUsagePhase,
+} from '@/utils/aiApi';
 
 export type AiMessageMetrics = {
   planTime?: number;
@@ -7,19 +15,17 @@ export type AiMessageMetrics = {
   firstTokenTime?: number;
   totalTime?: number;
   usage?: AiMessageTokenUsage;
+  usageByPhase?: Partial<Record<AiUsagePhase, AiMessageTokenUsage>>;
 };
 
-export type AiMessageTokenUsage = {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-};
+export type AiMessageTokenUsage = AiTokenUsage;
 
 export type AiMessageTimelineItem = {
   id: string;
   type: 'progress' | 'tool';
   phase?: AiAgentPhase;
   toolName?: string;
+  toolStatus?: AiAgentToolProgressStatus;
   message: string;
   status: 'running' | 'done' | 'error';
   updatedAt: number;
@@ -37,8 +43,7 @@ export type AiMemoryMessage = {
   saved?: boolean;
   metrics?: AiMessageMetrics;
   thinking?: {
-    planning?: string;
-    answer?: string;
+    [phase in AiThinkingPhase]?: string;
   };
   timeline?: AiMessageTimelineItem[];
   /** Transient — never persisted. */
@@ -57,6 +62,17 @@ export function mergeAiTokenUsage(
     prompt_tokens: (current?.prompt_tokens || 0) + (incoming.prompt_tokens || 0),
     completion_tokens: (current?.completion_tokens || 0) + (incoming.completion_tokens || 0),
     total_tokens: (current?.total_tokens || 0) + (incoming.total_tokens || 0),
+  };
+}
+
+export function mergeAiTokenUsageByPhase(
+  current: Partial<Record<AiUsagePhase, AiMessageTokenUsage>> | undefined,
+  phase: AiUsagePhase,
+  incoming: AiMessageTokenUsage
+): Partial<Record<AiUsagePhase, AiMessageTokenUsage>> {
+  return {
+    ...(current || {}),
+    [phase]: mergeAiTokenUsage(current?.[phase], incoming),
   };
 }
 
@@ -110,15 +126,6 @@ export function getLatestAiAssistantPlan(messages: AiMemoryMessage[]): AiRetriev
   return (
     [...messages].reverse().find((message) => message.role === 'assistant' && message.plan)?.plan ||
     null
-  );
-}
-
-export function getLatestAiSources(messages: AiMemoryMessage[]): AiSemanticResult[] {
-  return (
-    [...messages]
-      .reverse()
-      .find((message) => message.role === 'assistant' && (message.sources?.length || 0) > 0)
-      ?.sources || []
   );
 }
 

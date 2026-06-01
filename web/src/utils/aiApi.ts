@@ -12,12 +12,13 @@ export interface AiStatus {
 }
 
 export interface AiSemanticResult {
-  id: string;
-  ownerId: string;
+  id?: string;
+  ownerId?: string;
   sourceType: AiSourceType;
   sourceId: string;
-  chunkIndex: number;
-  text: string;
+  chunkIndex?: number;
+  text?: string;
+  preview?: string;
   similarity: number;
   metadata: {
     title?: string;
@@ -36,15 +37,6 @@ export interface AiChatResponse {
   plan?: AiRetrievalPlan;
   clarification?: AiClarification;
 }
-
-export type AiRetrievalOperation =
-  | 'summarize'
-  | 'compare'
-  | 'timeline'
-  | 'find_open_loops'
-  | 'analyze_mood'
-  | 'analyze_stress'
-  | 'analyze_personality';
 
 export interface AiTimePlan {
   timeExpression: string | null;
@@ -76,11 +68,11 @@ export interface AiRetrievalFilters {
   sourceTypes: AiSourceType[];
   state: 'private' | 'public' | 'all';
   archived: boolean | null;
+  archivedScopeSpecified?: boolean;
 }
 
 export interface AiRetrievalPlan {
   originalMessage?: string;
-  operations: AiRetrievalOperation[];
   query: string;
   filters: AiRetrievalFilters;
   comparison: null | {
@@ -111,11 +103,30 @@ export type AiAgentPhase =
   | 'reading'
   | 'answering';
 
+export type AiAgentToolProgressStatus =
+  | 'determining_scope'
+  | 'retrieving_sources'
+  | 'reading_source'
+  | 'finding_related'
+  | 'loading_tags';
+
+export type AiUsagePhase = 'planning' | 'tool_decision' | 'answer';
+export type AiThinkingPhase =
+  | 'route_decision'
+  | 'evidence_decision'
+  | 'retrieval_planning'
+  | 'answer';
+
+export type AiTokenUsage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+};
+
 export interface AiAgentClientState {
   conversationId?: string;
   previousPlan?: AiRetrievalPlan | null;
   seenSourceIds?: string[];
-  lastSources?: AiSemanticResult[];
   selectedContext?: {
     currentRoteId?: string;
     currentArticleId?: string;
@@ -127,22 +138,18 @@ export interface AiAgentClientState {
 
 export type AiChatStreamHandlers = {
   onRunStarted?: (runId: string) => void;
-  onProgress?: (phase: AiAgentPhase, message: string) => void;
-  onHeartbeat?: (phase: AiAgentPhase, message?: string) => void;
+  onProgress?: (phase: AiAgentPhase) => void;
+  onHeartbeat?: (heartbeat: { phase: AiAgentPhase; seq: number; timestamp: string }) => void;
   onToolStarted?: (toolName: string, args?: unknown) => void;
-  onToolProgress?: (toolName: string, message: string) => void;
+  onToolProgress?: (toolName: string, status: AiAgentToolProgressStatus) => void;
   onToolFinished?: (toolName: string, summary?: string) => void;
   onPlan?: (plan: AiRetrievalPlan) => void;
   onClarification?: (clarification: AiClarification) => void;
   onSources?: (sources: AiSemanticResult[]) => void;
-  onThinking?: (phase: 'planning' | 'answer', text: string) => void;
+  onThinking?: (phase: AiThinkingPhase, text: string) => void;
   onDelta?: (text: string) => void;
   onStatePatch?: (state: Partial<AiAgentClientState>) => void;
-  onUsage?: (usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  }) => void;
+  onUsage?: (usage: AiTokenUsage, phase: AiUsagePhase) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -266,19 +273,23 @@ async function readAiStreamResponse(
       if (runId) handlers.onRunStarted?.(runId);
     } else if (parsed.event === 'progress') {
       const data = parsed.data as { phase?: AiAgentPhase; message?: string };
-      if (data.phase && typeof data.message === 'string') {
-        handlers.onProgress?.(data.phase, data.message);
-      }
+      if (data.phase) handlers.onProgress?.(data.phase);
     } else if (parsed.event === 'heartbeat') {
-      const data = parsed.data as { phase?: AiAgentPhase; message?: string };
-      if (data.phase) handlers.onHeartbeat?.(data.phase, data.message);
+      const data = parsed.data as { phase?: AiAgentPhase; seq?: number; timestamp?: string };
+      if (data.phase && typeof data.seq === 'number' && typeof data.timestamp === 'string') {
+        handlers.onHeartbeat?.({ phase: data.phase, seq: data.seq, timestamp: data.timestamp });
+      }
     } else if (parsed.event === 'tool_started') {
       const data = parsed.data as { toolName?: string; args?: unknown };
       if (data.toolName) handlers.onToolStarted?.(data.toolName, data.args);
     } else if (parsed.event === 'tool_progress') {
-      const data = parsed.data as { toolName?: string; message?: string };
-      if (data.toolName && typeof data.message === 'string') {
-        handlers.onToolProgress?.(data.toolName, data.message);
+      const data = parsed.data as {
+        toolName?: string;
+        status?: AiAgentToolProgressStatus;
+        message?: string;
+      };
+      if (data.toolName && data.status) {
+        handlers.onToolProgress?.(data.toolName, data.status);
       }
     } else if (parsed.event === 'tool_finished') {
       const data = parsed.data as { toolName?: string; summary?: string };
@@ -295,8 +306,14 @@ async function readAiStreamResponse(
       const sources = (parsed.data as { sources?: AiSemanticResult[] })?.sources;
       handlers.onSources?.(Array.isArray(sources) ? sources : []);
     } else if (parsed.event === 'thinking') {
-      const data = parsed.data as { phase?: 'planning' | 'answer'; text?: string };
-      if ((data.phase === 'planning' || data.phase === 'answer') && typeof data.text === 'string') {
+      const data = parsed.data as { phase?: AiThinkingPhase; text?: string };
+      if (
+        (data.phase === 'route_decision' ||
+          data.phase === 'evidence_decision' ||
+          data.phase === 'retrieval_planning' ||
+          data.phase === 'answer') &&
+        typeof data.text === 'string'
+      ) {
         handlers.onThinking?.(data.phase, data.text);
       }
     } else if (parsed.event === 'delta') {
@@ -306,12 +323,28 @@ async function readAiStreamResponse(
       const state = (parsed.data as { state?: Partial<AiAgentClientState> })?.state;
       if (state) handlers.onStatePatch?.(state);
     } else if (parsed.event === 'usage') {
-      const usage = parsed.data as {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
+      const data = parsed.data as {
+        phase?: AiUsagePhase;
+        usage?: Partial<AiTokenUsage>;
       };
-      if (usage) handlers.onUsage?.(usage);
+      const rawUsage = data.usage;
+      const phase = data.phase;
+      if (
+        phase &&
+        rawUsage &&
+        typeof rawUsage.prompt_tokens === 'number' &&
+        typeof rawUsage.completion_tokens === 'number' &&
+        typeof rawUsage.total_tokens === 'number'
+      ) {
+        handlers.onUsage?.(
+          {
+            prompt_tokens: rawUsage.prompt_tokens,
+            completion_tokens: rawUsage.completion_tokens,
+            total_tokens: rawUsage.total_tokens,
+          },
+          phase
+        );
+      }
     } else if (parsed.event === 'done') {
       doneReceived = true;
       handlers.onDone?.();

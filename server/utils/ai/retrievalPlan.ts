@@ -4,15 +4,6 @@ import type { AiConfig } from '../../types/config';
 import db from '../drizzle';
 import { createChatCompletionStreamParts, type ChatCompletionUsage } from './client';
 
-export type AiRetrievalOperation =
-  | 'summarize'
-  | 'compare'
-  | 'timeline'
-  | 'find_open_loops'
-  | 'analyze_mood'
-  | 'analyze_stress'
-  | 'analyze_personality';
-
 export type AiTimeKind =
   | 'none'
   | 'rolling'
@@ -96,7 +87,6 @@ export interface PlannerOutput {
     semanticScope?: string[];
     timeExpression?: string;
     sourceTypes?: ('rote' | 'article')[];
-    operations?: AiRetrievalOperation[];
     archivedScope?: AiArchivedScope;
     taskStatusScope?: AiTaskStatusScope;
     comparison?: {
@@ -116,7 +106,6 @@ export interface PlannerOutput {
 
 export interface AiRetrievalPlan {
   originalMessage?: string;
-  operations: AiRetrievalOperation[];
   query: string;
   filters: AiRetrievalFilters;
   comparison: AiRetrievalComparison | null;
@@ -133,16 +122,6 @@ export interface AiNormalizedTimeRange {
   to: string;
   label: string;
 }
-
-const VALID_OPERATIONS = new Set<AiRetrievalOperation>([
-  'summarize',
-  'compare',
-  'timeline',
-  'find_open_loops',
-  'analyze_mood',
-  'analyze_stress',
-  'analyze_personality',
-]);
 
 const VALID_SOURCE_TYPES = new Set(['rote', 'article']);
 
@@ -208,7 +187,6 @@ function emptyTagPlan(): AiTagPlan {
 export function fallbackPlan(message: string): AiRetrievalPlan {
   return {
     originalMessage: message,
-    operations: ['summarize'],
     query: message,
     filters: createDefaultFilters(),
     comparison: null,
@@ -295,11 +273,6 @@ export function sanitizePlannerOutput(raw: any, message: string): PlannerOutput 
       patch.sourceTypes = normalizeSourceTypes(raw.patch.sourceTypes);
     patch.archivedScope = normalizeArchivedScopeOption(raw.patch.archivedScope);
     patch.taskStatusScope = normalizeTaskStatusScopeOption(raw.patch.taskStatusScope);
-    if (Array.isArray(raw.patch.operations)) {
-      patch.operations = raw.patch.operations.filter((op: unknown): op is AiRetrievalOperation =>
-        VALID_OPERATIONS.has(op as AiRetrievalOperation)
-      );
-    }
     if (raw.patch.comparison && typeof raw.patch.comparison === 'object') {
       const comp = raw.patch.comparison;
       const validModes = new Set(['time', 'tag_groups', 'filter_groups']);
@@ -412,12 +385,6 @@ function monthRange(year: number, monthIndex: number): AiNormalizedTimeRange {
   };
 }
 
-function defaultDaysForOperations(operations: AiRetrievalOperation[]): number {
-  if (operations.includes('timeline')) return 30;
-  if (operations.includes('compare')) return 30;
-  return 90;
-}
-
 function hasAllTimeExpression(message: string, time?: AiTimePlan | null): boolean {
   const expression = `${message} ${time?.timeExpression || ''}`;
   return /全部|长期|历史|所有/.test(expression) || time?.timeKind === 'all_time';
@@ -429,17 +396,6 @@ function hasAmbiguousTimeExpression(time?: AiTimePlan | null): boolean {
     time?.timeKind === 'ambiguous' &&
     /(那段|开始|以后|之前|低落|这阵子|那时候|那会儿)/.test(expression)
   );
-}
-
-function normalizeArchivedScope(
-  operations: AiRetrievalOperation[],
-  archived: boolean | null,
-  archivedScopeSpecified?: boolean
-): boolean | null {
-  if (operations.includes('find_open_loops') && archived === null && !archivedScopeSpecified) {
-    return false;
-  }
-  return archived;
 }
 
 function archivedFromDomainScopes(
@@ -478,7 +434,6 @@ function isPlainRecentExpression(expression: string): boolean {
 
 function normalizeTimeRange(
   message: string,
-  operations: AiRetrievalOperation[],
   time?: AiTimePlan | null
 ): { time: AiTimePlan | null; needsClarification: boolean } {
   if (hasAllTimeExpression(message, time)) {
@@ -601,7 +556,7 @@ function normalizeTimeRange(
     normalized = { ...time, from: range.from, to: range.to, needsClarification: false };
   } else if (time) {
     // Time was provided but didn't match any specific pattern — apply default window
-    const days = defaultDaysForOperations(operations);
+    const days = 90;
     const start = addDays(today, -days);
     range = {
       from: startOfDay(start),
@@ -734,22 +689,17 @@ function normalizeTagScope(
 
 function normalizeFilterScope(
   message: string,
-  operations: AiRetrievalOperation[],
   filters: AiRetrievalFilters,
   availableTags: string[],
   options: { autoAddExplicitTags?: boolean } = {}
 ): { filters: AiRetrievalFilters; needsClarification: boolean } {
   const tagResult = normalizeTagScope(message, filters, availableTags, options);
-  const timeResult = normalizeTimeRange(message, operations, tagResult.filters.time);
+  const timeResult = normalizeTimeRange(message, tagResult.filters.time);
   return {
     filters: {
       ...tagResult.filters,
       time: timeResult.time,
-      archived: normalizeArchivedScope(
-        operations,
-        tagResult.filters.archived,
-        tagResult.filters.archivedScopeSpecified
-      ),
+      archived: tagResult.filters.archived,
     },
     needsClarification: tagResult.needsClarification || timeResult.needsClarification,
   };
@@ -757,14 +707,13 @@ function normalizeFilterScope(
 
 function normalizeComparison(
   message: string,
-  operations: AiRetrievalOperation[],
   comparison: AiRetrievalComparison | null,
   availableTags: string[]
 ): { comparison: AiRetrievalComparison | null; needsClarification: boolean } {
   if (!comparison) return { comparison: null, needsClarification: false };
   let needsClarification = false;
   const groups = comparison.groups.map((group) => {
-    const result = normalizeFilterScope(message, operations, group.filters, availableTags, {
+    const result = normalizeFilterScope(message, group.filters, availableTags, {
       autoAddExplicitTags: false,
     });
     needsClarification = needsClarification || result.needsClarification;
@@ -828,13 +777,21 @@ function buildSummary(plan: AiRetrievalPlan): string[] {
     summary.push(`关键词：${plan.filters.semanticScope.join('、')}`);
   }
   if (plan.filters.sourceTypes.length === 1) {
-    summary.push(plan.filters.sourceTypes[0] === 'rote' ? '仅笔记' : '仅文章');
+    summary.push(plan.filters.sourceTypes[0] === 'rote' ? '内容类型：笔记' : '内容类型：文章');
+  } else {
+    summary.push('内容类型：笔记+文章');
   }
-  if (plan.filters.state !== 'all') {
-    summary.push(plan.filters.state === 'public' ? '公开内容' : '私密内容');
+  if (plan.filters.state === 'public') {
+    summary.push('可见性：公开');
+  } else if (plan.filters.state === 'private') {
+    summary.push('可见性：私密');
+  } else {
+    summary.push('可见性：私密+公开');
   }
   if (plan.filters.archived !== null) {
-    summary.push(plan.filters.archived ? '归档内容' : '未归档内容');
+    summary.push(plan.filters.archived ? '归档范围：仅归档' : '归档范围：未归档');
+  } else if (plan.filters.archivedScopeSpecified) {
+    summary.push('归档范围：全部');
   }
   if (plan.comparison) {
     summary.push(`对比：${plan.comparison.groups.map((group) => group.label).join(' / ')}`);
@@ -862,9 +819,6 @@ export function buildNewSearchPlan(
   availableTags: string[]
 ): AiRetrievalPlan {
   const message = patch?.query || '';
-  const operations: AiRetrievalOperation[] = patch?.operations?.length
-    ? patch.operations
-    : ['summarize'];
   const filters = createDefaultFilters();
   if (patch?.tags?.include) filters.tags.include = patch.tags.include;
   if (patch?.tags?.exclude) filters.tags.exclude = patch.tags.exclude;
@@ -903,7 +857,6 @@ export function buildNewSearchPlan(
     message,
     {
       originalMessage: message,
-      operations,
       query: message,
       filters: scopedFilters,
       comparison,
@@ -927,7 +880,6 @@ export function mergePlan(
   const merged = { ...previousPlan, originalMessage: patch.query || previousPlan.originalMessage };
 
   if (patch.query) merged.query = patch.query;
-  if (patch.operations) merged.operations = patch.operations;
   if (patch.semanticScope) {
     merged.filters = {
       ...merged.filters,
@@ -1048,18 +1000,8 @@ function normalizePlan(
   rawPlan: AiRetrievalPlan,
   availableTags: string[]
 ): AiRetrievalPlan {
-  const filterResult = normalizeFilterScope(
-    message,
-    rawPlan.operations,
-    rawPlan.filters,
-    availableTags
-  );
-  const comparisonResult = normalizeComparison(
-    message,
-    rawPlan.operations,
-    rawPlan.comparison,
-    availableTags
-  );
+  const filterResult = normalizeFilterScope(message, rawPlan.filters, availableTags);
+  const comparisonResult = normalizeComparison(message, rawPlan.comparison, availableTags);
   const normalized: AiRetrievalPlan = {
     ...rawPlan,
     originalMessage: message,
@@ -1068,7 +1010,6 @@ function normalizePlan(
   };
   const comparisonMissing =
     rawPlan.needsClarification &&
-    rawPlan.operations.includes('compare') &&
     /对比|相比|比较|变化|compare/i.test(message) &&
     (!comparisonResult.comparison || comparisonResult.comparison.groups.length < 2);
   const needsClarification =
@@ -1094,15 +1035,14 @@ Schema:
 {
   "intent": "chat_only" | "new_search" | "more" | "replace_filter" | "add_filter" | "exclude_filter" | "clarify",
   "patch": {
-    "query": string (optional - the semantic search query),
+    "query": string (optional - the semantic search query; write the user's real information need, not an empty string),
     "tags": {"include": string[], "exclude": string[]} (optional),
     "semanticScope": string[] (optional - soft topic keywords that are NOT hard tags),
     "timeExpression": string (optional - e.g. "最近90天", "本月"),
     "sourceTypes": ("rote" | "article")[] (optional),
-    "operations": ("summarize" | "compare" | "timeline" | "find_open_loops" | "analyze_mood" | "analyze_stress" | "analyze_personality")[] (optional),
     "archivedScope": "active" | "archived" | "all" | "unspecified" (optional - Rote lifecycle filter),
     "taskStatusScope": "open" | "closed" | "all" | "unspecified" (optional - Rote task/open-loop status),
-    "comparison": {"mode": "tag_groups" | "filter_groups" | "time", "groups": [{"label": string, "tags": string[] (optional), "timeExpression": string (optional), "archivedScope": string (optional), "taskStatusScope": string (optional)}]} (optional - required when operations includes "compare")
+    "comparison": {"mode": "tag_groups" | "filter_groups" | "time", "groups": [{"label": string, "tags": string[] (optional), "timeExpression": string (optional), "archivedScope": string (optional), "taskStatusScope": string (optional)}]} (optional - required for compare/comparison questions)
   },
   "confidence": number (0-1),
   "reasonCode": "greeting" | "thanks" | "explicit_tag" | "bare_tag" | "explicit_time" | "note_analysis" | "more_results" | "replace_filter" | "exclude_filter" | "ambiguous_retrieve" | "followup_needs_context"
@@ -1120,13 +1060,14 @@ INTENT RULES:
 
 PATCH RULES:
 - patch only fills fields that CHANGE. Do NOT copy the full plan.
+- The model decides the retrieval strategy with query, semanticScope, filters, comparison, and sourceTypes. There is no operation enum.
+- For broad analysis requests (MBTI/personality, mood, stress, style, timeline, review), write an evidence-seeking query and soft semanticScope values that can retrieve diverse supporting notes. Do not leave query empty unless this is a pure hard-filter search.
 - Bare tag names matching available tags → intent="new_search", patch.tags.include=["tagname"].
 - Topic words that are not explicit tags, such as 产品/生活/AI/技术, should go into patch.semanticScope instead of patch.tags unless they exactly match an available tag or the user explicitly says #tag/标签.
-- For operations: 没收尾/Flag/TODO/待办/还没做 → "find_open_loops"; 心境/情绪/心情 → "analyze_mood"; 压力/焦虑 → "analyze_stress"; MBTI/性格 → "analyze_personality"; 时间线 → "timeline"; 对比/比较 → "compare".
 - Rote domain scopes: archivedScope filters the note lifecycle ("active" = not archived, "archived" = archived notes, "all" = both). taskStatusScope describes task semantics ("open" = unfinished/open task, "closed" = completed/closed task, "all" = both).
 - Archived notes are considered closed/completed for task analysis. For open-loop/TODO/Flag queries, set patch.taskStatusScope="open". If the user explicitly asks for archived/completed tasks, set taskStatusScope="closed" or archivedScope="archived".
 - Do NOT set archivedScope just because the word "归档/archive" is the topic of the note or feature (e.g. "归档功能 bug"). In that case keep archivedScope="unspecified" or omit it and keep the word in query.
-- When operations includes "compare", you MUST also fill patch.comparison with mode="tag_groups" (for comparing tags) or mode="time" (for comparing time periods). Each group needs a label and its own tags/timeExpression.
+- For compare/comparison questions, fill patch.comparison with mode="tag_groups" (for comparing tags), mode="time" (for comparing time periods), or mode="filter_groups". Each group needs a label and its own tags/timeExpression/scopes.
 - 笔记/记录 → patch.sourceTypes=["rote"]; 文章/长文 → ["article"].
 
 CONFIDENCE:
@@ -1281,7 +1222,6 @@ export function createFastRetrievalPlan(
       message,
       {
         originalMessage: message,
-        operations: ['summarize'],
         query: stripped || '',
         filters,
         comparison: null,

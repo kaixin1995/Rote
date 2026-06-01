@@ -413,13 +413,66 @@
         "empty": "まだソースがありません"
       },
       "scope": {
-        "title": "範囲"
+        "title": "範囲",
+        "paginationMore": "さらに表示",
+        "time": "時間：{{label}}",
+        "tags": "タグ：{{tags}}",
+        "excludeTags": "除外タグ：{{tags}}",
+        "semanticScope": "キーワード：{{keywords}}",
+        "sourceTypes": {
+          "rote": "種類：ノート",
+          "article": "種類：記事",
+          "all": "種類：ノート+記事"
+        },
+        "visibility": {
+          "private": "公開範囲：非公開",
+          "public": "公開範囲：公開",
+          "all": "公開範囲：非公開+公開"
+        },
+        "archive": {
+          "active": "アーカイブ：未アーカイブ",
+          "archived": "アーカイブ：アーカイブのみ",
+          "all": "アーカイブ：すべて"
+        },
+        "comparison": "比較：{{groups}}"
       },
       "timeline": {
-        "title": "進捗"
+        "title": "進捗",
+        "sourcesFound": "関連ソースを {{count}} 件見つけました",
+        "phases": {
+          "understanding": "質問を理解中",
+          "planning": "Rote を読む必要があるか判断中",
+          "tool_calling": "追加の根拠が必要か確認中",
+          "retrieving": "記録を検索中",
+          "reading": "記録を読み込み中",
+          "answering": "回答を整理中"
+        },
+        "tools": {
+          "rote_search_notes": "Rote を検索中",
+          "rote_get_note": "記録を読み込み中",
+          "rote_find_related_notes": "関連記録を検索中",
+          "rote_get_tags": "タグを読み込み中",
+          "rote_skill_view": "処理方法を選択中"
+        },
+        "toolStatus": {
+          "determining_scope": "検索範囲を確認中",
+          "retrieving_sources": "関連記録を検索中",
+          "reading_source": "記録内容を読み込み中",
+          "finding_related": "関連記録を検索中",
+          "loading_tags": "タグを読み込み中"
+        },
+        "toolDone": {
+          "default": "完了しました",
+          "rote_get_note": "記録を読み込みました",
+          "rote_find_related_notes": "関連記録を見つけました",
+          "rote_get_tags": "タグを読み込みました",
+          "rote_skill_view": "処理方法を決定しました"
+        }
       },
       "thinkingTrace": {
-        "planning": "範囲を確認中",
+        "route_decision": "Rote を検索するか判断中",
+        "evidence_decision": "追加の根拠が必要か判断中",
+        "retrieval_planning": "検索範囲を確認中",
         "answer": "回答を整理中",
         "separator": "：",
         "expand": "思考を見る",

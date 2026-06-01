@@ -12,11 +12,24 @@ export type RoteAgentPhase =
   | 'reading'
   | 'answering';
 
+export type RoteAgentToolProgressStatus =
+  | 'determining_scope'
+  | 'retrieving_sources'
+  | 'reading_source'
+  | 'finding_related'
+  | 'loading_tags';
+
+export type RoteAgentUsagePhase = 'planning' | 'tool_decision' | 'answer';
+export type RoteAgentThinkingPhase =
+  | 'route_decision'
+  | 'evidence_decision'
+  | 'retrieval_planning'
+  | 'answer';
+
 export type RoteAgentClientState = {
   conversationId?: string;
   previousPlan?: AiRetrievalPlan | null;
   seenSourceIds?: string[];
-  lastSources?: SemanticSearchResult[];
   selectedContext?: {
     currentRoteId?: string;
     currentArticleId?: string;
@@ -52,18 +65,18 @@ export type RoteAgentPolicy = {
 export type RoteAgentStreamEvent =
   | { type: 'run_started'; runId: string }
   | { type: 'skill_selected'; skillName: string }
-  | { type: 'progress'; phase: RoteAgentPhase; message: string }
-  | { type: 'heartbeat'; phase: RoteAgentPhase; message?: string }
+  | { type: 'progress'; phase: RoteAgentPhase }
+  | { type: 'heartbeat'; phase: RoteAgentPhase; seq: number; timestamp: string }
   | { type: 'tool_started'; toolName: string; args?: unknown }
-  | { type: 'tool_progress'; toolName: string; message: string }
-  | { type: 'tool_finished'; toolName: string; summary?: string }
+  | { type: 'tool_progress'; toolName: string; status: RoteAgentToolProgressStatus }
+  | { type: 'tool_finished'; toolName: string; summary?: unknown }
   | { type: 'sources'; sources: SemanticSearchResult[] }
   | { type: 'plan'; plan: AiRetrievalPlan }
   | { type: 'clarification'; question: string; pendingPlan: AiRetrievalPlan }
-  | { type: 'thinking'; phase: 'planning' | 'answer'; text: string }
+  | { type: 'thinking'; phase: RoteAgentThinkingPhase; text: string }
   | { type: 'delta'; text: string }
   | { type: 'state_patch'; state: Partial<RoteAgentClientState> }
-  | { type: 'usage'; usage: ChatCompletionUsage }
+  | { type: 'usage'; phase: RoteAgentUsagePhase; usage: ChatCompletionUsage }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
@@ -89,7 +102,7 @@ export type RoteAgentContext = {
 
 export type RoteAgentToolResult = {
   observations: string[];
-  displaySummary?: string;
+  displaySummary?: unknown;
   modelContent: string;
   sources?: SemanticSearchResult[];
   plan?: AiRetrievalPlan;

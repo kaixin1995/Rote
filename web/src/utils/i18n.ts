@@ -23,6 +23,9 @@ i18n.use(initReactI18next).init({
   fallbackLng: userLang,
   supportedLngs: ['en', 'zh', 'ja'],
   lng: ['en', 'zh', 'ja'].includes(userLang) ? userLang : 'en',
+  interpolation: {
+    escapeValue: false,
+  },
   react: {
     useSuspense: true,
     bindI18n: 'languageChanged',

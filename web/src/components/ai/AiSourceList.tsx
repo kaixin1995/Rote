@@ -1,7 +1,12 @@
 import type { AiSemanticResult } from '@/utils/aiApi';
-import { useMemo } from 'react';
+import { type CSSProperties, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+
+const sourceTextStyle: CSSProperties = {
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-all',
+};
 
 function getSourcePath(source: AiSemanticResult) {
   return source.sourceType === 'article'
@@ -14,7 +19,7 @@ export function cleanSourceText(text: string): string {
 }
 
 function getSourcePreview(source: AiSemanticResult) {
-  return cleanSourceText(source.text).replace(/\s+/g, ' ');
+  return (source.preview || cleanSourceText(source.text || '')).replace(/\s+/g, ' ');
 }
 
 function getSimilarityPercent(source: AiSemanticResult) {
@@ -38,35 +43,46 @@ export function AiSourceList({
   const visibleSources = useMemo(() => sources || [], [sources]);
 
   return (
-    <div className={className}>
-      {title && <div className="px-4 py-3 text-sm font-semibold">{title}</div>}
+    <div className={`min-w-0 overflow-hidden ${className}`}>
+      {title && <div className="min-w-0 truncate px-4 py-3 text-sm font-semibold">{title}</div>}
       {visibleSources.length === 0 ? (
         <div className="text-info px-4 py-6 text-center text-sm font-light">
           {emptyLabel || t('empty')}
         </div>
       ) : (
-        <div className="divide-y">
+        <div className="min-w-0 divide-y overflow-hidden">
           {visibleSources.map((source, index) => {
             const titleText = source.metadata?.title || getSourcePreview(source) || t('untitled');
+            const previewText = getSourcePreview(source);
             return (
               <Link
                 key={`${source.sourceType}-${source.sourceId}`}
                 to={getSourcePath(source)}
-                className="hover:bg-foreground/3 block px-4 py-3 duration-200"
+                className="hover:bg-foreground/3 block max-w-full min-w-0 overflow-hidden px-4 py-3 duration-200"
               >
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-info flex items-center gap-2 text-xs font-medium">
-                      <span className="font-mono">[{index + 1}]</span>
-                      <span className="font-medium">
+                <div className="flex max-w-full min-w-0 items-start gap-3 overflow-hidden">
+                  <div className="max-w-full min-w-0 flex-1 overflow-hidden">
+                    <div className="text-info flex min-w-0 items-center gap-2 text-xs font-medium">
+                      <span className="shrink-0 font-mono">[{index + 1}]</span>
+                      <span className="min-w-0 truncate font-medium">
                         {source.sourceType === 'article' ? t('article') : t('rote')}
                       </span>
-                      <span className="ml-auto font-mono">{getSimilarityPercent(source)}%</span>
+                      <span className="ml-auto shrink-0 font-mono">
+                        {getSimilarityPercent(source)}%
+                      </span>
                     </div>
-                    <div className="mt-1 line-clamp-1 text-sm">{titleText}</div>
+                    <div
+                      className="mt-1 line-clamp-2 max-w-full min-w-0 overflow-hidden text-sm leading-6 whitespace-normal"
+                      style={sourceTextStyle}
+                    >
+                      {titleText}
+                    </div>
                     {!compact && (
-                      <div className="text-info mt-1 line-clamp-2 text-xs font-light">
-                        {getSourcePreview(source)}
+                      <div
+                        className="text-info mt-1 line-clamp-2 max-w-full min-w-0 overflow-hidden text-xs leading-5 font-light whitespace-normal"
+                        style={sourceTextStyle}
+                      >
+                        {previewText}
                       </div>
                     )}
                   </div>
