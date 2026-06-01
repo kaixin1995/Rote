@@ -89,6 +89,7 @@ export type RoteAgentContext = {
 
 export type RoteAgentToolResult = {
   observations: string[];
+  displaySummary?: string;
   modelContent: string;
   sources?: SemanticSearchResult[];
   plan?: AiRetrievalPlan;

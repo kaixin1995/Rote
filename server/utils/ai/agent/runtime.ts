@@ -222,7 +222,7 @@ export async function runRoteAgentStream(params: {
   let emittedText = false;
 
   await params.emit({ type: 'run_started', runId });
-  await params.emit({ type: 'progress', phase: 'understanding', message: '正在理解问题' });
+  await params.emit({ type: 'progress', phase: 'understanding', message: '正在理解问题和目标' });
 
   for (let step = 0; step < policy.maxIterations; step += 1) {
     const phase: RoteAgentPhase = step === 0 ? 'planning' : 'tool_calling';
@@ -232,7 +232,7 @@ export async function runRoteAgentStream(params: {
         params.emit,
         policy,
         phase,
-        step === 0 ? '正在判断是否需要查询 Rote' : '正在判断是否需要补查',
+        step === 0 ? '正在判断是否需要读取记录' : '正在确认是否需要更多证据',
         () =>
           createChatCompletionWithTools(
             params.config.chat,
@@ -320,7 +320,7 @@ export async function runRoteAgentStream(params: {
       await params.emit({
         type: 'tool_finished',
         toolName: toolCall.function.name,
-        summary: result.observations.join(' '),
+        summary: result.displaySummary || result.observations.join(' '),
       });
 
       messages.push({

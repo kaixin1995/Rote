@@ -127,6 +127,30 @@ function formatRegisteredSources(
   }));
 }
 
+function formatSourceTypeLabel(sources: SemanticSearchResult[]): string {
+  const sourceTypes = new Set(sources.map((source) => source.sourceType));
+  if (sourceTypes.size === 1 && sourceTypes.has('rote')) return '笔记';
+  if (sourceTypes.size === 1 && sourceTypes.has('article')) return '文章';
+  return '记录';
+}
+
+function formatSampleStatusLabel(sampleStatus: 'no_evidence' | 'limited_sample' | 'adequate') {
+  if (sampleStatus === 'no_evidence') return '没有足够证据';
+  if (sampleStatus === 'limited_sample') return '样本偏少，结论会保守';
+  return '样本量足够';
+}
+
+function formatSearchDisplaySummary(
+  sources: SemanticSearchResult[],
+  diagnostics: { sampleStatus: 'no_evidence' | 'limited_sample' | 'adequate' }
+): string {
+  if (sources.length === 0) return '没有找到可用的相关记录';
+  const sourceLabel = formatSourceTypeLabel(sources);
+  return `找到 ${sources.length} 条相关${sourceLabel}，${formatSampleStatusLabel(
+    diagnostics.sampleStatus
+  )}`;
+}
+
 function toModelContent(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
@@ -307,6 +331,7 @@ async function executeSearchNotes(
       `Found ${sources.length} source(s).`,
       `Sample status: ${diagnostics.sampleStatus}.`,
     ],
+    displaySummary: formatSearchDisplaySummary(sources, diagnostics),
     sources,
     plan,
     statePatch,
