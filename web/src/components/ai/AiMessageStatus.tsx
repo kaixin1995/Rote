@@ -1,5 +1,5 @@
 import type { AiMemoryMessage } from '@/state/aiChat';
-import { Brain, Loader, SlidersHorizontal } from 'lucide-react';
+import { Brain, Check, Loader, SlidersHorizontal, Workflow } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -45,6 +45,32 @@ export function ScopeSummary({ message, title }: { message: AiMemoryMessage; tit
   }
 
   return null;
+}
+
+export function AgentTimeline({ message, title }: { message: AiMemoryMessage; title: string }) {
+  const items = message.timeline || [];
+  if (items.length === 0) return null;
+
+  const visibleItems = items.slice(-5);
+  return (
+    <div className="space-y-0.5 text-xs leading-5">
+      <div className="flex items-center gap-1.5">
+        <AiStatusTitle icon={<Workflow className="size-3 shrink-0" />}>{title}:</AiStatusTitle>
+      </div>
+      <div className="space-y-0.5">
+        {visibleItems.map((item) => (
+          <div key={item.id} className="text-muted-foreground flex min-w-0 items-center gap-1.5">
+            {item.status === 'done' ? (
+              <Check className="size-3 shrink-0" />
+            ) : (
+              <Loader className="size-3 shrink-0 animate-spin" />
+            )}
+            <span className="min-w-0 truncate">{item.message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 type ThinkingPhase = 'planning' | 'answer';

@@ -404,6 +404,9 @@
       "scope": {
         "title": "范围"
       },
+      "timeline": {
+        "title": "进度"
+      },
       "thinkingTrace": {
         "planning": "正在确定范围",
         "answer": "正在组织回答",

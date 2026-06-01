@@ -7,7 +7,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
 import type { AiMemoryMessage } from '@/state/aiChat';
 import { aiChatMessagesAtom } from '@/state/aiChat';
-import { aiChatStream, getAiStatus } from '@/utils/aiApi';
+import {
+  aiAgentStream,
+  getAiStatus,
+  type AiAgentClientState,
+  type AiAgentPhase,
+} from '@/utils/aiApi';
 import { post } from '@/utils/api';
 import { useAPIGet } from '@/utils/fetcher';
 import { useAtom } from 'jotai';
@@ -70,6 +75,11 @@ function AiMemoryPage() {
   const messageEndRef = useRef<HTMLDivElement>(null);
   const activeStreamRef = useRef<ActiveStream | null>(null);
   const seenSourceIdsRef = useRef<Set<string>>(new Set());
+  const agentStateRef = useRef<AiAgentClientState>({
+    conversationId: createMessageId(),
+    seenSourceIds: [],
+    stateVersion: 1,
+  });
   const currentIsMoreRef = useRef(false);
 
   const {
@@ -127,6 +137,11 @@ function AiMemoryPage() {
   const clearChat = useCallback(() => {
     setMessages([]);
     seenSourceIdsRef.current.clear();
+    agentStateRef.current = {
+      conversationId: createMessageId(),
+      seenSourceIds: [],
+      stateVersion: 1,
+    };
   }, [setMessages]);
 
   function flushStreamContent(assistantId: string) {
@@ -149,6 +164,56 @@ function AiMemoryPage() {
     if (stream.frame === null) {
       stream.frame = window.requestAnimationFrame(() => flushStreamContent(assistantId));
     }
+  }
+
+  function updateTimeline(
+    assistantId: string,
+    item: {
+      id: string;
+      type: 'progress' | 'tool';
+      phase?: AiAgentPhase;
+      toolName?: string;
+      message: string;
+      status?: 'running' | 'done' | 'error';
+    }
+  ) {
+    const updatedAt = Date.now();
+    setMessages((prev) =>
+      prev.map((message) => {
+        if (message.id !== assistantId) return message;
+        const current = message.timeline || [];
+        const existingIndex = current.findIndex((entry) => entry.id === item.id);
+        const nextItem = {
+          id: item.id,
+          type: item.type,
+          phase: item.phase,
+          toolName: item.toolName,
+          message: item.message,
+          status: item.status || 'running',
+          updatedAt,
+        };
+        const next =
+          existingIndex >= 0
+            ? current.map((entry, index) =>
+                index === existingIndex ? { ...entry, ...nextItem } : entry
+              )
+            : [...current, nextItem];
+        return { ...message, timeline: next.slice(-10) };
+      })
+    );
+  }
+
+  function mergeAgentState(state: Partial<AiAgentClientState>) {
+    const previous = agentStateRef.current;
+    const seenSourceIds = new Set([
+      ...(previous.seenSourceIds || []),
+      ...(state.seenSourceIds || []),
+    ]);
+    agentStateRef.current = {
+      ...previous,
+      ...state,
+      seenSourceIds: Array.from(seenSourceIds).slice(0, 500),
+    };
   }
 
   async function sendMessage(value: string, options: { ignorePendingPlan?: boolean } = {}) {
@@ -194,7 +259,7 @@ function AiMemoryPage() {
       const excludeIds =
         seenSourceIdsRef.current.size > 0 ? Array.from(seenSourceIdsRef.current) : undefined;
 
-      await aiChatStream(
+      await aiAgentStream(
         {
           message: question,
           limit: 8,
@@ -203,13 +268,65 @@ function AiMemoryPage() {
           previousPlan,
           excludeIds,
           history: validHistory.length > 0 ? validHistory : undefined,
+          state: {
+            ...agentStateRef.current,
+            previousPlan,
+            seenSourceIds: excludeIds,
+            lastSources: latestSources,
+            stateVersion: 1,
+          },
         },
         {
+          onRunStarted: (runId) => {
+            mergeAgentState({ conversationId: runId });
+          },
+          onProgress: (phase, message) => {
+            updateTimeline(assistantId, {
+              id: `progress-${phase}`,
+              type: 'progress',
+              phase,
+              message,
+            });
+          },
+          onHeartbeat: (phase, message) => {
+            updateTimeline(assistantId, {
+              id: `progress-${phase}`,
+              type: 'progress',
+              phase,
+              message: message || '...',
+            });
+          },
+          onToolStarted: (toolName) => {
+            updateTimeline(assistantId, {
+              id: `tool-${toolName}`,
+              type: 'tool',
+              toolName,
+              message: toolName,
+            });
+          },
+          onToolProgress: (toolName, message) => {
+            updateTimeline(assistantId, {
+              id: `tool-${toolName}`,
+              type: 'tool',
+              toolName,
+              message,
+            });
+          },
+          onToolFinished: (toolName, summary) => {
+            updateTimeline(assistantId, {
+              id: `tool-${toolName}`,
+              type: 'tool',
+              toolName,
+              message: summary || toolName,
+              status: 'done',
+            });
+          },
           onPlan: (plan) => {
             currentIsMoreRef.current = plan.pagination === 'more';
             if (!currentIsMoreRef.current) {
               seenSourceIdsRef.current.clear();
             }
+            mergeAgentState({ previousPlan: plan });
             const planTime = performance.now() - start;
             setMessages((prev) =>
               prev.map((message) =>
@@ -244,6 +361,10 @@ function AiMemoryPage() {
           },
           onSources: (sources) => {
             sources.forEach((s) => seenSourceIdsRef.current.add(`${s.sourceType}:${s.sourceId}`));
+            mergeAgentState({
+              lastSources: sources,
+              seenSourceIds: Array.from(seenSourceIdsRef.current),
+            });
             const sourcesTime = performance.now() - start;
             setMessages((prev) =>
               prev.map((message) =>
@@ -289,6 +410,12 @@ function AiMemoryPage() {
                   : message
               )
             );
+          },
+          onStatePatch: (state) => {
+            mergeAgentState(state);
+            if (state.seenSourceIds?.length) {
+              state.seenSourceIds.forEach((id) => seenSourceIdsRef.current.add(id));
+            }
           },
         }
       );

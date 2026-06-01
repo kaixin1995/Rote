@@ -1,4 +1,9 @@
-import { AiStatusTitle, ScopeSummary, ThinkingTrace } from '@/components/ai/AiMessageStatus';
+import {
+  AgentTimeline,
+  AiStatusTitle,
+  ScopeSummary,
+  ThinkingTrace,
+} from '@/components/ai/AiMessageStatus';
 import { cleanSourceText, getAiSourcePath } from '@/components/ai/AiSourceList';
 import { Button } from '@/components/ui/button';
 import type { AiMemoryMessage } from '@/state/aiChat';
@@ -25,6 +30,9 @@ export function AiMessageItem({
       <div className="mx-auto flex max-w-3xl flex-col gap-2 text-sm">
         {message.role === 'assistant' && (
           <ScopeSummary message={message} title={t('scope.title')} />
+        )}
+        {message.role === 'assistant' && (
+          <AgentTimeline message={message} title={t('timeline.title')} />
         )}
         {message.role === 'assistant' && <ThinkingTrace message={message} />}
         {message.role === 'assistant' && (message.sources?.length || 0) > 0 && (

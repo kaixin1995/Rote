@@ -414,6 +414,9 @@
       "scope": {
         "title": "範囲"
       },
+      "timeline": {
+        "title": "進捗"
+      },
       "thinkingTrace": {
         "planning": "範囲を確認中",
         "answer": "回答を整理中",

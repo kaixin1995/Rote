@@ -269,6 +269,20 @@ describe('sanitizePlannerOutput', () => {
     expect(result.patch?.taskStatusScope).toBe('open');
     expect(result.patch?.archivedScope).toBe('active');
   });
+
+  it('parses semantic scope keywords separately from tags', () => {
+    const raw = {
+      intent: 'new_search',
+      patch: {
+        query: '产品相关记录',
+        semanticScope: ['产品', 'AI', '产品'],
+      },
+      confidence: 0.9,
+      reasonCode: 'note_analysis',
+    };
+    const result = sanitizePlannerOutput(raw, '产品相关记录');
+    expect(result.patch?.semanticScope).toEqual(['产品', 'AI']);
+  });
 });
 
 // ─── reducePlan ─────────────────────────────────────────────────────────────
@@ -538,6 +552,13 @@ describe('buildNewSearchPlan', () => {
     expect(plan.retrievalNeeded).toBe(true);
     expect(plan.filters.tags.include).toContain('大喜');
     expect(plan.query).toBe('开心的事');
+  });
+
+  it('builds plan from patch with semantic scope', () => {
+    const plan = buildNewSearchPlan({ query: '相关记录', semanticScope: ['产品'] }, AVAILABLE_TAGS);
+    expect(plan.filters.tags.include).toEqual([]);
+    expect(plan.filters.semanticScope).toEqual(['产品']);
+    expect(plan.summary).toContain('关键词：产品');
   });
 
   it('builds plan from patch with time', () => {

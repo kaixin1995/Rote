@@ -8,6 +8,11 @@ import {
   testChatProvider,
   testEmbeddingProvider,
 } from '../../utils/ai/client';
+import {
+  isAgentToolCallingUnavailableError,
+  runRoteAgentStream,
+  type RoteAgentStreamEvent,
+} from '../../utils/ai/agent/runtime';
 import { AI_PROVIDER_PRESETS, resolveIncomingAiConfig } from '../../utils/ai/providers';
 import {
   type AiSourceType,
@@ -43,6 +48,84 @@ async function writeSseEvent(
     event,
     data: JSON.stringify(data),
   });
+}
+
+async function writeAgentSseEvent(
+  stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
+  event: RoteAgentStreamEvent
+): Promise<void> {
+  const data = { ...(event as any) };
+  delete data.type;
+  await writeSseEvent(stream, event.type, data);
+}
+
+async function streamLegacyChatResponse(
+  stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
+  user: User,
+  body: any,
+  message: string
+): Promise<void> {
+  const { config, messages, sources, clarification } = await prepareRoteChatContext({
+    ownerId: user.id,
+    message,
+    limit: body?.limit,
+    pendingPlan: body?.pendingPlan,
+    clarificationAnswer: body?.clarificationAnswer,
+    previousPlan: body?.previousPlan,
+    excludeIds: body?.excludeIds,
+    history: body?.history,
+    onPlanThinkingDelta: async (text) => {
+      await writeSseEvent(stream, 'thinking', { phase: 'planning', text });
+    },
+    onPlanGenerated: async (generatedPlan) => {
+      await writeSseEvent(stream, 'plan', { plan: generatedPlan });
+    },
+  });
+
+  if (clarification) {
+    await writeSseEvent(stream, 'clarification', clarification);
+    await writeSseEvent(stream, 'done', {});
+    return;
+  }
+
+  await writeSseEvent(stream, 'sources', { sources });
+
+  let emittedText = false;
+  let lastUsage: any = null;
+  for await (const part of createChatCompletionStreamParts(config.chat, messages, {
+    enableThinking: true,
+  })) {
+    if (part.type === 'reasoning') {
+      await writeSseEvent(stream, 'thinking', { phase: 'answer', text: part.text });
+    } else if (part.type === 'usage') {
+      lastUsage = part.usage;
+    } else if (part.text) {
+      emittedText = true;
+      await writeSseEvent(stream, 'delta', { text: part.text });
+    }
+  }
+
+  if (lastUsage) {
+    logAiTokenUsage({
+      userid: user.id,
+      model: config.chat.model,
+      type: 'chat',
+      promptTokens: lastUsage.prompt_tokens,
+      completionTokens: lastUsage.completion_tokens,
+      totalTokens: lastUsage.total_tokens,
+    });
+    await writeSseEvent(stream, 'usage', lastUsage);
+  }
+
+  if (!emittedText) {
+    await writeSseEvent(stream, 'delta', {
+      text: sources.length
+        ? 'I found related Rote memory, but the model did not return a usable answer. Please try again or narrow the scope.'
+        : 'No matching Rote memory was found for this question, so I cannot answer from your notes yet.',
+    });
+  }
+
+  await writeSseEvent(stream, 'done', {});
 }
 
 aiRouter.get('/providers', authenticateJWT, requireAdmin, (c: HonoContext) =>
@@ -247,6 +330,64 @@ aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) =>
   return c.json(createResponse(result), 200);
 });
 
+aiRouter.post('/agent/stream', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
+  const user = c.get('user') as User;
+  if (!(await isAiEligibleUser(user.id))) {
+    return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+  }
+
+  const body = await c.req.json();
+  const message = String(body?.message || '').trim();
+
+  if (!message) {
+    return c.json(createResponse(null, 'Message is required'), 400);
+  }
+
+  return streamSSE(c, async (stream) => {
+    try {
+      await stream.write(': connected\n\n');
+      const config = await getStoredAiConfig();
+      if (!config.enabled) {
+        throw new Error('AI is disabled');
+      }
+
+      try {
+        await runRoteAgentStream({
+          userId: user.id,
+          request: {
+            message,
+            mode: body?.mode,
+            history: body?.history,
+            state: body?.state,
+            selectedContext: body?.selectedContext,
+            debug: body?.debug,
+            limit: body?.limit,
+            previousPlan: body?.previousPlan,
+            excludeIds: body?.excludeIds,
+            pendingPlan: body?.pendingPlan,
+            clarificationAnswer: body?.clarificationAnswer,
+          },
+          config,
+          emit: (event) => writeAgentSseEvent(stream, event),
+        });
+      } catch (error) {
+        if (!isAgentToolCallingUnavailableError(error)) {
+          throw error;
+        }
+        await writeSseEvent(stream, 'progress', {
+          phase: 'planning',
+          message: '当前模型不支持工具调用，正在使用兼容模式',
+        });
+        await streamLegacyChatResponse(stream, user, body, message);
+      }
+    } catch (error: any) {
+      await writeSseEvent(stream, 'error', {
+        message: error?.message || 'AI agent stream failed',
+      });
+    }
+  });
+});
+
 aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
   if (!(await isAiEligibleUser(user.id))) {
@@ -263,67 +404,7 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
   return streamSSE(c, async (stream) => {
     try {
       await stream.write(': connected\n\n');
-      const { config, messages, sources, clarification } = await prepareRoteChatContext({
-        ownerId: user.id,
-        message,
-        limit: body?.limit,
-        pendingPlan: body?.pendingPlan,
-        clarificationAnswer: body?.clarificationAnswer,
-        previousPlan: body?.previousPlan,
-        excludeIds: body?.excludeIds,
-        history: body?.history,
-        onPlanThinkingDelta: async (text) => {
-          await writeSseEvent(stream, 'thinking', { phase: 'planning', text });
-        },
-        onPlanGenerated: async (generatedPlan) => {
-          await writeSseEvent(stream, 'plan', { plan: generatedPlan });
-        },
-      });
-
-      if (clarification) {
-        await writeSseEvent(stream, 'clarification', clarification);
-        await writeSseEvent(stream, 'done', {});
-        return;
-      }
-
-      await writeSseEvent(stream, 'sources', { sources });
-
-      let emittedText = false;
-      let lastUsage: any = null;
-      for await (const part of createChatCompletionStreamParts(config.chat, messages, {
-        enableThinking: true,
-      })) {
-        if (part.type === 'reasoning') {
-          await writeSseEvent(stream, 'thinking', { phase: 'answer', text: part.text });
-        } else if (part.type === 'usage') {
-          lastUsage = part.usage;
-        } else if (part.text) {
-          emittedText = true;
-          await writeSseEvent(stream, 'delta', { text: part.text });
-        }
-      }
-
-      if (lastUsage) {
-        logAiTokenUsage({
-          userid: user.id,
-          model: config.chat.model,
-          type: 'chat',
-          promptTokens: lastUsage.prompt_tokens,
-          completionTokens: lastUsage.completion_tokens,
-          totalTokens: lastUsage.total_tokens,
-        });
-        await writeSseEvent(stream, 'usage', lastUsage);
-      }
-
-      if (!emittedText) {
-        await writeSseEvent(stream, 'delta', {
-          text: sources.length
-            ? 'I found related Rote memory, but the model did not return a usable answer. Please try again or narrow the scope.'
-            : 'No matching Rote memory was found for this question, so I cannot answer from your notes yet.',
-        });
-      }
-
-      await writeSseEvent(stream, 'done', {});
+      await streamLegacyChatResponse(stream, user, body, message);
     } catch (error: any) {
       await writeSseEvent(stream, 'error', {
         message: error?.message || 'AI stream failed',

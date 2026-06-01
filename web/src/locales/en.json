@@ -414,6 +414,9 @@
       "scope": {
         "title": "Scope"
       },
+      "timeline": {
+        "title": "Progress"
+      },
       "thinkingTrace": {
         "planning": "Determining scope",
         "answer": "Thinking through answer",

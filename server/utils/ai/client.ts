@@ -1,8 +1,28 @@
 import type { AiProviderConfig } from '../../types/config';
 
+export type ChatToolCall = {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
 export type ChatMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_call_id?: string;
+  tool_calls?: ChatToolCall[];
+};
+
+export type ChatToolDefinition = {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
 };
 
 export type ChatCompletionOptions = {
@@ -74,6 +94,8 @@ function buildChatRequestBody(
     temperature: number;
     stream?: boolean;
     enableThinking?: boolean;
+    tools?: ChatToolDefinition[];
+    toolChoice?: 'auto' | 'none';
   }
 ): Record<string, unknown> {
   return {
@@ -81,6 +103,7 @@ function buildChatRequestBody(
     messages: body.messages,
     temperature: body.temperature,
     ...(body.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
+    ...(body.tools?.length ? { tools: body.tools, tool_choice: body.toolChoice || 'auto' } : {}),
     ...(config.providerId === 'dashscope' && typeof body.enableThinking === 'boolean'
       ? { enable_thinking: body.enableThinking }
       : {}),
@@ -158,6 +181,71 @@ export async function createChatCompletion(
 
   return {
     content,
+    usage: body?.usage
+      ? {
+          prompt_tokens: body.usage.prompt_tokens || 0,
+          completion_tokens: body.usage.completion_tokens || 0,
+          total_tokens: body.usage.total_tokens || 0,
+        }
+      : undefined,
+  };
+}
+
+export async function createChatCompletionWithTools(
+  config: AiProviderConfig,
+  messages: ChatMessage[],
+  tools: ChatToolDefinition[],
+  options: ChatCompletionOptions = {}
+): Promise<{
+  message: ChatMessage;
+  usage?: ChatCompletionUsage;
+}> {
+  ensureProviderConfig(config);
+
+  const response = await fetch(`${normalizeBaseUrl(config.baseUrl)}/chat/completions`, {
+    method: 'POST',
+    headers: buildHeaders(config),
+    body: JSON.stringify(
+      buildChatRequestBody(config, {
+        messages,
+        tools,
+        toolChoice: 'auto',
+        temperature: options.temperature ?? 0.2,
+        enableThinking: options.enableThinking,
+      })
+    ),
+  });
+  const body = await readJsonResponse(response);
+  const message = body?.choices?.[0]?.message;
+
+  if (!message || typeof message !== 'object') {
+    throw new Error('Chat provider returned an invalid tool completion response');
+  }
+
+  const toolCalls = Array.isArray(message.tool_calls)
+    ? message.tool_calls
+        .filter(
+          (call: any) =>
+            typeof call?.id === 'string' &&
+            call?.type === 'function' &&
+            typeof call?.function?.name === 'string'
+        )
+        .map((call: any) => ({
+          id: call.id,
+          type: 'function' as const,
+          function: {
+            name: call.function.name,
+            arguments: typeof call.function.arguments === 'string' ? call.function.arguments : '{}',
+          },
+        }))
+    : undefined;
+
+  return {
+    message: {
+      role: 'assistant',
+      content: typeof message.content === 'string' ? message.content : null,
+      tool_calls: toolCalls,
+    },
     usage: body?.usage
       ? {
           prompt_tokens: body.usage.prompt_tokens || 0,

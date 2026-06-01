@@ -1,5 +1,5 @@
 import { atomWithStorage } from 'jotai/utils';
-import type { AiRetrievalPlan, AiSemanticResult } from '@/utils/aiApi';
+import type { AiAgentPhase, AiRetrievalPlan, AiSemanticResult } from '@/utils/aiApi';
 
 export type AiMessageMetrics = {
   planTime?: number;
@@ -28,6 +28,15 @@ export type AiMemoryMessage = {
     planning?: string;
     answer?: string;
   };
+  timeline?: Array<{
+    id: string;
+    type: 'progress' | 'tool';
+    phase?: AiAgentPhase;
+    toolName?: string;
+    message: string;
+    status: 'running' | 'done' | 'error';
+    updatedAt: number;
+  }>;
   /** Transient — never persisted. */
   isStreaming?: boolean;
 };

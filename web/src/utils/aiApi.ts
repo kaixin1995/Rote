@@ -103,12 +103,41 @@ export interface AiClarification {
   pendingPlan: AiRetrievalPlan;
 }
 
+export type AiAgentPhase =
+  | 'understanding'
+  | 'planning'
+  | 'tool_calling'
+  | 'retrieving'
+  | 'reading'
+  | 'answering';
+
+export interface AiAgentClientState {
+  conversationId?: string;
+  previousPlan?: AiRetrievalPlan | null;
+  seenSourceIds?: string[];
+  lastSources?: AiSemanticResult[];
+  selectedContext?: {
+    currentRoteId?: string;
+    currentArticleId?: string;
+    selectedSourceIds?: string[];
+    selectedTags?: string[];
+  } | null;
+  stateVersion?: number;
+}
+
 export type AiChatStreamHandlers = {
+  onRunStarted?: (runId: string) => void;
+  onProgress?: (phase: AiAgentPhase, message: string) => void;
+  onHeartbeat?: (phase: AiAgentPhase, message?: string) => void;
+  onToolStarted?: (toolName: string, args?: unknown) => void;
+  onToolProgress?: (toolName: string, message: string) => void;
+  onToolFinished?: (toolName: string, summary?: string) => void;
   onPlan?: (plan: AiRetrievalPlan) => void;
   onClarification?: (clarification: AiClarification) => void;
   onSources?: (sources: AiSemanticResult[]) => void;
   onThinking?: (phase: 'planning' | 'answer', text: string) => void;
   onDelta?: (text: string) => void;
+  onStatePatch?: (state: Partial<AiAgentClientState>) => void;
   onUsage?: (usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -122,21 +151,28 @@ export const getAiStatus = () => get('/ai/status').then((res) => res.data as AiS
 
 export type AiChatPayload = {
   message: string;
+  mode?: 'chat' | 'review' | 'organize';
   limit?: number;
   pendingPlan?: AiRetrievalPlan | null;
   clarificationAnswer?: string;
   previousPlan?: AiRetrievalPlan | null;
   excludeIds?: string[];
   history?: { role: 'user' | 'assistant'; content: string }[];
+  state?: AiAgentClientState | null;
+  debug?: boolean;
 };
 
 export const aiChat = (payload: AiChatPayload) =>
   post('/ai/chat', payload).then((res) => res.data as AiChatResponse);
 
-async function createAiChatStreamRequest(payload: AiChatPayload, signal?: AbortSignal) {
+async function createAiStreamRequest(
+  endpoint: '/ai/chat/stream' | '/ai/agent/stream',
+  payload: AiChatPayload,
+  signal?: AbortSignal
+) {
   let token = authService.getAccessToken();
   const request = () =>
-    fetch(`${getApiUrl()}/ai/chat/stream`, {
+    fetch(`${getApiUrl()}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -192,7 +228,23 @@ export async function aiChatStream(
   handlers: AiChatStreamHandlers,
   signal?: AbortSignal
 ): Promise<void> {
-  const response = await createAiChatStreamRequest(payload, signal);
+  const response = await createAiStreamRequest('/ai/chat/stream', payload, signal);
+  await readAiStreamResponse(response, handlers);
+}
+
+export async function aiAgentStream(
+  payload: AiChatPayload,
+  handlers: AiChatStreamHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const response = await createAiStreamRequest('/ai/agent/stream', payload, signal);
+  await readAiStreamResponse(response, handlers);
+}
+
+async function readAiStreamResponse(
+  response: Response,
+  handlers: AiChatStreamHandlers
+): Promise<void> {
   if (!response.ok) {
     throw new Error(await readResponseError(response));
   }
@@ -209,7 +261,29 @@ export async function aiChatStream(
     const parsed = parseSseEvent(block);
     if (!parsed) return;
 
-    if (parsed.event === 'plan') {
+    if (parsed.event === 'run_started') {
+      const runId = (parsed.data as { runId?: string })?.runId;
+      if (runId) handlers.onRunStarted?.(runId);
+    } else if (parsed.event === 'progress') {
+      const data = parsed.data as { phase?: AiAgentPhase; message?: string };
+      if (data.phase && typeof data.message === 'string') {
+        handlers.onProgress?.(data.phase, data.message);
+      }
+    } else if (parsed.event === 'heartbeat') {
+      const data = parsed.data as { phase?: AiAgentPhase; message?: string };
+      if (data.phase) handlers.onHeartbeat?.(data.phase, data.message);
+    } else if (parsed.event === 'tool_started') {
+      const data = parsed.data as { toolName?: string; args?: unknown };
+      if (data.toolName) handlers.onToolStarted?.(data.toolName, data.args);
+    } else if (parsed.event === 'tool_progress') {
+      const data = parsed.data as { toolName?: string; message?: string };
+      if (data.toolName && typeof data.message === 'string') {
+        handlers.onToolProgress?.(data.toolName, data.message);
+      }
+    } else if (parsed.event === 'tool_finished') {
+      const data = parsed.data as { toolName?: string; summary?: string };
+      if (data.toolName) handlers.onToolFinished?.(data.toolName, data.summary);
+    } else if (parsed.event === 'plan') {
       const plan = (parsed.data as { plan?: AiRetrievalPlan })?.plan;
       if (plan) handlers.onPlan?.(plan);
     } else if (parsed.event === 'clarification') {
@@ -228,6 +302,9 @@ export async function aiChatStream(
     } else if (parsed.event === 'delta') {
       const text = (parsed.data as { text?: string })?.text;
       if (typeof text === 'string') handlers.onDelta?.(text);
+    } else if (parsed.event === 'state_patch') {
+      const state = (parsed.data as { state?: Partial<AiAgentClientState> })?.state;
+      if (state) handlers.onStatePatch?.(state);
     } else if (parsed.event === 'usage') {
       const usage = parsed.data as {
         prompt_tokens: number;

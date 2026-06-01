@@ -93,6 +93,7 @@ export interface PlannerOutput {
   patch?: {
     query?: string;
     tags?: { include?: string[]; exclude?: string[] };
+    semanticScope?: string[];
     timeExpression?: string;
     sourceTypes?: ('rote' | 'article')[];
     operations?: AiRetrievalOperation[];
@@ -284,6 +285,9 @@ export function sanitizePlannerOutput(raw: any, message: string): PlannerOutput 
         include: uniqueStrings(raw.patch.tags.include),
         exclude: uniqueStrings(raw.patch.tags.exclude),
       };
+    }
+    if (Array.isArray(raw.patch.semanticScope)) {
+      patch.semanticScope = uniqueStrings(raw.patch.semanticScope).slice(0, 20);
     }
     if (typeof raw.patch.timeExpression === 'string')
       patch.timeExpression = raw.patch.timeExpression;
@@ -864,6 +868,7 @@ export function buildNewSearchPlan(
   const filters = createDefaultFilters();
   if (patch?.tags?.include) filters.tags.include = patch.tags.include;
   if (patch?.tags?.exclude) filters.tags.exclude = patch.tags.exclude;
+  if (patch?.semanticScope) filters.semanticScope = patch.semanticScope;
   if (patch?.sourceTypes) filters.sourceTypes = patch.sourceTypes;
   if (patch?.timeExpression) {
     filters.time = detectFastTime(patch.timeExpression);
@@ -923,6 +928,14 @@ export function mergePlan(
 
   if (patch.query) merged.query = patch.query;
   if (patch.operations) merged.operations = patch.operations;
+  if (patch.semanticScope) {
+    merged.filters = {
+      ...merged.filters,
+      semanticScope: Array.from(
+        new Set([...merged.filters.semanticScope, ...(patch.semanticScope || [])])
+      ).slice(0, 20),
+    };
+  }
 
   if (patch.timeExpression) {
     merged.filters = { ...merged.filters, time: detectFastTime(patch.timeExpression) };
@@ -1083,6 +1096,7 @@ Schema:
   "patch": {
     "query": string (optional - the semantic search query),
     "tags": {"include": string[], "exclude": string[]} (optional),
+    "semanticScope": string[] (optional - soft topic keywords that are NOT hard tags),
     "timeExpression": string (optional - e.g. "最近90天", "本月"),
     "sourceTypes": ("rote" | "article")[] (optional),
     "operations": ("summarize" | "compare" | "timeline" | "find_open_loops" | "analyze_mood" | "analyze_stress" | "analyze_personality")[] (optional),
@@ -1107,6 +1121,7 @@ INTENT RULES:
 PATCH RULES:
 - patch only fills fields that CHANGE. Do NOT copy the full plan.
 - Bare tag names matching available tags → intent="new_search", patch.tags.include=["tagname"].
+- Topic words that are not explicit tags, such as 产品/生活/AI/技术, should go into patch.semanticScope instead of patch.tags unless they exactly match an available tag or the user explicitly says #tag/标签.
 - For operations: 没收尾/Flag/TODO/待办/还没做 → "find_open_loops"; 心境/情绪/心情 → "analyze_mood"; 压力/焦虑 → "analyze_stress"; MBTI/性格 → "analyze_personality"; 时间线 → "timeline"; 对比/比较 → "compare".
 - Rote domain scopes: archivedScope filters the note lifecycle ("active" = not archived, "archived" = archived notes, "all" = both). taskStatusScope describes task semantics ("open" = unfinished/open task, "closed" = completed/closed task, "all" = both).
 - Archived notes are considered closed/completed for task analysis. For open-loop/TODO/Flag queries, set patch.taskStatusScope="open". If the user explicitly asks for archived/completed tasks, set taskStatusScope="closed" or archivedScope="archived".
