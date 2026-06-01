@@ -296,13 +296,12 @@ export default function SetupWizard() {
 
       // 调用初始化 API
       const response = await setupSystem(setupData);
-      const responseBody = response.data;
 
-      if (responseBody?.data) {
-        toast.success(responseBody?.message || t('pages.setupWizard.toasts.initSuccess'));
+      if (response) {
+        toast.success(response.message || t('pages.setupWizard.toasts.initSuccess'));
         navigate('/landing', { replace: true });
       } else {
-        toast.error(responseBody?.message || t('pages.setupWizard.toasts.initFailed'));
+        toast.error(t('pages.setupWizard.toasts.initFailed'));
       }
     } catch (error: any) {
       toast.error(
