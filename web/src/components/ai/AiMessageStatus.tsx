@@ -51,26 +51,30 @@ export function AgentTimeline({ message, title }: { message: AiMemoryMessage; ti
   const items = message.timeline || [];
   if (items.length === 0) return null;
 
-  const visibleItems = items.slice(-5);
+  const runningItems = items.filter((item) => item.status === 'running');
+  const currentItem = [...(runningItems.length ? runningItems : items)].sort(
+    (first, second) => second.updatedAt - first.updatedAt
+  )[0];
+
+  if (!currentItem) return null;
+
   return (
-    <div className="space-y-0.5 text-xs leading-5">
-      <div className="flex items-center gap-1.5">
-        <AiStatusTitle icon={<Workflow className="size-3 shrink-0" />}>{title}:</AiStatusTitle>
-      </div>
-      <div className="space-y-0.5">
-        {visibleItems.map((item) => (
-          <div key={item.id} className="text-muted-foreground flex min-w-0 items-center gap-1.5">
-            {item.status === 'done' ? (
-              <Check className="size-3 shrink-0" />
-            ) : item.status === 'error' ? (
-              <CircleAlert className="size-3 shrink-0" />
-            ) : (
-              <Loader className="size-3 shrink-0 animate-spin" />
-            )}
-            <span className="min-w-0 truncate">{item.message}</span>
-          </div>
-        ))}
-      </div>
+    <div className="flex min-w-0 items-center gap-1.5 text-xs leading-5">
+      <AiStatusTitle icon={<Workflow className="size-3 shrink-0" />}>{title}:</AiStatusTitle>
+      {currentItem.status === 'done' ? (
+        <Check className="text-muted-foreground size-3 shrink-0" />
+      ) : currentItem.status === 'error' ? (
+        <CircleAlert className="text-muted-foreground size-3 shrink-0" />
+      ) : (
+        <Loader className="text-muted-foreground size-3 shrink-0 animate-spin" />
+      )}
+      <span
+        className={`text-muted-foreground min-w-0 flex-1 truncate ${
+          currentItem.status === 'running' ? 'animate-pulse' : ''
+        }`}
+      >
+        {currentItem.message}
+      </span>
     </div>
   );
 }
