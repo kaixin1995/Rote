@@ -1,5 +1,5 @@
 import type { AiMemoryMessage } from '@/state/aiChat';
-import type { AiThinkingPhase, PlannerAgentResult } from '@/utils/aiApi';
+import type { AiThinkingPhase, PlannerAgentDto } from '@/utils/aiApi';
 import { Brain, SlidersHorizontal, Workflow } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ export function AiStatusTitle({ children, icon }: { children: ReactNode; icon?: 
   );
 }
 
-function buildScopeSummary(plan: PlannerAgentResult, t: ReturnType<typeof useTranslation>['t']) {
+function buildScopeSummary(plan: PlannerAgentDto, t: ReturnType<typeof useTranslation>['t']) {
   const summary: string[] = [];
   const scope = plan.scope;
   if (!scope) return summary;
@@ -54,7 +54,43 @@ function buildScopeSummary(plan: PlannerAgentResult, t: ReturnType<typeof useTra
   }
 
   if (scope.taskStatusScope !== 'unspecified') {
-    summary.push(`task:${scope.taskStatusScope}`);
+    summary.push(t(`scope.taskStatus.${scope.taskStatusScope}`));
+  }
+
+  return summary;
+}
+
+function buildDebugSummary(plan: PlannerAgentDto, t: ReturnType<typeof useTranslation>['t']) {
+  const trace = plan.debugTrace;
+  const summary: string[] = [];
+
+  if (trace.toolCalls.length > 0) {
+    const names = trace.toolCalls.map((call) => call.name).join(' -> ');
+    summary.push(t('debug.tools', { count: trace.toolCalls.length, names }));
+  }
+
+  if (trace.probeCounts.length > 0) {
+    summary.push(t('debug.probes', { counts: trace.probeCounts.join(' / ') }));
+  }
+
+  if (trace.finishReason) {
+    summary.push(t('debug.finish', { reason: trace.finishReason }));
+  }
+
+  if (trace.fallbackReason) {
+    summary.push(t('debug.fallback', { reason: trace.fallbackReason }));
+  }
+
+  if (trace.providerError) {
+    summary.push(t('debug.providerError'));
+  }
+
+  if (trace.toolError) {
+    summary.push(t('debug.toolError'));
+  }
+
+  if (trace.warnings.length > 0) {
+    summary.push(t('debug.warnings', { warnings: trace.warnings.slice(0, 3).join(' / ') }));
   }
 
   return summary;
@@ -80,6 +116,30 @@ export function ScopeSummary({ message, title }: { message: AiMemoryMessage; tit
   }
 
   return null;
+}
+
+export function PlannerDebugSummary({
+  message,
+  title,
+}: {
+  message: AiMemoryMessage;
+  title: string;
+}) {
+  const { t } = useTranslation('translation', { keyPrefix: 'pages.aiMemory' });
+  const summary = message.plan ? buildDebugSummary(message.plan, t) : [];
+
+  if (summary.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      <AiStatusTitle icon={<Workflow className="size-3 shrink-0" />}>{title}:</AiStatusTitle>
+      {summary.map((item) => (
+        <span key={item} className="text-muted-foreground bg-foreground/5 rounded px-1.5 py-0.5">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function AgentTimeline({ message, title }: { message: AiMemoryMessage; title: string }) {

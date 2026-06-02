@@ -449,7 +449,22 @@
           "archived": "Archive: archived only",
           "all": "Archive: all"
         },
+        "taskStatus": {
+          "open": "Task: open",
+          "closed": "Task: closed",
+          "all": "Task: all"
+        },
         "comparison": "Compare: {{groups}}"
+      },
+      "debug": {
+        "title": "Retrieval trace",
+        "tools": "Tools {{count}}x: {{names}}",
+        "probes": "Probe count: {{counts}}",
+        "finish": "Finish: {{reason}}",
+        "fallback": "Fallback: {{reason}}",
+        "providerError": "Model tool calling failed",
+        "toolError": "Retrieval tool failed",
+        "warnings": "Warnings: {{warnings}}"
       },
       "timeline": {
         "title": "Progress",

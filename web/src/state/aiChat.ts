@@ -4,7 +4,7 @@ import type {
   AiAgentToolProgressStatus,
   AiThinkingPhase,
   AiTokenUsage,
-  PlannerAgentResult,
+  PlannerAgentDto,
   AiSemanticResult,
   AiUsagePhase,
 } from '@/utils/aiApi';
@@ -36,8 +36,8 @@ export type AiMemoryMessage = {
   role: 'user' | 'assistant';
   content: string;
   sources?: AiSemanticResult[];
-  plan?: PlannerAgentResult;
-  pendingPlan?: PlannerAgentResult;
+  plan?: PlannerAgentDto;
+  pendingPlan?: PlannerAgentDto;
   clarification?: boolean;
   error?: boolean;
   saved?: boolean;
@@ -122,7 +122,7 @@ export function sanitizeAiChatMessages(
   return changed ? nextMessages : messages;
 }
 
-export function getLatestAiAssistantPlan(messages: AiMemoryMessage[]): PlannerAgentResult | null {
+export function getLatestAiAssistantPlan(messages: AiMemoryMessage[]): PlannerAgentDto | null {
   return (
     [...messages].reverse().find((message) => message.role === 'assistant' && message.plan)?.plan ||
     null

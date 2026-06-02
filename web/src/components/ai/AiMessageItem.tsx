@@ -1,6 +1,7 @@
 import {
   AgentTimeline,
   AiStatusTitle,
+  PlannerDebugSummary,
   ScopeSummary,
   ThinkingTrace,
 } from '@/components/ai/AiMessageStatus';
@@ -59,6 +60,9 @@ export function AiMessageItem({ message }: { message: AiMemoryMessage }) {
         )}
         {message.role === 'assistant' && (
           <AgentTimeline message={message} title={t('timeline.title')} />
+        )}
+        {message.role === 'assistant' && (
+          <PlannerDebugSummary message={message} title={t('debug.title')} />
         )}
         {message.role === 'assistant' && <ThinkingTrace message={message} />}
         {message.role === 'assistant' && (message.sources?.length || 0) > 0 && (

@@ -449,7 +449,22 @@
           "archived": "アーカイブ：アーカイブのみ",
           "all": "アーカイブ：すべて"
         },
+        "taskStatus": {
+          "open": "タスク：未完了",
+          "closed": "タスク：完了",
+          "all": "タスク：すべて"
+        },
         "comparison": "比較：{{groups}}"
+      },
+      "debug": {
+        "title": "検索過程",
+        "tools": "ツール {{count}} 回：{{names}}",
+        "probes": "ヒット数：{{counts}}",
+        "finish": "終了理由：{{reason}}",
+        "fallback": "フォールバック：{{reason}}",
+        "providerError": "モデルのツール呼び出しに失敗",
+        "toolError": "検索ツールに失敗",
+        "warnings": "警告：{{warnings}}"
       },
       "timeline": {
         "title": "進捗",

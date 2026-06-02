@@ -34,7 +34,7 @@ export interface AiSemanticResult {
 export interface AiChatResponse {
   answer: string;
   sources: AiSemanticResult[];
-  plan?: PlannerAgentResult;
+  plan?: PlannerAgentDto;
   clarification?: AiClarification;
 }
 
@@ -92,7 +92,7 @@ export interface PlannerDebugTrace {
   toolError?: string;
 }
 
-export interface PlannerAgentResult {
+export interface PlannerAgentDto {
   originalMessage: string;
   retrievalNeeded: boolean;
   scope: RetrievalScope | null;
@@ -103,7 +103,7 @@ export interface PlannerAgentResult {
 
 export interface AiClarification {
   question: string;
-  pendingPlan?: PlannerAgentResult | null;
+  pendingPlan?: PlannerAgentDto | null;
 }
 
 export type AiAgentPhase =
@@ -136,7 +136,7 @@ export type AiTokenUsage = {
 
 export interface AiAgentClientState {
   conversationId?: string;
-  previousPlan?: PlannerAgentResult | null;
+  previousPlan?: PlannerAgentDto | null;
   seenSourceIds?: string[];
   selectedContext?: {
     currentRoteId?: string;
@@ -154,7 +154,7 @@ export type AiChatStreamHandlers = {
   onToolStarted?: (toolName: string, args?: unknown) => void;
   onToolProgress?: (toolName: string, status: AiAgentToolProgressStatus) => void;
   onToolFinished?: (toolName: string, summary?: string) => void;
-  onPlan?: (plan: PlannerAgentResult) => void;
+  onPlan?: (plan: PlannerAgentDto) => void;
   onClarification?: (clarification: AiClarification) => void;
   onSources?: (sources: AiSemanticResult[]) => void;
   onThinking?: (phase: AiThinkingPhase, text: string) => void;
@@ -171,9 +171,9 @@ export type AiChatPayload = {
   message: string;
   mode?: 'chat' | 'review' | 'organize';
   limit?: number;
-  pendingPlan?: PlannerAgentResult | null;
+  pendingPlan?: PlannerAgentDto | null;
   clarificationAnswer?: string;
-  previousPlan?: PlannerAgentResult | null;
+  previousPlan?: PlannerAgentDto | null;
   excludeIds?: string[];
   history?: { role: 'user' | 'assistant'; content: string }[];
   state?: AiAgentClientState | null;
@@ -306,7 +306,7 @@ async function readAiStreamResponse(
       const data = parsed.data as { toolName?: string; summary?: string };
       if (data.toolName) handlers.onToolFinished?.(data.toolName, data.summary);
     } else if (parsed.event === 'plan') {
-      const plan = (parsed.data as { plan?: PlannerAgentResult })?.plan;
+      const plan = (parsed.data as { plan?: PlannerAgentDto })?.plan;
       if (plan) handlers.onPlan?.(plan);
     } else if (parsed.event === 'clarification') {
       const clarification = parsed.data as AiClarification;

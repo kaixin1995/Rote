@@ -439,7 +439,22 @@
           "archived": "归档范围：仅归档",
           "all": "归档范围：全部"
         },
+        "taskStatus": {
+          "open": "任务状态：未完成",
+          "closed": "任务状态：已完成",
+          "all": "任务状态：全部"
+        },
         "comparison": "对比：{{groups}}"
+      },
+      "debug": {
+        "title": "检索过程",
+        "tools": "工具 {{count}} 次：{{names}}",
+        "probes": "命中数：{{counts}}",
+        "finish": "结束原因：{{reason}}",
+        "fallback": "降级原因：{{reason}}",
+        "providerError": "模型工具调用失败",
+        "toolError": "检索工具失败",
+        "warnings": "提示：{{warnings}}"
       },
       "timeline": {
         "title": "进度",
