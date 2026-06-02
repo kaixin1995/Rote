@@ -9,33 +9,55 @@ import {
 import { Divider } from '@/components/ui/divider';
 import { post } from '@/utils/api';
 import saveAs from 'file-saver';
-import {
-  ArrowUpRight,
-  CloudUpload,
-  Download,
-  HelpCircle,
-  Loader,
-  PocketKnife,
-  Upload,
-} from 'lucide-react';
-import { useRef, useState } from 'react';
+import { ArrowUpRight, Download, FileJson, HelpCircle, PocketKnife, Upload, X } from 'lucide-react';
+import { type ChangeEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { SlidingNumber } from '../animate-ui/text/sliding-number';
+import { useAtomValue } from 'jotai';
+import { profileAtom } from '@/state/profile';
+import type { Rote, Rotes } from '@/types/main';
 import { SoftBottom } from '../others/SoftBottom';
 import { Button } from '../ui/button';
+import ImportPreviewDialog, { type ImportPreview } from './ImportPreviewDialog';
+
+type ApiResponse<T> = {
+  code: number;
+  message: string;
+  data: T;
+};
+
+type ImportResult = {
+  count: number;
+  created: number;
+  updated: number;
+  notes: {
+    total: number;
+    created: number;
+    updated: number;
+  };
+  articles: {
+    total: number;
+    created: number;
+    updated: number;
+  };
+  attachments: {
+    total: number;
+    created: number;
+    updated: number;
+  };
+};
 
 export default function ImportData() {
   const { t } = useTranslation('translation', {
     keyPrefix: 'pages.experiment.importData',
   });
   const [isImporting, setIsImporting] = useState(false);
-  const [stats, setStats] = useState<{
-    articleCount: number;
-    roteCount: number;
-    attachmentCount: number;
-  } | null>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [previewVersion, setPreviewVersion] = useState(0);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [fileData, setFileData] = useState<any | null>(null);
+  const [excludedIndexes, setExcludedIndexes] = useState<Set<number>>(new Set());
+  const profile = useAtomValue(profileAtom);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exampleData = {
     articles: [
@@ -50,7 +72,6 @@ export default function ImportData() {
     notes: [
       {
         id: '550e8400-e29b-41d4-a716-446655440000',
-        title: 'Example Note',
         content: 'Note content...',
         tags: ['tag1', 'tag2'],
         state: 'private',
@@ -80,7 +101,111 @@ export default function ImportData() {
     ],
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const buildPreview = (json: any, fileName: string): ImportPreview => {
+    const uniqueArticles = Array.from(
+      new Map(
+        [
+          ...(Array.isArray(json.articles) ? json.articles : []),
+          ...json.notes
+            .map((note: any) => note?.article)
+            .filter((article: unknown): article is Record<string, any> => !!article),
+        ]
+          .filter((article: any) => typeof article?.id === 'string')
+          .map((article: any) => [article.id, article])
+      ).values()
+    );
+    const articleIds = new Set<string>(uniqueArticles.map((article: any) => article.id));
+    const tags = new Set<string>();
+    let attachmentCount = 0;
+    let publicCount = 0;
+    let privateCount = 0;
+
+    json.notes.forEach((note: any) => {
+      if (typeof note?.articleId === 'string') {
+        articleIds.add(note.articleId);
+      }
+      if (typeof note?.article?.id === 'string') {
+        articleIds.add(note.article.id);
+      }
+      if (Array.isArray(note?.attachments)) {
+        attachmentCount += note.attachments.length;
+      }
+      if (Array.isArray(note?.tags)) {
+        note.tags.forEach((tag: unknown) => {
+          if (typeof tag === 'string' && tag.trim()) tags.add(tag.trim());
+        });
+      }
+      if (note?.state === 'public') {
+        publicCount++;
+      } else {
+        privateCount++;
+      }
+    });
+
+    return {
+      fileName,
+      articleCount: articleIds.size,
+      roteCount: json.notes.length,
+      attachmentCount,
+      publicCount,
+      privateCount,
+      tagCount: tags.size,
+      rotes: json.notes.map((note: Rote) => ({
+        ...note,
+        authorid: profile?.id,
+        author: {
+          username: profile?.username || '',
+          nickname: profile?.nickname || '',
+          avatar: profile?.avatar || '',
+          emailVerified: profile?.emailVerified ?? false,
+        },
+        reactions: [],
+      })) as Rotes,
+    };
+  };
+
+  const clearPreview = () => {
+    setIsPreviewOpen(false);
+    setPreview(null);
+    setFileData(null);
+    setExcludedIndexes(new Set());
+  };
+
+  const toggleExcludedIndex = (index: number) => {
+    setExcludedIndexes((current) => {
+      const next = new Set(current);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const buildImportPayload = () => {
+    if (!fileData || !Array.isArray(fileData.notes)) return fileData;
+
+    const notes = fileData.notes.filter((_: unknown, index: number) => !excludedIndexes.has(index));
+    const articleIds = new Set(
+      notes
+        .map((note: any) =>
+          typeof note?.articleId === 'string' ? note.articleId : note?.article?.id
+        )
+        .filter((articleId: unknown): articleId is string => typeof articleId === 'string')
+    );
+
+    return {
+      ...fileData,
+      notes,
+      // TODO: Add article preview/exclusion; note-only filtering drops standalone articles.
+      articles: Array.isArray(fileData.articles)
+        ? fileData.articles.filter((article: any) => articleIds.has(article?.id))
+        : fileData.articles,
+    };
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -89,45 +214,19 @@ export default function ImportData() {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (json.notes && Array.isArray(json.notes)) {
-          const uniqueArticles = Array.from(
-            new Map(
-              [
-                ...(Array.isArray(json.articles) ? json.articles : []),
-                ...json.notes
-                  .map((note: any) => note?.article)
-                  .filter((article: unknown): article is Record<string, any> => !!article),
-              ]
-                .filter((article: any) => typeof article?.id === 'string')
-                .map((article: any) => [article.id, article])
-            ).values()
-          );
-          const articleIds = new Set<string>(uniqueArticles.map((article: any) => article.id));
-
-          let attachmentCount = 0;
-          json.notes.forEach((note: any) => {
-            if (typeof note?.articleId === 'string') {
-              articleIds.add(note.articleId);
-            }
-            if (typeof note?.article?.id === 'string') {
-              articleIds.add(note.article.id);
-            }
-            if (note.attachments && Array.isArray(note.attachments)) {
-              attachmentCount += note.attachments.length;
-            }
-          });
-
-          setStats({
-            articleCount: articleIds.size,
-            roteCount: json.notes.length,
-            attachmentCount,
-          });
+          setPreview(buildPreview(json, file.name));
+          setPreviewVersion((version) => version + 1);
           setFileData(json);
+          setExcludedIndexes(new Set());
+          setIsPreviewOpen(true);
           toast.success(t('fileParsed', { count: json.notes.length }));
         } else {
+          clearPreview();
           toast.error(t('invalidFormat'));
         }
       } catch (_error) {
         // console.error('JSON Parse error:', error);
+        clearPreview();
         toast.error(t('parseError'));
       }
     };
@@ -141,62 +240,39 @@ export default function ImportData() {
 
     try {
       setIsImporting(true);
-      const res = await post<{
-        count: number;
-        created: number;
-        updated: number;
-        notes: {
-          total: number;
-          created: number;
-          updated: number;
-        };
-        articles: {
-          total: number;
-          created: number;
-          updated: number;
-        };
-        attachments: {
-          total: number;
-          created: number;
-          updated: number;
-        };
-      }>('/users/me/import', fileData);
+      const res = await post<ApiResponse<ImportResult>>('/users/me/import', buildImportPayload());
       if (res) {
-        // Handle variable structure: might be flat or nested in data
-        const data = (res as any).data || res;
-        const successDescription = (
-          <div className="text-muted-foreground space-y-1 text-xs leading-5">
-            <div>{t('importSuccessSummary', { count: data.notes.total })}</div>
-            <div>
-              {t('importSuccessNotes', {
-                total: data.notes.total,
-                created: data.notes.created,
-                updated: data.notes.updated,
-              })}
-            </div>
-            <div>
-              {t('importSuccessArticles', {
-                total: data.articles.total,
-                created: data.articles.created,
-                updated: data.articles.updated,
-              })}
-            </div>
-            <div>
-              {t('importSuccessAttachments', {
-                total: data.attachments.total,
-                created: data.attachments.created,
-                updated: data.attachments.updated,
-              })}
-            </div>
-          </div>
-        );
+        const data = res.data;
 
         toast.success(t('importSuccessTitle'), {
-          description: successDescription,
-          duration: 7000,
+          description: t('importSuccessSummary', { count: data.notes.total }),
+          duration: 5000,
         });
-        setStats(null);
-        setFileData(null);
+        toast.info(
+          t('importSuccessNotes', {
+            total: data.notes.total,
+            created: data.notes.created,
+            updated: data.notes.updated,
+          }),
+          { duration: 5000 }
+        );
+        toast.info(
+          t('importSuccessArticles', {
+            total: data.articles.total,
+            created: data.articles.created,
+            updated: data.articles.updated,
+          }),
+          { duration: 5000 }
+        );
+        toast.info(
+          t('importSuccessAttachments', {
+            total: data.attachments.total,
+            created: data.attachments.created,
+            updated: data.attachments.updated,
+          }),
+          { duration: 5000 }
+        );
+        clearPreview();
       }
     } catch (_error: any) {
       // console.error('Import error:', error);
@@ -269,7 +345,7 @@ export default function ImportData() {
           onChange={handleFileChange}
         />
 
-        {!stats ? (
+        {!preview ? (
           <div
             onClick={triggerFileSelect}
             className="border-border hover:bg-accent/50 flex w-full max-w-sm cursor-pointer flex-col items-center justify-center gap-4 border border-dashed p-10 transition-colors"
@@ -278,52 +354,58 @@ export default function ImportData() {
             <div className="text-muted-foreground text-center text-sm">{t('clickToUpload')}</div>
           </div>
         ) : (
-          <div className="flex w-full max-w-sm flex-col items-center gap-6">
-            <div className="bg-accent/20 flex w-full items-center justify-around p-6">
-              <div className="flex flex-col items-center justify-center gap-2">
-                <SlidingNumber
-                  className="text-4xl font-semibold"
-                  number={stats.articleCount}
-                ></SlidingNumber>
-                <div className="text-info text-sm">{t('articlesFound')}</div>
+          <div className="flex w-full max-w-sm flex-col items-center gap-4">
+            <div className="border-border bg-muted/30 flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2">
+              <div className="flex min-w-0 items-center gap-3">
+                <FileJson className="text-primary size-4 shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{preview.fileName}</div>
+                  <div className="text-muted-foreground truncate text-xs">
+                    {t('notesFound')}: {preview.roteCount} · {t('articlesFound')}:{' '}
+                    {preview.articleCount} · {t('attachmentsFound')}: {preview.attachmentCount}
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col items-center justify-center gap-2">
-                <SlidingNumber
-                  className="text-4xl font-semibold"
-                  number={stats.roteCount}
-                ></SlidingNumber>
-                <div className="text-info text-sm">{t('notesFound')}</div>
-              </div>
-              <div className="flex flex-col items-center justify-center gap-2">
-                <SlidingNumber
-                  className="text-4xl font-semibold"
-                  number={stats.attachmentCount}
-                ></SlidingNumber>
-                <div className="text-info text-sm">{t('attachmentsFound')}</div>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                onClick={clearPreview}
+                disabled={isImporting}
+                title={t('cancel')}
+              >
+                <X className="size-4" />
+              </Button>
             </div>
 
-            <div className="flex w-full justify-center gap-4">
-              <Button
-                onClick={() => {
-                  setStats(null);
-                  setFileData(null);
-                }}
-                variant="secondary"
-                disabled={isImporting}
-              >
-                {t('cancel')}
+            <div className="flex w-full flex-wrap justify-center gap-3">
+              <Button onClick={() => setIsPreviewOpen(true)} disabled={isImporting}>
+                <FileJson className="size-4" />
+                {t('openPreview')}
               </Button>
-              <Button onClick={handleImport} disabled={isImporting} variant="default">
-                {isImporting ? (
-                  <Loader className="size-4 animate-spin" />
-                ) : (
-                  <CloudUpload className="size-4" />
-                )}
-                {isImporting ? t('importing') : t('confirmImport')}
+              <Button onClick={triggerFileSelect} variant="outline" disabled={isImporting}>
+                <Upload className="size-4" />
+                {t('chooseAnotherFile')}
+              </Button>
+              <Button onClick={clearPreview} variant="secondary" disabled={isImporting}>
+                {t('cancel')}
               </Button>
             </div>
           </div>
+        )}
+
+        {preview && (
+          <ImportPreviewDialog
+            key={previewVersion}
+            isImporting={isImporting}
+            onChooseAnother={triggerFileSelect}
+            onConfirm={handleImport}
+            onOpenChange={setIsPreviewOpen}
+            open={isPreviewOpen}
+            preview={preview}
+            excludedIndexes={excludedIndexes}
+            onToggleExclude={toggleExcludedIndex}
+          />
         )}
 
         <div className="bg-muted/50 rounded-lg p-3">
