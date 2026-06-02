@@ -858,24 +858,23 @@ function AiMemoryPage() {
           <div ref={messageEndRef} className="h-24 shrink-0" />
         </div>
 
-        {isAutoScrollPaused && messages.length > 0 && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="fixed right-4 bottom-28 z-20 size-8 rounded-full shadow-sm sm:bottom-16"
-            onClick={returnToBottom}
-            aria-label={t('backToBottom')}
-            title={t('backToBottom')}
-          >
-            <ArrowDown className="size-4" />
-          </Button>
-        )}
-
         <form
           className="bg-background sticky bottom-16 z-10 border-t px-3 py-1 sm:bottom-0"
           onSubmit={handleSubmit}
         >
+          {isAutoScrollPaused && messages.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="absolute -top-12 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full shadow-sm"
+              onClick={returnToBottom}
+              aria-label={t('backToBottom')}
+              title={t('backToBottom')}
+            >
+              <ArrowDown className="size-4" />
+            </Button>
+          )}
           {unavailable && (
             <div className="text-info mb-2 px-1 text-sm font-light">{unavailableText}</div>
           )}
