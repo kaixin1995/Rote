@@ -182,6 +182,16 @@ async function streamFinalAnswer(ctx: RoteAgentContext, messages: ChatMessage[])
   return emittedText;
 }
 
+async function emitAssistantContent(
+  ctx: RoteAgentContext,
+  content?: string | null
+): Promise<boolean> {
+  const text = content?.trim();
+  if (!text) return false;
+  await ctx.emit({ type: 'delta', text });
+  return true;
+}
+
 function isLikelyChinese(text: string): boolean {
   return /[\u3400-\u9fff]/.test(text);
 }
@@ -270,6 +280,7 @@ export async function runRoteAgentStream(params: {
 
     const toolCalls = assistantMessage.tool_calls || [];
     if (!toolCalls.length) {
+      emittedText = await emitAssistantContent(ctx, assistantMessage.content);
       break;
     }
 
