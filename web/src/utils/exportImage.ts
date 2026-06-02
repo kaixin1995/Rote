@@ -147,6 +147,8 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 export function cleanupOffscreenContainers() {
   document.body
-    .querySelectorAll('[style*="left:-9999px"], [style*="left: -9999px"]')
+    .querySelectorAll(
+      '.ai-answer-export-container, [style*="left:-9999px"], [style*="left: -9999px"]'
+    )
     .forEach((el) => el.remove());
 }

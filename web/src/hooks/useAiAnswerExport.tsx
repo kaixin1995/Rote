@@ -75,6 +75,7 @@ export function useAiAnswerExport() {
       }
 
       const container = document.createElement('div');
+      container.className = 'ai-answer-export-container';
       container.style.cssText = 'position:absolute;left:-9999px;top:0;';
       document.body.appendChild(container);
 
