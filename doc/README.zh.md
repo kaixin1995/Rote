@@ -23,23 +23,57 @@
 - **自托管部署**：使用 Docker 或者 Dokploy 一键部署
 - **分离架构**：前后端采用分离的架构设计，按需部署你需要的服务
 - **Markdown 文章**：独立文章支持，可被笔记引用，提供纯粹的读写体验
+- **AI 记忆**：可选的 AI 对话、语义搜索、相关笔记、流式回答和来源引用，基于你自己的笔记与文章工作
+- **管理员控制 AI**：AI、向量存储、自动索引和公开 Explore 语义发现默认关闭，必须由管理员显式启用
 - **iOS 客户端**：更优雅的 App 客户端
 
 ### 快速开始
 
 #### 方式一：使用 Docker Hub 镜像
 
-复制 [docker-compose.yml](https://github.com/Rabithua/Rote/blob/main/docker-compose.yml) 到你的已经装好 Docker 和 Docker Compose 的服务器
+复制 [docker-compose.yml](../docker-compose.yml) 到你的已经装好 Docker 和 Docker Compose 的服务器
 
 > 注意：如果你使用反向代理的话，VITE_API_BASE 应该是你反向代理后的后端地址
+>
+> Rote 现在默认使用 `pgvector/pgvector:pg17-trixie`。它保持 PostgreSQL 17 行为，并额外支持可选的 AI 向量扩展。普通 `postgres:17` 只作为临时兼容路径，后续 Rote 版本可能不再支持。
+>
+> `latest` 是稳定版镜像。如果你正在阅读 develop 分支文档，或者测试尚未发布的 AI 记忆能力，请使用 `IMAGE_TAG=develop`。
 
 ```bash
-# 使用最新版本（默认配置文件）
-VITE_API_BASE=http://<your-ip-address>:18000 docker-compose up -d
+# 1. 在 docker-compose.yml 旁边创建 .env 文件
+cat > .env <<'EOF'
+VITE_API_BASE=http://YOUR_SERVER_IP:18000
+POSTGRES_PASSWORD=change_this_password
+EOF
 
-# 使用特定版本
-IMAGE_TAG=v1.0.0 docker-compose up -d
+# 2. 首次启动前，请替换 YOUR_SERVER_IP 和 change_this_password。
+#    请使用高强度且 URL 安全的数据库密码，避免在 POSTGRES_PASSWORD 中使用 @ : / # % 等字符。
+#    数据库卷初始化后，请保持这个密码不变。
+
+# 3. 使用最新稳定镜像启动 Rote
+docker compose up -d
 ```
+
+可选 `.env` 配置：
+
+```bash
+# 使用特定版本
+IMAGE_TAG=v1.0.0
+
+# 使用 develop 分支镜像测试尚未发布的新功能
+IMAGE_TAG=develop
+
+# 不使用 pgvector，继续使用普通 PostgreSQL
+# 仅作为兼容路径；后续 Rote 版本可能要求使用支持 pgvector 的 PostgreSQL。
+POSTGRES_IMAGE=postgres:17
+```
+
+容器启动后：
+
+1. 打开 `http://<your-ip-address>:18001`。
+2. 在初始化页面创建第一个管理员账号。
+3. 登录后进入管理员后台完成站点配置。
+4. 可选：如果当前镜像包含 AI 记忆能力，进入 `管理 -> AI 相关` 配置对话模型和向量模型，启用 pgvector，并为存量笔记/文章建立索引。
 
 #### 方式二：使用 Dokploy（推荐）
 
@@ -57,6 +91,12 @@ iOS App 支持连接到你自部署的后端。
 1. 在登录页连续点击顶部欢迎文字，会弹出配置框。
 2. 将 `API Base` 修改为你自部署后端的公网地址（或反向代理地址）。
 3. 按正常流程登录即可。
+
+### AI 记忆
+
+AI 记忆是可选能力，默认关闭。它已经可以在 `develop` 镜像中使用，并会在包含 AI 记忆的下一个稳定版发布后进入稳定镜像。管理员可以在 `管理 -> AI 相关` 配置对话模型和向量模型后启用。Rote 支持 OpenAI-compatible 供应商，包括 OpenAI、OpenRouter、Ollama / LM Studio、DeepSeek、SiliconFlow、DashScope / Qwen、Zhipu GLM、Moonshot / Kimi、Volcengine Ark、Tencent Hunyuan、Baidu Qianfan，以及自定义 OpenAI-compatible 接口。
+
+只有已登录且邮箱已验证的用户可以使用 AI 功能。AI 对话只保存在当前浏览器会话中，不会持久化写入数据库。只有在管理员开启 AI 向量存储和自动索引后，笔记与文章才会进入向量索引。
 
 ### 详细说明
 
