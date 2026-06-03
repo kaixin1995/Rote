@@ -38,6 +38,68 @@
           }
         }
       },
+      "aiMemory": {
+        "tagline": "AI MEMORY",
+        "title": "Turn notes into a conversational AGENT",
+        "subtitle": "Vectorize everything you record, then let an agent work over your own memory.",
+        "features": {
+          "semantic": {
+            "title": "Find meaning in fragments",
+            "description": "Search not only by keywords, but also by semantic meaning across notes and articles"
+          },
+          "sources": {
+            "title": "Self exploration",
+            "description": "Explore your notes with AI Memory and discover small surprises you may not have noticed yourself"
+          },
+          "agent": {
+            "title": "Related notes",
+            "description": "Use vector-based relevance matching to surface interesting related notes"
+          },
+          "admin": {
+            "title": "Controlled opt-in",
+            "description": "AI, vector storage, and automatic indexing are disabled by default and explicitly enabled by an administrator"
+          }
+        },
+        "example": {
+          "user": "Read between the lines and guess my MBTI",
+          "backToBottom": "Back to bottom",
+          "scope": {
+            "title": "Scope",
+            "items": [
+              "Keywords: personality, decisions, socializing, emotions, reflection",
+              "Content type: notes",
+              "Archive scope: all"
+            ]
+          },
+          "debug": {
+            "title": "Search trace",
+            "items": ["Tool 1x: rote_search_notes", "Hits: 20", "Finish reason: agent_search_tool"]
+          },
+          "thinking": {
+            "route": {
+              "title": "Checking whether Rote needs to be queried",
+              "content": "Rote should be queried because the request already includes clues about personality, decisions, socializing, emotions, and reflection."
+            },
+            "evidence": {
+              "title": "Checking whether more evidence is needed",
+              "content": "The user may be closer to INFJ. Although AI previously guessed ENFP, the user's own records contain more evidence of introverted intuition and deep reflection."
+            },
+            "expand": "View thinking"
+          },
+          "sourceTitle": "Referenced sources",
+          "sources": [
+            "AI Memory is basically working, but there is one unfortunate piece of news: it thinks I am ENFP, and I am not happy about that 😡",
+            "I have been adapting to iOS 17 these two days and thinking about whether it is a good idea. The workload is real, with strange bugs, maybe system-level issues, maybe because I do not have a real iOS 17 device to test on, maybe simulator bugs, and it may also add more code baggage.",
+            "MBTI 16 personalities, suitable marriage age, INFJ sees it and immediately goes still",
+            "Tags: life, self-regulation",
+            "During the October holiday I went back home, left the knowledge-worker environment, and talked with many ordinary people, especially middle-aged and elderly people. 1. Most conversations are discrete and mainly triggered by keywords.",
+            "INFJ meme",
+            "INFJ meme",
+            "INFJ meme"
+          ],
+          "answer": "Based on your notes, your writing shows clear **INFJ traits** as the dominant pattern, while also carrying some tension between outward extroverted behavior and an inward core. Here is the evidence:\n\n---\n\n### 🔍 Core evidence\n1. **\"I am essentially an outer-E, inner-I person\"** [9]\n   - This directly suggests that you may appear extroverted in social or work settings, but recover energy through solitude, which matches the INFJ pattern of dominant introverted intuition (Ni).\n   - It also fits the INFJ pattern of showing Fe outwardly while relying on Ni inwardly.\n\n2. **Deep empathy and relationship insight**\n   - When analyzing conversations back home, you precisely noticed that people \"describe their situation rather than state a need\" and that the listener must infer needs from context [5]. That reflects strong sensitivity to interpersonal dynamics.\n   - Your critique of \"guiding lovers\" and ideas such as \"parasitic relationships\" and \"savior complex\" [12] show alertness to emotional exploitation and a desire for equal, deep connection.\n\n3. **Frequent INFJ-related attention**\n   - You saved multiple INFJ memes [6][7][8] and mentioned \"INFJ sees it and immediately goes still\" [3], which suggests strong identification or self-exploration around INFJ.\n\n---\n\n### ⚖️ Difference from ENFP\n- **ENFP tendency**: Your notes do show extroverted behavior, such as needing to \"grow a thicker skin\" and build in public as an indie developer [20]. But this looks more like strategic extroversion driven by work than an ENFP-style natural source of energy.\n- **Key tension**:\n  ENFP is led by outward-facing Ne, while your notes repeatedly emphasize **inner order** (\"the brain and inner order are healthy\" [11]) and **deep reflection** (\"cognitive iteration\", \"being responsible for yourself\" [9]), which is closer to INFJ's Ni-led mode.\n\n---\n\n### 📌 Conclusion\n**Most likely INFJ** (Introverted + Intuitive + Feeling + Judging), with an \"extroverted mask\" in work contexts.\n- You may temporarily look ENFP because your work requires active socializing, but your core thinking pattern, deep reflection, empathy-first orientation, and need for inner order are closer to INFJ.\n- Your dissatisfaction with AI calling you ENFP [1] also echoes the INFJ sensitivity to being misread. INFJs are often mistaken as extroverts because of Fe, while their core remains introverted.\n\n> 💡 To verify it, observe whether you need long solitude to recover after socializing, rather than becoming more energized the more you socialize."
+        }
+      },
       "construction": {
         "title": "Still Under Construction...",
         "subtitle": "As a long-term project, Rote is still being improved",
