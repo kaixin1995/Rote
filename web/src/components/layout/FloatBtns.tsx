@@ -5,9 +5,11 @@ import { Button } from '../ui/button';
 export default function FloatBtns({
   scrollContainerName,
   children,
+  hideOnMobile,
 }: {
   scrollContainerName?: string;
   children?: ReactNode;
+  hideOnMobile?: boolean;
 }) {
   function goTop() {
     const container = scrollContainerName ? document.querySelector(scrollContainerName) : window;
@@ -22,7 +24,11 @@ export default function FloatBtns({
   }
 
   return (
-    <div className="animate-show fixed right-8 bottom-16 z-10 flex flex-col gap-2 self-end duration-300">
+    <div
+      className={`animate-show fixed right-8 bottom-16 z-10 flex-col gap-2 self-end duration-300 ${
+        hideOnMobile ? 'hidden md:flex' : 'flex'
+      }`}
+    >
       {/* 渲染子组件 */}
       {children}
       <Button

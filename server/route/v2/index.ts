@@ -4,6 +4,7 @@ import { getAllPublicRssData, getRssData } from '../../utils/dbMethods';
 import { createResponse } from '../../utils/main';
 import { generateRssFeed, type RssFeedOptions } from '../../utils/rss';
 import adminRouter from './admin';
+import aiRouter from './ai';
 import apiKeysRouter from './apikey';
 import articlesRouter from './article';
 import attachmentsRouter from './attachment';
@@ -125,6 +126,7 @@ router.route('/attachments', attachmentsRouter);
 router.route('/site', siteRouter);
 router.route('/openkey', openKeyRouter);
 router.route('/admin', adminRouter);
+router.route('/ai', aiRouter);
 router.route('/changes', changeRouter);
 
 export default router;

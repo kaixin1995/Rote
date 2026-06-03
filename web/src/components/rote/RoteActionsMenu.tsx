@@ -4,7 +4,7 @@ import {
   Ellipsis,
   Image,
   Layers,
-  Loader2,
+  Loader,
   PinIcon,
   PinOff,
   Save,
@@ -16,13 +16,13 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { SWRInfiniteKeyedMutator } from 'swr/infinite';
 
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 import { useNoteExport } from '@/hooks/useNoteExport';
 import type { Attachment, Rote, Rotes } from '@/types/main';
 import { del, put } from '@/utils/api';
@@ -251,7 +251,7 @@ export default function RoteActionsMenu({
           }}
           disabled={exporting}
         >
-          {exporting ? <Loader2 className="size-4 animate-spin" /> : <Image className="size-4" />}
+          {exporting ? <Loader className="size-4 animate-spin" /> : <Image className="size-4" />}
           {exporting ? t('exporting') : t('exportImage')}
         </DropdownMenuItem>
 

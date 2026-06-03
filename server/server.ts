@@ -11,6 +11,7 @@ import {
   subscribeConfigChange,
   validateSystemConfiguration,
 } from './utils/config';
+import { startEmbeddingWorker } from './utils/ai/worker';
 import { waitForDatabase } from './utils/drizzle';
 import { errorHandler } from './utils/handlers';
 import { injectDynamicUrls } from './utils/main';
@@ -134,6 +135,7 @@ subscribeConfigChange('site', (_group, newConfig) => {
     // 启动时检查系统状态
     await StartupMigration.checkStartupStatus();
     await StartupMigration.showConfigStatus();
+    startEmbeddingWorker();
 
     // 启动服务器（使用 Bun 原生服务器）
     // @ts-expect-error - Bun 全局类型在运行时可用
@@ -142,6 +144,7 @@ subscribeConfigChange('site', (_group, newConfig) => {
       bun.serve({
         fetch: app.fetch,
         port,
+        idleTimeout: 255,
       });
     } else {
       throw new Error('Bun runtime is required');

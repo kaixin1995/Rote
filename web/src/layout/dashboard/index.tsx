@@ -7,11 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useSiteStatus } from '@/hooks/useSiteStatus';
 import { loadProfileAtom, profileAtom, useAuthState } from '@/state/profile';
 import { tagsAtom } from '@/state/tags';
 import { authService } from '@/utils/auth';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { Globe2, Home, LogIn, LogOut, ScanFace, Shield, Snail } from 'lucide-react';
+import { BrainCircuit, Globe2, Home, LogIn, LogOut, ScanFace, Shield, Snail } from 'lucide-react';
 import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +37,11 @@ const baseTabs: IconType[] = [
     svg: <Globe2 className="size-4" />,
     link: '/explore',
     name: 'explore',
+  },
+  {
+    svg: <BrainCircuit className="size-4" />,
+    link: '/ai',
+    name: 'aiMemory',
   },
   {
     svg: <ScanFace className="size-4" />,
@@ -83,6 +89,7 @@ function LayoutDashboard() {
   const { authReady, tokenValid } = useAuthState();
   const profile = useAtomValue(profileAtom);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const { data: siteStatus } = useSiteStatus();
 
   useEffect(() => {
     if (authReady && tokenValid && !profile) {
@@ -94,7 +101,8 @@ function LayoutDashboard() {
 
   // 根据用户角色动态生成 tabs
   const userTabs = useMemo(() => {
-    const tabs = [...baseTabs];
+    const canShowAi = siteStatus?.ai?.available === true && profile?.emailVerified === true;
+    const tabs = canShowAi ? [...baseTabs] : baseTabs.filter((tab) => tab.name !== 'aiMemory');
     // 如果是管理员或超级管理员，添加管理员 tab
     if (profile && (profile.role === 'admin' || profile.role === 'super_admin')) {
       tabs.splice(tabs.length - 1, 0, ...adminTabs);
@@ -104,7 +112,7 @@ function LayoutDashboard() {
       name: 'logout',
     });
     return tabs;
-  }, [profile]);
+  }, [profile, siteStatus?.ai?.available]);
 
   async function logOutFn() {
     setIsLogoutDialogOpen(false);
@@ -168,7 +176,7 @@ function LayoutDashboard() {
     <>
       <div className="bg-background text-primary mx-auto w-full max-w-6xl">
         <div className="mx-auto flex w-dvw max-w-[1440px] font-sans sm:divide-x xl:w-[90%]">
-          <div className="bg-background/90 text-primary fixed bottom-0 z-10 flex w-full shrink-0 flex-row items-start justify-around px-1 py-2 pb-6 backdrop-blur-xl sm:sticky sm:top-0 sm:h-dvh sm:w-fit sm:flex-col sm:justify-center sm:gap-4 sm:px-2 lg:w-[200px] lg:px-4">
+          <div className="bg-background/90 text-primary fixed bottom-0 z-50 flex w-full shrink-0 flex-row items-start justify-around px-1 py-2 pb-6 backdrop-blur-xl sm:sticky sm:top-0 sm:h-dvh sm:w-fit sm:flex-col sm:justify-center sm:gap-4 sm:px-2 lg:w-[200px] lg:px-4">
             {tokenValid
               ? userTabs.map((icon) => IconRenderItem(icon))
               : authReady

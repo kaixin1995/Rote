@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import { type Article, articles, rotes } from '../../drizzle/schema';
 import db from '../drizzle';
 import { parseMarkdownMeta } from '../markdown';
+import { deleteEmbeddingsForSource, enqueueEmbeddingJob } from './ai';
 import { createRoteChange } from './change';
 import { DatabaseError } from './common';
 
@@ -89,6 +90,9 @@ export async function createArticle(data: {
 
     // 补充计算字段
     const meta = parseMarkdownMeta(article.content);
+    void enqueueEmbeddingJob('article', article.id, article.authorId).catch((error) => {
+      console.error('Failed to enqueue article embedding job:', error);
+    });
     return { ...article, ...meta };
   } catch (error: any) {
     throw new DatabaseError('Failed to create article', error);
@@ -133,6 +137,9 @@ export async function updateArticle(data: {
     }
 
     const meta = parseMarkdownMeta(article.content);
+    void enqueueEmbeddingJob('article', article.id, article.authorId).catch((error) => {
+      console.error('Failed to enqueue article embedding job:', error);
+    });
     return { ...article, ...meta };
   } catch (error: any) {
     throw new DatabaseError(`Failed to update article: ${data.id}`, error);
@@ -171,6 +178,10 @@ export async function deleteArticle(data: {
     } catch (_error) {
       // 记录变更失败不影响操作
     }
+
+    void deleteEmbeddingsForSource('article', data.id).catch((error) => {
+      console.error('Failed to delete article embeddings:', error);
+    });
 
     return article;
   } catch (error: any) {

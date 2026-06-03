@@ -1,29 +1,38 @@
 # Docker Compose configuration using pre-built images from Docker Hub
-# Usage: docker-compose up -d
+# Usage:
+# 1. Create a .env file beside this compose file.
+# 2. Set VITE_API_BASE=http://YOUR_SERVER_IP:18000 in .env.
+# 3. Set POSTGRES_PASSWORD=change_this_password in .env.
+# 4. Run docker compose up -d.
 #
-# To use a specific version, set IMAGE_TAG environment variable:
-# IMAGE_TAG=v1.0.0 docker-compose up -d
+# Optional .env values:
+# IMAGE_TAG=v1.0.0
+# IMAGE_TAG=develop
+# POSTGRES_IMAGE=postgres:17
+#   Compatibility-only path. Future Rote versions may require pgvector-capable Postgres.
 #
 # Available tags:
 # - latest: Latest stable release (supports multi-platform: amd64, arm64)
 # - release: Latest stable release (same as latest)
-# - develop: Latest from develop branch (supports multi-platform: amd64, arm64)
+# - develop: Latest from develop branch; use this for unreleased features documented on develop
 # - main: Latest from main branch
 # - v1.0.0: Specific version (if released)
 #
 # ⚠️ IMPORTANT ⚠️
 # Don't forget to set VITE_API_BASE
-# Example: VITE_API_BASE=http://<your-ip-address>:18000 or VITE_API_BASE=http://<your-domain>
+# Example: VITE_API_BASE=http://YOUR_SERVER_IP:18000 or VITE_API_BASE=https://your-domain.com
 # Note: If you use a reverse proxy, VITE_API_BASE should be your backend address after the reverse proxy
 
 services:
   rote-backend:
+    # latest is intentionally the stable default. Use IMAGE_TAG=develop to test
+    # unreleased features before they are promoted to the stable image.
     image: rabithua/rote-backend:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: rote-backend
     environment:
       # 基础配置 - 必需
-      - POSTGRESQL_URL=postgresql://rote:${POSTGRES_PASSWORD:-rote_password_123}@rote-postgres:5432/rote
+      - POSTGRESQL_URL=postgresql://rote:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env before first start}@rote-postgres:5432/rote
     ports:
       - "18000:3000"
     depends_on:
@@ -40,6 +49,7 @@ services:
       ]
 
   rote-frontend:
+    # Keep this tag aligned with rote-backend by using the same IMAGE_TAG value.
     image: rabithua/rote-frontend:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: rote-frontend
@@ -48,16 +58,18 @@ services:
     depends_on:
       - rote-backend
     environment:
-      - VITE_API_BASE=${VITE_API_BASE:-http://<your-ip-address>:18000}
+      - VITE_API_BASE=${VITE_API_BASE:?Set VITE_API_BASE to your public backend URL, for example http://your-domain.com}
     restart: unless-stopped
 
   rote-postgres:
-    image: postgres:17
+    # pgvector image keeps Postgres 17 behavior and adds the optional vector extension.
+    # Plain postgres:17 is a compatibility-only path and may not be supported by future Rote versions.
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg17-trixie}
     container_name: rote-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: rote
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rote_password_123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env before first start}
       POSTGRES_DB: rote
     volumes:
       - rote-postgres-data:/var/lib/postgresql/data

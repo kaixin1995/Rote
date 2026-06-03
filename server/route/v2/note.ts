@@ -5,10 +5,12 @@ import type { HonoContext, HonoVariables } from '../../types/hono';
 import {
   bindAttachmentsToRote,
   createRote,
+  deleteEmbeddingsForSource,
   deleteRote,
   deleteRoteAttachmentsByRoteId,
   deleteRoteLinkPreviewsByRoteId,
   editRote,
+  enqueueEmbeddingJob,
   findMyRandomRote,
   findMyRote,
   findPublicRote,
@@ -90,6 +92,9 @@ notesRouter.post('/', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => 
 
   // 重新查询以获取最新关联数据（附件/文章等）
   const fullRote = await findRoteById(rote.id);
+  void enqueueEmbeddingJob('rote', rote.id, user.id).catch((error) => {
+    console.error('Failed to enqueue rote embedding job:', error);
+  });
   return c.json(createResponse(fullRote), 201);
 });
 
@@ -535,6 +540,9 @@ notesRouter.put('/:id', authenticateJWT, bodyTypeCheck, async (c: HonoContext) =
 
   // 重新获取最新数据（包含更新后的 article）
   const data = await findRoteById(id);
+  void enqueueEmbeddingJob('rote', id, user.id).catch((error) => {
+    console.error('Failed to enqueue rote embedding job:', error);
+  });
 
   const hasArticle = Boolean(data?.articleId || data?.article);
   const contentProvided = Object.prototype.hasOwnProperty.call(body, 'content');
@@ -567,6 +575,9 @@ notesRouter.delete('/:id', authenticateJWT, async (c: HonoContext) => {
 
   const data = await deleteRote({ id, authorid: user.id });
   await deleteRoteAttachmentsByRoteId(id, user.id);
+  void deleteEmbeddingsForSource('rote', id).catch((error) => {
+    console.error('Failed to delete rote embeddings:', error);
+  });
 
   return c.json(createResponse(data), 200);
 });

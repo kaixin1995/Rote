@@ -98,6 +98,7 @@
       "leftNavBar": {
         "home": "Home",
         "explore": "Explore",
+        "aiMemory": "AI Memory",
         "archived": "Archive",
         "profile": "Profile",
         "experiment": "Experiment",
@@ -361,7 +362,173 @@
       "none": "NONE",
       "data": "Data Statistics",
       "note": "Note",
-      "attachment": "Attachment"
+      "attachment": "Attachment",
+      "searchMode": {
+        "keyword": "Keyword",
+        "semantic": "Semantic"
+      },
+      "semantic": {
+        "emptyQuery": "Enter a question to search semantically",
+        "empty": "No related notes found",
+        "match": "Semantic match {{score}}%"
+      }
+    },
+    "aiMemory": {
+      "title": "AI Memory",
+      "sideBarTitle": "Assistant Panel",
+      "send": "Send",
+      "clear": "Clear chat",
+      "backToBottom": "Back to bottom",
+      "saveAsArticle": "Save as article",
+      "saved": "Saved",
+      "savedArticleTitle": "AI Memory Answer",
+      "savedArticleNoteContent": "AI Memory Answer",
+      "savedSourceTitle": "Sources",
+      "actions": {
+        "copy": "Copy",
+        "copySuccess": "Copied",
+        "copyFailed": "Failed to copy",
+        "exportImage": "Save image",
+        "exportPdf": "Print / Save PDF",
+        "exporting": "Exporting...",
+        "exportSuccess": "Image downloaded",
+        "exportFailed": "Export failed"
+      },
+      "inputPlaceholder": "Ask your Rote...",
+      "empty": {
+        "title": "Ask Rote",
+        "desc": "Find context from your notes and articles."
+      },
+      "quick": {
+        "title": "Quick Start",
+        "theme": "What themes keep appearing in my recent notes?",
+        "mbti": "Test the MBTI between my lines",
+        "flags": "What flags have I set recently that haven't been wrapped up?",
+        "timelineMonth": "String together the fragments of the last month into a timeline",
+        "focus": "Compared to last month, where has my focus shifted recently?",
+        "mood": "Under what mood or time do I usually want to record the most?",
+        "stress": "What is the core source of stress in my recent mutterings?",
+        "expand": "Expand",
+        "collapse": "Collapse"
+      },
+      "status": {
+        "title": "AI Status",
+        "checking": "Checking...",
+        "ready": "Ready",
+        "unverified": "Verify your email to use AI",
+        "unavailable": "AI or vector index is not available"
+      },
+      "memoryStats": {
+        "title": "Memory Overview",
+        "roteCount": "Notes Count",
+        "vectorProgress": "Vectorized",
+        "vectorProgressValue": "{{percent}}%"
+      },
+      "privacy": {
+        "title": "Conversation Note",
+        "description": "AI conversations stay in the current browser session and are not persisted to the database."
+      },
+      "sources": {
+        "title": "Sources",
+        "inlineTitle": "Sources",
+        "empty": "No sources yet"
+      },
+      "scope": {
+        "title": "Scope",
+        "paginationMore": "More results",
+        "time": "Time: {{label}}",
+        "tags": "Tags: {{tags}}",
+        "excludeTags": "Exclude tags: {{tags}}",
+        "semanticScope": "Keywords: {{keywords}}",
+        "sourceTypes": {
+          "rote": "Content: notes",
+          "article": "Content: articles",
+          "all": "Content: notes + articles"
+        },
+        "visibility": {
+          "private": "Visibility: private",
+          "public": "Visibility: public",
+          "all": "Visibility: private + public"
+        },
+        "archive": {
+          "active": "Archive: unarchived",
+          "archived": "Archive: archived only",
+          "all": "Archive: all"
+        },
+        "taskStatus": {
+          "open": "Task: open",
+          "closed": "Task: closed",
+          "all": "Task: all"
+        },
+        "comparison": "Compare: {{groups}}"
+      },
+      "debug": {
+        "title": "Retrieval trace",
+        "tools": "Tools {{count}}x: {{names}}",
+        "probes": "Probe count: {{counts}}",
+        "finish": "Finish: {{reason}}",
+        "fallback": "Fallback: {{reason}}",
+        "providerError": "Model tool calling failed",
+        "toolError": "Retrieval tool failed",
+        "warnings": "Warnings: {{warnings}}"
+      },
+      "timeline": {
+        "title": "Progress",
+        "sourcesFound": "Found {{count}} related source(s)",
+        "phases": {
+          "understanding": "Understanding the question",
+          "planning": "Deciding whether to read Rote",
+          "tool_calling": "Checking whether more evidence is needed",
+          "retrieving": "Retrieving records",
+          "reading": "Reading records",
+          "answering": "Organizing the answer"
+        },
+        "tools": {
+          "rote_search_notes": "Querying Rote",
+          "rote_get_note": "Reading a record",
+          "rote_find_related_notes": "Finding related records",
+          "rote_get_tags": "Loading tags",
+          "rote_skill_view": "Choosing workflow"
+        },
+        "toolStatus": {
+          "determining_scope": "Determining query scope",
+          "retrieving_sources": "Retrieving related records",
+          "reading_source": "Reading record content",
+          "finding_related": "Finding related records",
+          "loading_tags": "Loading tags"
+        },
+        "toolDone": {
+          "default": "Done",
+          "rote_get_note": "Record read",
+          "rote_find_related_notes": "Related records found",
+          "rote_get_tags": "Tags loaded",
+          "rote_skill_view": "Workflow selected"
+        }
+      },
+      "thinkingTrace": {
+        "route_decision": "Deciding whether to query Rote",
+        "evidence_decision": "Deciding whether more evidence is needed",
+        "retrieval_planning": "Determining query scope",
+        "answer": "Thinking through answer",
+        "separator": ": ",
+        "expand": "View thoughts",
+        "collapse": "Collapse"
+      },
+      "messages": {
+        "thinking": "Thinking...",
+        "searching": "Searching...",
+        "reading": "Reading and generating...",
+        "interrupted": "Previous response was interrupted",
+        "askFailed": "Request failed",
+        "fallbackNoAnswerWithSources": "I found related memory, but the model did not return a usable answer. Please try again or narrow the scope.",
+        "fallbackNoAnswerNoSources": "No matching memory was found, so I cannot answer from your notes yet.",
+        "clarifyUnresolvedTags": "I couldn't find the tag(s) {{tags}}. Would you like to use existing tags, or search by keywords instead?",
+        "clarifyAmbiguousTime": "Which specific time range would you like to see?",
+        "clarifyAmbiguousScope": "The scope is a bit ambiguous. Could you be more specific?",
+        "clarifyMoreResults": "For which notes would you like to see more results?",
+        "saveSuccess": "Saved as article",
+        "saveFailed": "Save failed"
+      }
     },
     "explore": {
       "title": "Explore",
@@ -434,6 +601,18 @@
         "convertToolHint": "If you want to migrate data from other platforms, you can use our data conversion tool:",
         "convertToolLinkName": "Rerote - Rote Data Conversion Tool",
         "fileParsed": "Parsed {{count}} notes",
+        "publicNotes": "Public Notes",
+        "privateNotes": "Private Notes",
+        "tagsFound": "Tags Found",
+        "previewSamples": "Data Preview",
+        "prevPage": "Previous page",
+        "nextPage": "Next page",
+        "sampleEmpty": "There are no notes to preview in this file.",
+        "previewWarning": "After confirmation, data is matched by ID: existing content owned by you will be updated, and missing content will be created.",
+        "openPreview": "View Preview",
+        "chooseAnotherFile": "Choose Another",
+        "excludeNote": "Exclude",
+        "restoreNote": "Restore",
         "invalidFormat": "Invalid file format. Please upload a valid JSON file.",
         "parseError": "Failed to parse JSON file",
         "importSuccessTitle": "Import completed",
@@ -614,12 +793,44 @@
       "accessDenied": "Access Denied",
       "adminOnly": "This page is only accessible to administrators",
       "tabs": {
+        "dashboard": "Dashboard",
         "site": "Site Settings",
         "storage": "Storage Settings",
         "ui": "System Settings",
         "security": "Security Settings",
         "oauth": "OAuth Login",
+        "ai": "AI Settings",
         "users": "User Management"
+      },
+      "dashboard": {
+        "title": "Data Dashboard",
+        "description": "Overview of platform statistics and anomaly detection",
+        "stats": {
+          "users": "Total Users",
+          "rotes": "Total Notes",
+          "attachments": "Attachments",
+          "aiPending": "AI Pending Jobs"
+        },
+        "tables": {
+          "topCreators": "Top Content Creators",
+          "topApi": "High API Usage (7 days)",
+          "topStorage": "Top Storage Usage",
+          "topTokenUsage": "Top AI Token Usage (30 days)"
+        },
+        "table": {
+          "username": "Username",
+          "notes": "Notes",
+          "articles": "Articles",
+          "apiCalls": "API Calls",
+          "storage": "Storage Used",
+          "tokenUsage": "Tokens Used"
+        },
+        "empty": {
+          "noData": "No data",
+          "noApiUsage": "No API usage in the last 7 days",
+          "noStorageUsage": "No storage usage yet",
+          "noTokenUsage": "No token usage yet"
+        }
       },
       "site": {
         "title": "Site Configuration",
@@ -743,6 +954,63 @@
           "callbackUrl": "Callback URL",
           "callbackUrlDesc": "Note: This URL is the backend URL. Callback URL configured in Apple Developer, typically: https://yourdomain.com/v2/api/auth/oauth/apple/callback."
         }
+      },
+      "ai": {
+        "title": "AI Settings",
+        "description": "Configure model providers, semantic indexing, and Rote memory search.",
+        "enabled": "Enable AI",
+        "enabledDesc": "Allow AI endpoints to use the configured chat model.",
+        "vectorEnabled": "Enable Vector Storage",
+        "vectorEnabledDesc": "Allow semantic indexing and pgvector search.",
+        "autoIndexEnabled": "Auto Index New Content",
+        "autoIndexEnabledDesc": "Queue embedding jobs after notes or articles change.",
+        "publicExploreVectorEnabled": "Enable Public Explore Semantics",
+        "publicExploreVectorEnabledDesc": "Allow public notes to be used in semantic Explore search.",
+        "chatTitle": "Chat Model",
+        "embeddingTitle": "Embedding Model",
+        "chatProvider": "Chat Provider",
+        "embeddingProvider": "Embedding Provider",
+        "model": "Model",
+        "baseUrl": "Base URL",
+        "apiKey": "API Key",
+        "dimensions": "Dimensions",
+        "chunkSize": "Chunk Size",
+        "chunkOverlap": "Chunk Overlap",
+        "batchSize": "Batch Size",
+        "maxRetries": "Max Retries",
+        "test": "Test Connection",
+        "testing": "Testing...",
+        "testSuccess": "Connection test successful",
+        "pgvectorStatus": "pgvector available: {{available}}, installed: {{installed}}, index: {{index}}",
+        "jobStats": "Jobs pending: {{pending}}, running: {{running}}, succeeded: {{succeeded}}, failed: {{failed}}",
+        "yes": "yes",
+        "no": "no",
+        "none": "none",
+        "enablePgvector": "Enable pgvector",
+        "pgvectorReady": "pgvector is ready",
+        "backfill": "Index Existing Data",
+        "backfillQueued": "Backfill jobs queued",
+        "process": "Process Now",
+        "processed": "Embedding jobs processed",
+        "pause": "Pause",
+        "paused": "Indexing paused",
+        "resume": "Resume",
+        "resumed": "Indexing resumed",
+        "retryFailed": "Retry Failed",
+        "failedJobsRequeued": "Failed jobs requeued",
+        "clearIndex": "Clear Index",
+        "indexCleared": "Vector index cleared",
+        "enabledStatus": "AI enabled",
+        "disabledStatus": "AI disabled",
+        "vectorReady": "Vector ready",
+        "vectorNotReady": "Vector not ready",
+        "providerSummary": "Chat provider",
+        "embeddingSummary": "Embedding provider",
+        "pendingJobs": "Pending jobs",
+        "failedJobs": "Failed jobs",
+        "basicSwitches": "Basic switches",
+        "modelProviders": "Model providers",
+        "advancedSettings": "Advanced indexing and maintenance"
       },
       "users": {
         "title": "User Management",
@@ -874,6 +1142,17 @@
     },
     "sidebarSearch": {
       "placeholder": "Search notes..."
+    },
+    "aiSourceList": {
+      "empty": "No sources",
+      "untitled": "Untitled",
+      "rote": "Note",
+      "article": "Article"
+    },
+    "relatedNotes": {
+      "title": "Related Notes",
+      "empty": "No related notes",
+      "unavailable": "Related notes are not available"
     },
     "randomRote": {
       "title": "Random Review",

@@ -98,6 +98,7 @@
       "leftNavBar": {
         "home": "ホーム",
         "explore": "探索",
+        "aiMemory": "AI メモリー",
         "archived": "アーカイブ",
         "profile": "プロフィール",
         "experiment": "実験",
@@ -361,7 +362,173 @@
       "none": "なし",
       "data": "データ統計",
       "note": "ノート",
-      "attachment": "添付ファイル"
+      "attachment": "添付ファイル",
+      "searchMode": {
+        "keyword": "キーワード",
+        "semantic": "意味検索"
+      },
+      "semantic": {
+        "emptyQuery": "質問を入力して意味検索を開始",
+        "empty": "関連ノートが見つかりません",
+        "match": "意味一致 {{score}}%"
+      }
+    },
+    "aiMemory": {
+      "title": "AI メモリー",
+      "sideBarTitle": "アシスタントパネル",
+      "send": "送信",
+      "clear": "チャットをクリア",
+      "backToBottom": "一番下へ戻る",
+      "saveAsArticle": "記事として保存",
+      "saved": "保存済み",
+      "savedArticleTitle": "AI メモリー回答",
+      "savedArticleNoteContent": "AI メモリー回答",
+      "savedSourceTitle": "ソース",
+      "actions": {
+        "copy": "コピー",
+        "copySuccess": "コピーしました",
+        "copyFailed": "コピーに失敗しました",
+        "exportImage": "画像を保存",
+        "exportPdf": "PDFを印刷 / 保存",
+        "exporting": "生成中...",
+        "exportSuccess": "画像をダウンロードしました",
+        "exportFailed": "エクスポートに失敗しました"
+      },
+      "inputPlaceholder": "Rote に質問...",
+      "empty": {
+        "title": "Rote に聞く",
+        "desc": "ノートと記事から文脈を探します。"
+      },
+      "quick": {
+        "title": "クイック開始",
+        "theme": "最近の記録で繰り返し出てくるテーマは？",
+        "mbti": "行間から私のMBTIを診断して",
+        "flags": "最近立てたまま終わっていないフラグは何？",
+        "timelineMonth": "直近1ヶ月の断片をタイムラインにまとめて",
+        "focus": "先月と比べて、最近の私の焦点はどこに変わった？",
+        "mood": "私は普段どんな気分や時間に一番記録したくなる？",
+        "stress": "最近のつぶやきの中で、中心的なストレス源は何？",
+        "expand": "展開",
+        "collapse": "折りたたむ"
+      },
+      "status": {
+        "title": "AI 状態",
+        "checking": "確認中...",
+        "ready": "準備完了",
+        "unverified": "メール確認後に AI を利用できます",
+        "unavailable": "AI またはベクトル索引を利用できません"
+      },
+      "memoryStats": {
+        "title": "メモリー概要",
+        "roteCount": "ノート数",
+        "vectorProgress": "ベクトル化進捗",
+        "vectorProgressValue": "{{percent}}%"
+      },
+      "privacy": {
+        "title": "会話について",
+        "description": "AI との会話は現在のブラウザセッション内にのみ保存され、データベースには永続保存されません。"
+      },
+      "sources": {
+        "title": "ソース",
+        "inlineTitle": "参照ソース",
+        "empty": "まだソースがありません"
+      },
+      "scope": {
+        "title": "範囲",
+        "paginationMore": "さらに表示",
+        "time": "時間：{{label}}",
+        "tags": "タグ：{{tags}}",
+        "excludeTags": "除外タグ：{{tags}}",
+        "semanticScope": "キーワード：{{keywords}}",
+        "sourceTypes": {
+          "rote": "種類：ノート",
+          "article": "種類：記事",
+          "all": "種類：ノート+記事"
+        },
+        "visibility": {
+          "private": "公開範囲：非公開",
+          "public": "公開範囲：公開",
+          "all": "公開範囲：非公開+公開"
+        },
+        "archive": {
+          "active": "アーカイブ：未アーカイブ",
+          "archived": "アーカイブ：アーカイブのみ",
+          "all": "アーカイブ：すべて"
+        },
+        "taskStatus": {
+          "open": "タスク：未完了",
+          "closed": "タスク：完了",
+          "all": "タスク：すべて"
+        },
+        "comparison": "比較：{{groups}}"
+      },
+      "debug": {
+        "title": "検索過程",
+        "tools": "ツール {{count}} 回：{{names}}",
+        "probes": "ヒット数：{{counts}}",
+        "finish": "終了理由：{{reason}}",
+        "fallback": "フォールバック：{{reason}}",
+        "providerError": "モデルのツール呼び出しに失敗",
+        "toolError": "検索ツールに失敗",
+        "warnings": "警告：{{warnings}}"
+      },
+      "timeline": {
+        "title": "進捗",
+        "sourcesFound": "関連ソースを {{count}} 件見つけました",
+        "phases": {
+          "understanding": "質問を理解中",
+          "planning": "Rote を読む必要があるか判断中",
+          "tool_calling": "追加の根拠が必要か確認中",
+          "retrieving": "記録を検索中",
+          "reading": "記録を読み込み中",
+          "answering": "回答を整理中"
+        },
+        "tools": {
+          "rote_search_notes": "Rote を検索中",
+          "rote_get_note": "記録を読み込み中",
+          "rote_find_related_notes": "関連記録を検索中",
+          "rote_get_tags": "タグを読み込み中",
+          "rote_skill_view": "処理方法を選択中"
+        },
+        "toolStatus": {
+          "determining_scope": "検索範囲を確認中",
+          "retrieving_sources": "関連記録を検索中",
+          "reading_source": "記録内容を読み込み中",
+          "finding_related": "関連記録を検索中",
+          "loading_tags": "タグを読み込み中"
+        },
+        "toolDone": {
+          "default": "完了しました",
+          "rote_get_note": "記録を読み込みました",
+          "rote_find_related_notes": "関連記録を見つけました",
+          "rote_get_tags": "タグを読み込みました",
+          "rote_skill_view": "処理方法を決定しました"
+        }
+      },
+      "thinkingTrace": {
+        "route_decision": "Rote を検索するか判断中",
+        "evidence_decision": "追加の根拠が必要か判断中",
+        "retrieval_planning": "検索範囲を確認中",
+        "answer": "回答を整理中",
+        "separator": "：",
+        "expand": "思考を見る",
+        "collapse": "閉じる"
+      },
+      "messages": {
+        "thinking": "思考中...",
+        "searching": "検索中...",
+        "reading": "ソースを読んで生成中...",
+        "interrupted": "前回の回答は中断されました",
+        "askFailed": "リクエスト失敗",
+        "fallbackNoAnswerWithSources": "関連する記憶が見つかりましたが、モデルから有効な回答が返されませんでした。別の質問を試すか、範囲を絞ってみてください。",
+        "fallbackNoAnswerNoSources": "関連する記憶が見つからなかったため、現在のノートに基づいて回答することができません。",
+        "clarifyUnresolvedTags": "タグ {{tags}} が見つかりませんでした。既存のタグに変更するか、タグを限定せずにキーワードで検索しますか？",
+        "clarifyAmbiguousTime": "どの期間のノートを見たいですか？",
+        "clarifyAmbiguousScope": "範囲が少し曖昧です。もう少し具体的に指定していただけますか？",
+        "clarifyMoreResults": "どの種類のノートについてもっと見たいですか？",
+        "saveSuccess": "記事として保存しました",
+        "saveFailed": "保存失敗"
+      }
     },
     "explore": {
       "title": "探索",
@@ -434,6 +601,18 @@
         "convertToolHint": "他のプラットフォームからデータを移行したい場合は、当社のデータ変換ツールを使用できます：",
         "convertToolLinkName": "Rerote - Rote データ変換ツール",
         "fileParsed": "{{count}} 件のノートを解析しました",
+        "publicNotes": "公開ノート",
+        "privateNotes": "非公開ノート",
+        "tagsFound": "タグ数",
+        "previewSamples": "データプレビュー",
+        "prevPage": "前のページ",
+        "nextPage": "次のページ",
+        "sampleEmpty": "このファイルにはプレビューできるノートがありません。",
+        "previewWarning": "確認後、データは ID で照合されます。あなたが所有する既存データは更新され、存在しないデータは新規作成されます。",
+        "openPreview": "プレビュー",
+        "chooseAnotherFile": "別のファイル",
+        "excludeNote": "除外",
+        "restoreNote": "戻す",
         "invalidFormat": "無効なファイル形式です。有効な JSON ファイルをアップロードしてください。",
         "parseError": "JSON ファイルの解析に失敗しました",
         "importSuccessTitle": "インポート完了",
@@ -614,12 +793,44 @@
       "accessDenied": "アクセス拒否",
       "adminOnly": "このページは管理者のみアクセス可能です",
       "tabs": {
+        "dashboard": "ダッシュボード",
         "site": "サイト設定",
         "storage": "ストレージ設定",
         "ui": "システム設定",
         "security": "セキュリティ設定",
         "oauth": "OAuth ログイン",
+        "ai": "AI 関連",
         "users": "ユーザー管理"
+      },
+      "dashboard": {
+        "title": "データダッシュボード",
+        "description": "プラットフォーム統計の概要と異常検知",
+        "stats": {
+          "users": "総ユーザー数",
+          "rotes": "総ノート数",
+          "attachments": "添付ファイル数",
+          "aiPending": "AI 保留ジョブ"
+        },
+        "tables": {
+          "topCreators": "コンテンツクリエイターランキング",
+          "topApi": "高 API 使用量（7 日間）",
+          "topStorage": "ストレージ使用量ランキング",
+          "topTokenUsage": "AI Token 使用量ランキング（30 日間）"
+        },
+        "table": {
+          "username": "ユーザー名",
+          "notes": "ノート",
+          "articles": "記事",
+          "apiCalls": "API コール",
+          "storage": "使用ストレージ",
+          "tokenUsage": "使用 Token"
+        },
+        "empty": {
+          "noData": "データなし",
+          "noApiUsage": "過去 7 日間に API 使用なし",
+          "noStorageUsage": "ストレージ使用記録なし",
+          "noTokenUsage": "Token 使用記録なし"
+        }
       },
       "site": {
         "title": "サイト設定",
@@ -743,6 +954,63 @@
           "callbackUrl": "コールバックURL",
           "callbackUrlDesc": "注意：このURLはバックエンドURLです。Apple Developerで設定されたコールバックURL、通常は：https://yourdomain.com/v2/api/auth/oauth/apple/callback"
         }
+      },
+      "ai": {
+        "title": "AI 関連",
+        "description": "モデルプロバイダー、セマンティックインデックス、Rote メモリ検索を設定します。",
+        "enabled": "AI を有効化",
+        "enabledDesc": "設定済みのチャットモデルを AI API で使用します。",
+        "vectorEnabled": "ベクトル保存を有効化",
+        "vectorEnabledDesc": "セマンティックインデックスと pgvector 検索を許可します。",
+        "autoIndexEnabled": "新規コンテンツを自動インデックス",
+        "autoIndexEnabledDesc": "ノートまたは記事の変更後に埋め込みジョブをキューに追加します。",
+        "publicExploreVectorEnabled": "公開 Explore のセマンティック検索",
+        "publicExploreVectorEnabledDesc": "公開ノートを Explore のセマンティック検索に使用します。",
+        "chatTitle": "チャットモデル",
+        "embeddingTitle": "埋め込みモデル",
+        "chatProvider": "チャットプロバイダー",
+        "embeddingProvider": "埋め込みプロバイダー",
+        "model": "モデル",
+        "baseUrl": "Base URL",
+        "apiKey": "API Key",
+        "dimensions": "次元数",
+        "chunkSize": "チャンクサイズ",
+        "chunkOverlap": "チャンク重複",
+        "batchSize": "バッチサイズ",
+        "maxRetries": "最大リトライ数",
+        "test": "接続テスト",
+        "testing": "テスト中...",
+        "testSuccess": "接続テストに成功しました",
+        "pgvectorStatus": "pgvector 利用可能: {{available}}, インストール済み: {{installed}}, インデックス: {{index}}",
+        "jobStats": "ジョブ pending: {{pending}}, running: {{running}}, succeeded: {{succeeded}}, failed: {{failed}}",
+        "yes": "はい",
+        "no": "いいえ",
+        "none": "なし",
+        "enablePgvector": "pgvector を有効化",
+        "pgvectorReady": "pgvector の準備ができました",
+        "backfill": "既存データをインデックス",
+        "backfillQueued": "バックフィルジョブをキューに追加しました",
+        "process": "今すぐ処理",
+        "processed": "埋め込みジョブを処理しました",
+        "pause": "一時停止",
+        "paused": "インデックスを一時停止しました",
+        "resume": "再開",
+        "resumed": "インデックスを再開しました",
+        "retryFailed": "失敗ジョブを再試行",
+        "failedJobsRequeued": "失敗ジョブを再キューしました",
+        "clearIndex": "インデックスをクリア",
+        "indexCleared": "ベクトルインデックスをクリアしました",
+        "enabledStatus": "AI 有効",
+        "disabledStatus": "AI 無効",
+        "vectorReady": "ベクトル準備済み",
+        "vectorNotReady": "ベクトル未準備",
+        "providerSummary": "チャットプロバイダー",
+        "embeddingSummary": "埋め込みプロバイダー",
+        "pendingJobs": "保留中ジョブ",
+        "failedJobs": "失敗ジョブ",
+        "basicSwitches": "基本スイッチ",
+        "modelProviders": "モデルプロバイダー",
+        "advancedSettings": "高度なインデックスとメンテナンス"
       },
       "users": {
         "title": "ユーザー管理",
@@ -874,6 +1142,17 @@
     },
     "sidebarSearch": {
       "placeholder": "ノートを検索..."
+    },
+    "aiSourceList": {
+      "empty": "ソースなし",
+      "untitled": "無題",
+      "rote": "ノート",
+      "article": "記事"
+    },
+    "relatedNotes": {
+      "title": "関連ノート",
+      "empty": "関連ノートなし",
+      "unavailable": "関連ノートを利用できません"
     },
     "randomRote": {
       "title": "ランダムレビュー",

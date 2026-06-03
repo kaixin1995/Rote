@@ -13,6 +13,7 @@ import {
 } from '../../drizzle/schema';
 import db from '../drizzle';
 import { r2deletehandler } from '../r2';
+import { enqueueBackfillEmbeddingJobsForOwner } from './ai';
 import { DatabaseError } from './common';
 
 // 删除用户账户
@@ -89,8 +90,10 @@ export async function mergeUserAccounts(
   mergedData: any;
   migratedBindings: Array<{ provider: string; providerId: string }>;
 }> {
+  let shouldBackfillTargetEmbeddings = false;
+
   // 使用事务确保操作的原子性
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     try {
       // 1. 验证两个用户都存在（在事务内验证，避免竞态条件）
       const [sourceUser] = await tx.select().from(users).where(eq(users.id, sourceUserId)).limit(1);
@@ -223,6 +226,7 @@ export async function mergeUserAccounts(
       // 邮箱验证状态（邮箱本身因唯一约束保留目标用户的）
       if (!targetUser.emailVerified && sourceUser.emailVerified) {
         updateData.emailVerified = true;
+        shouldBackfillTargetEmbeddings = true;
       }
 
       if (Object.keys(updateData).length > 1) {
@@ -339,4 +343,12 @@ export async function mergeUserAccounts(
       throw new DatabaseError('Failed to merge user accounts', error);
     }
   });
+
+  if (shouldBackfillTargetEmbeddings) {
+    void enqueueBackfillEmbeddingJobsForOwner(targetUserId).catch((error) => {
+      console.error('Failed to enqueue merged user embedding backfill:', error);
+    });
+  }
+
+  return result;
 }

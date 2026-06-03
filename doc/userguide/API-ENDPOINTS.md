@@ -84,7 +84,37 @@
 
 参数：`keyword`（必填），可选 `skip/limit/archived/tag`
 
-### 7) 反应（Reactions）
+### 7) AI Memory
+
+| 路径                        | 方法 | 认证 | 描述                         |
+| --------------------------- | ---- | ---- | ---------------------------- |
+| `/ai/status`                | GET  | 登录 | 获取 AI/向量能力启用状态     |
+| `/ai/search`                | POST | 登录 | 语义搜索我的 Rote 内容       |
+| `/ai/related-notes`         | POST | 登录 | 查找与笔记/文章相关的内容    |
+| `/ai/chat`                  | POST | 登录 | 基于 Rote 上下文对话         |
+| `/ai/chat/stream`           | POST | 登录 | 基于 Rote 上下文流式对话     |
+| `/ai/providers`             | GET  | 管理 | 获取内置模型供应商预设       |
+| `/ai/vector/status`         | GET  | 管理 | 检测 pgvector 状态           |
+| `/ai/vector/enable`         | POST | 管理 | 创建 pgvector extension/索引 |
+| `/ai/index/backfill`        | POST | 管理 | 为存量数据创建向量任务       |
+| `/ai/index/process`         | POST | 管理 | 立即处理一批向量任务         |
+| `/ai/index/retry-failed`    | POST | 管理 | 重试失败的向量任务           |
+| `/ai/index/pause`           | POST | 管理 | 暂停后台向量任务             |
+| `/ai/index/resume`          | POST | 管理 | 恢复后台向量任务             |
+| `/ai/index/clear`           | POST | 管理 | 清空向量索引和任务           |
+
+AI 与向量存储默认关闭，需要管理员在后台配置供应商并显式启用。
+`/ai/status` 不返回供应商配置或 API Key。`/ai/related-notes` 可传 `sourceTypes`
+限制返回 `rote` 或 `article`。
+`/ai/search` 支持 `timeRange`、`tags`、`semanticScope`、`sourceTypes`、`state`、
+`archived` 等过滤参数；`semanticScope` 会增强语义检索，不作为数据库硬过滤。
+`/ai/chat/stream` 返回 `text/event-stream`，事件包括 `thinking`、`plan`、
+`clarification`、`sources`、`delta`、`done` 和 `error`。`thinking` 可带
+`phase: "planning" | "answer"`，用于折叠展示模型思考过程；正式回答仍由 `delta`
+输出。当收到 `clarification` 时，客户端可把返回的 `pendingPlan` 连同用户补充回答再次提交到
+`/ai/chat/stream`。
+
+### 8) 反应（Reactions）
 
 | 路径                       | 方法   | 认证 | 描述                           |
 | -------------------------- | ------ | ---- | ------------------------------ |
@@ -93,13 +123,13 @@
 
 字段：`type`(emoji), `roteid`, `visitorId?`, `visitorInfo?`, `metadata?`
 
-### 8) 通知
+### 9) 通知
 
 | 路径             | 方法 | 认证 | 描述     |
 | ---------------- | ---- | ---- | -------- |
 | `/notifications` | POST | 登录 | 创建通知 |
 
-### 9) 订阅
+### 10) 订阅
 
 | 路径                        | 方法   | 认证 | 描述         |
 | --------------------------- | ------ | ---- | ------------ |
@@ -110,7 +140,7 @@
 | `/subscriptions/:id`        | DELETE | 登录 | 删除订阅     |
 | `/subscriptions/:id/notify` | POST   | 无   | 触发通知     |
 
-### 10) API Keys
+### 11) API Keys
 
 | 路径            | 方法   | 认证 | 描述         |
 | --------------- | ------ | ---- | ------------ |

@@ -7,6 +7,7 @@ import {
   requireSuperAdmin,
 } from '../../middleware/jwtAuth';
 import type {
+  AiConfig,
   ConfigTestResult,
   InitializationStatus,
   SetupRequest,
@@ -23,6 +24,7 @@ import {
   refreshConfigCache,
   setConfig,
 } from '../../utils/config';
+import { resolveIncomingAiConfig, sanitizeAiConfig } from '../../utils/ai/providers';
 import { ConfigTester } from '../../utils/configTester';
 import {
   checkDatabaseConnection,
@@ -37,6 +39,7 @@ import {
   unverifyUserEmail,
   updateUserRole,
   verifyUserEmail,
+  getDashboardStats,
 } from '../../utils/dbMethods';
 import { createResponse, getApiUrl } from '../../utils/main';
 
@@ -98,6 +101,14 @@ const getStorageFriendlyError = (details: any, fallbackMessage?: string) => {
   }
 
   return 'Please verify the endpoint, bucket, and credentials.';
+};
+
+const sanitizeSettingsForAdmin = (configs: Record<string, any>) => {
+  if (!configs.ai) return configs;
+  return {
+    ...configs,
+    ai: sanitizeAiConfig(configs.ai),
+  };
 };
 
 const logStorageTestStart = (source: string, config: any) => {
@@ -286,14 +297,50 @@ adminRouter.post('/setup', async (c: HonoContext) => {
       );
     }
 
-    // 检查管理员用户是否已存在
+    // 检查管理员用户是否已存在。旧版/半初始化数据库可能已有管理员但缺少 system
+    // settings，此时复用现有管理员完成配置初始化，避免卡在重复用户名。
+    const hasExistingAdmin = await hasAdminUser();
     const existingUser = await findUserByUsernameOrEmail({
       username: setupData.admin.username,
       email: setupData.admin.email,
     });
 
+    let adminUser: {
+      id: string;
+      username: string;
+      email: string;
+      role: string;
+    };
+    let reusedExistingAdmin = false;
+
     if (existingUser) {
-      return c.json(createResponse(null, 'Username or email already exists'), 400);
+      const isExistingAdmin = ['admin', 'super_admin'].includes(existingUser.role);
+      const isSameAdminIdentity =
+        existingUser.username === setupData.admin.username &&
+        existingUser.email === setupData.admin.email;
+
+      if (!isExistingAdmin || !isSameAdminIdentity) {
+        return c.json(createResponse(null, 'Username or email already exists'), 400);
+      }
+
+      adminUser = existingUser;
+      reusedExistingAdmin = true;
+    } else if (hasExistingAdmin) {
+      return c.json(
+        createResponse(
+          null,
+          'An admin user already exists. Please use the existing admin username and email to finish setup.'
+        ),
+        400
+      );
+    } else {
+      // 创建管理员用户（在事务中）
+      adminUser = await createAdminUser({
+        username: setupData.admin.username,
+        email: setupData.admin.email,
+        password: setupData.admin.password,
+        nickname: setupData.admin.nickname,
+      });
     }
 
     // 开始初始化流程
@@ -323,14 +370,6 @@ adminRouter.post('/setup', async (c: HonoContext) => {
       throw new Error('Failed to generate security keys');
     }
 
-    // 5. 创建管理员用户（在事务中）
-    const adminUser = await createAdminUser({
-      username: setupData.admin.username,
-      email: setupData.admin.email,
-      password: setupData.admin.password,
-      nickname: setupData.admin.nickname,
-    });
-
     // 6. 标记系统为已初始化
     // 获取当前迁移版本
     const migrationVersion = await getLatestMigrationVersion();
@@ -351,7 +390,9 @@ adminRouter.post('/setup', async (c: HonoContext) => {
 
     const response: SetupResponse = {
       success: true,
-      message: 'System initialization completed successfully',
+      message: reusedExistingAdmin
+        ? 'System initialization completed using the existing admin user. The existing password was not changed.'
+        : 'System initialization completed successfully',
       data: {
         adminUser,
         generatedKeys: {
@@ -386,14 +427,14 @@ adminRouter.get('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
       return c.json(
         createResponse({
           group,
-          config,
+          config: group === 'ai' ? sanitizeAiConfig(config as AiConfig) : config,
         }),
         200
       );
     } else {
       // 获取所有配置
       const allConfigs = await getAllConfigs();
-      return c.json(createResponse(allConfigs), 200);
+      return c.json(createResponse(sanitizeSettingsForAdmin(allConfigs)), 200);
     }
   } catch (error: any) {
     console.error('Failed to get settings:', error);
@@ -405,14 +446,15 @@ adminRouter.get('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
 adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContext) => {
   try {
     const body = await c.req.json();
-    const { group, config } = body as { group: string; config: any };
+    const { group } = body as { group: string; config: any };
+    let { config } = body as { group: string; config: any };
 
     if (!group || !config) {
       return c.json(createResponse(null, 'Group and config are required'), 400);
     }
 
     // 验证分组是否有效
-    const validGroups = ['site', 'storage', 'security', 'notification', 'ui', 'system'];
+    const validGroups = ['site', 'storage', 'security', 'notification', 'ui', 'system', 'ai'];
     if (!validGroups.includes(group)) {
       return c.json(createResponse(null, 'Invalid configuration group'), 400);
     }
@@ -512,6 +554,19 @@ adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
       }
     }
 
+    if (group === 'ai') {
+      const existing = await getConfig<AiConfig>('ai');
+      config = resolveIncomingAiConfig(config as Partial<AiConfig>, existing);
+      if (
+        config.embedding?.dimensions !== undefined &&
+        (typeof config.embedding.dimensions !== 'number' ||
+          config.embedding.dimensions < 1 ||
+          config.embedding.dimensions > 4000)
+      ) {
+        return c.json(createResponse(null, 'Embedding dimensions must be between 1 and 4000'), 400);
+      }
+    }
+
     // 更新配置
     const success = await setConfig(group as any, config, {
       isRequired: ['site', 'storage', 'security'].includes(group),
@@ -523,7 +578,13 @@ adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
       return c.json(createResponse(null, 'Failed to update configuration'), 500);
     }
 
-    return c.json(createResponse({ group, config }, 'Configuration updated successfully'), 200);
+    return c.json(
+      createResponse(
+        { group, config: group === 'ai' ? sanitizeAiConfig(config as AiConfig) : config },
+        'Configuration updated successfully'
+      ),
+      200
+    );
   } catch (error: any) {
     console.error('Failed to update settings:', error);
     return c.json(createResponse(null, 'Failed to update settings'), 500);
@@ -702,6 +763,17 @@ adminRouter.post('/refresh-cache', authenticateJWT, requireAdmin, async (c: Hono
   } catch (error: any) {
     console.error('Failed to refresh configuration cache:', error);
     return c.json(createResponse(null, 'Failed to refresh configuration cache'), 500);
+  }
+});
+
+// 获取数据看板统计（管理员）
+adminRouter.get('/stats/dashboard', authenticateJWT, requireAdmin, async (c: HonoContext) => {
+  try {
+    const stats = await getDashboardStats();
+    return c.json(createResponse(stats), 200);
+  } catch (error: any) {
+    console.error('Failed to get dashboard stats:', error);
+    return c.json(createResponse(null, 'Failed to get dashboard stats'), 500);
   }
 });
 

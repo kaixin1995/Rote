@@ -1,8 +1,27 @@
 import { toBlob } from 'html-to-image';
 
-const MAX_CANVAS_AREA = 160000000;
-const MAX_DIMENSION = 65535;
-const CHUNK_HEIGHT = 2000;
+function getCanvasLimits() {
+  let maxArea = 160000000;
+  let maxDim = 32767;
+
+  if (typeof navigator !== 'undefined' && typeof window !== 'undefined') {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+
+    if (isMobile) {
+      // 移动端更严格的内存和 Canvas 限制
+      maxArea = 67108864; // 8192 * 8192
+      maxDim = 16384;
+    } else {
+      // PC 端适当放宽限制 (268M 像素面积)
+      maxArea = 268435456; // 16384 * 16384
+      maxDim = 32767;
+    }
+  }
+
+  return { MAX_AREA: maxArea, MAX_DIM: maxDim };
+}
 
 export function logExport(step: string, data?: Record<string, unknown>) {
   const ts = new Date().toISOString().slice(11, 23);
@@ -63,9 +82,10 @@ export async function waitForImagesToLoad(container: HTMLElement) {
 }
 
 export function calculateScale(width: number, height: number) {
+  const { MAX_AREA, MAX_DIM } = getCanvasLimits();
   const currentArea = width * height;
-  const maxAreaScale = Math.sqrt(MAX_CANVAS_AREA / currentArea);
-  const maxDimScale = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+  const maxAreaScale = Math.sqrt(MAX_AREA / currentArea);
+  const maxDimScale = Math.min(MAX_DIM / width, MAX_DIM / height);
   const safeScale = Math.min(maxAreaScale, maxDimScale);
 
   let scale = 4;
@@ -73,61 +93,43 @@ export function calculateScale(width: number, height: number) {
     scale = Math.floor(safeScale * 2) / 2;
     if (scale < 1) scale = 1;
   }
+
+  // eslint-disable-next-line no-console
+  console.log('[calculateScale]', {
+    width,
+    height,
+    currentArea,
+    MAX_AREA,
+    MAX_DIM,
+    maxAreaScale,
+    maxDimScale,
+    safeScale,
+    finalScale: scale,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio : 'unknown',
+  });
+
   return scale;
 }
 
 export async function captureElementToPng(el: HTMLElement, scale: number): Promise<Blob> {
   const rect = el.getBoundingClientRect();
-  const chunksCount = Math.ceil(rect.height / CHUNK_HEIGHT);
 
-  const masterCanvas = document.createElement('canvas');
-  masterCanvas.width = rect.width * scale;
-  masterCanvas.height = rect.height * scale;
-  const masterCtx = masterCanvas.getContext('2d');
-  if (!masterCtx) throw new Error('Cannot create master canvas context');
-  masterCtx.imageSmoothingEnabled = false;
-
-  for (let i = 0; i < chunksCount; i++) {
-    const currentChunkHeight = Math.min(CHUNK_HEIGHT, rect.height - i * CHUNK_HEIGHT);
-
-    const chunkBlob = await toBlob(el, {
-      pixelRatio: scale,
-      backgroundColor: '#ffffff',
-      width: rect.width,
-      height: currentChunkHeight,
-      style: {
-        left: '0',
-        top: '0',
-        margin: '0',
-        transform: `translateY(-${i * CHUNK_HEIGHT}px)`,
-        transformOrigin: 'top left',
-        WebkitFontSmoothing: 'antialiased',
-        MozOsxFontSmoothing: 'grayscale',
-      } as any,
-    });
-
-    if (!chunkBlob || chunkBlob.size === 0) throw new Error(`Empty image chunk ${i}`);
-
-    const img = new Image();
-    const url = URL.createObjectURL(chunkBlob);
-    img.src = url;
-    await new Promise((res, rej) => {
-      img.onload = res;
-      img.onerror = rej;
-    });
-
-    masterCtx.drawImage(
-      img,
-      0,
-      i * CHUNK_HEIGHT * scale,
-      rect.width * scale,
-      currentChunkHeight * scale
-    );
-    URL.revokeObjectURL(url);
-  }
-
-  const finalBlob = await new Promise<Blob | null>((resolve) => {
-    masterCanvas.toBlob(resolve, 'image/png');
+  // 直接全量生成图片，不再通过 translate 切片。
+  // 切片时的 transform: translateY 容易触发 Chromium 超过 2000px 的合成层降级（1x 分辨率光栅化），导致文字模糊。
+  // 因为在上一步 calculateScale 中已经保证了生成尺寸一定在安全范围内，直接生成即可。
+  const finalBlob = await toBlob(el, {
+    pixelRatio: scale,
+    backgroundColor: '#ffffff',
+    width: rect.width,
+    height: rect.height,
+    style: {
+      left: '0',
+      top: '0',
+      margin: '0',
+      transformOrigin: 'top left',
+      WebkitFontSmoothing: 'antialiased',
+      MozOsxFontSmoothing: 'grayscale',
+    } as any,
   });
 
   if (!finalBlob || finalBlob.size === 0) throw new Error('Empty image');
@@ -145,6 +147,8 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 export function cleanupOffscreenContainers() {
   document.body
-    .querySelectorAll('[style*="left:-9999px"], [style*="left: -9999px"]')
+    .querySelectorAll(
+      '.ai-answer-export-container, [style*="left:-9999px"], [style*="left: -9999px"]'
+    )
     .forEach((el) => el.remove());
 }

@@ -1,9 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "streamdown/styles.css";
 @import "./tailwindTheme.css";
 @import "./tools.css";
 @import "./font.css";
 @plugin "@tailwindcss/typography";
+@source "../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/@streamdown/cjk/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -142,5 +145,21 @@ html {
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media print {
+  body > *:not(.print-container) {
+    display: none !important;
+  }
+  .print-container {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    display: block !important;
+  }
+  @page {
+    margin: 0.5cm;
   }
 }

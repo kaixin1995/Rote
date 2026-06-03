@@ -1,4 +1,5 @@
-import type { Rotes } from '@/types/main';
+import type { ReactNode } from 'react';
+import type { Rote, Rotes } from '@/types/main';
 
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
 import RoteItem from '@/components/rote/roteItem';
@@ -13,13 +14,17 @@ function RoteList({
   loadMore,
   mutate,
   error,
+  isItemMuted,
   isValidating,
+  itemActions,
 }: {
   data?: Rotes[];
-  loadMore: () => void;
-  mutate: SWRInfiniteKeyedMutator<Rotes>;
+  loadMore?: () => void;
+  mutate?: SWRInfiniteKeyedMutator<Rotes>;
   error?: Error | null;
+  isItemMuted?: (rote: Rote, index: number) => boolean;
   isValidating?: boolean;
+  itemActions?: (rote: Rote, index: number) => ReactNode;
 }) {
   const { t } = useTranslation('translation', {
     keyPrefix: 'components.roteList',
@@ -32,9 +37,14 @@ function RoteList({
   // TODO:如何优雅处理limit字段的传输
   // const limit = getProps(0, []).limit || 20;
   const limit = 20;
-  const isReachingEnd = isEmpty || (data && data[data.length - 1]?.length < limit);
+  const isStaticList = !loadMore;
+  const isReachingEnd = isStaticList || isEmpty || (data && data[data.length - 1]?.length < limit);
 
   useEffect(() => {
+    if (!loadMore) {
+      return;
+    }
+
     const currentloaderRef = loaderRef.current;
 
     if (!currentloaderRef) {
@@ -78,7 +88,29 @@ function RoteList({
   }
 
   const renderRotes = () =>
-    rotes.map((item: any) => <RoteItem rote={item} key={item.id} mutate={mutate} />);
+    rotes.map((item: Rote, index) => {
+      const actions = itemActions?.(item, index);
+      const muted = isItemMuted?.(item, index);
+      const roteItem = <RoteItem rote={item} mutate={mutate} showReactions={!isStaticList} />;
+
+      if (!actions && !muted) {
+        return (
+          <RoteItem
+            rote={item}
+            key={item.id || index}
+            mutate={mutate}
+            showReactions={!isStaticList}
+          />
+        );
+      }
+
+      return (
+        <div key={item.id || index} className={`relative ${muted ? 'opacity-40' : ''}`}>
+          {roteItem}
+          {actions && <div className="absolute top-3 right-3 z-10">{actions}</div>}
+        </div>
+      );
+    });
 
   return (
     <div className="relative flex w-full flex-col divide-y">

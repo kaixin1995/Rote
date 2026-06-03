@@ -8,12 +8,47 @@ import type {
 } from '../../types/config';
 import type { HonoContext, HonoVariables } from '../../types/hono';
 import { getConfig, isInitialized } from '../../utils/config';
-import { checkDatabaseConnection, getSiteMapData } from '../../utils/dbMethods';
+import {
+  checkDatabaseConnection,
+  getPgvectorStatus,
+  getSiteMapData,
+  getStoredAiConfig,
+} from '../../utils/dbMethods';
 import { createResponse } from '../../utils/main';
 import { generateSitemapXML } from '../../utils/sitemap';
 
 // 站点数据相关路由
 const siteRouter = new Hono<{ Variables: HonoVariables }>();
+
+async function getPublicAiStatus() {
+  const fallback = {
+    enabled: false,
+    vectorEnabled: false,
+    publicExploreVectorEnabled: false,
+    available: false,
+    vectorAvailable: false,
+    vectorInstalled: false,
+  };
+
+  try {
+    const aiConfig = await getStoredAiConfig();
+    const vectorStatus = await getPgvectorStatus();
+
+    return {
+      enabled: aiConfig.enabled === true,
+      vectorEnabled: aiConfig.vectorEnabled === true,
+      publicExploreVectorEnabled: aiConfig.publicExploreVectorEnabled === true,
+      available:
+        aiConfig.enabled === true &&
+        aiConfig.vectorEnabled === true &&
+        vectorStatus.installed === true,
+      vectorAvailable: vectorStatus.available === true,
+      vectorInstalled: vectorStatus.installed === true,
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 // 获取站点地图数据
 siteRouter.get('/sitemap', async (c: HonoContext) => {
@@ -84,6 +119,7 @@ siteRouter.get('/status', async (c: HonoContext) => {
     const storageConfig = (await getConfig('storage')) as Partial<StorageConfig> | null;
     const uiConfig = await getConfig<UiConfig>('ui');
     const securityConfig = await getConfig<SecurityConfig>('security');
+    const aiStatus = await getPublicAiStatus();
 
     // 检查数据库连接状态
     const databaseConnected = await checkDatabaseConnection();
@@ -167,6 +203,9 @@ siteRouter.get('/status', async (c: HonoContext) => {
       passkey: {
         enabled: securityConfig?.passkey?.enabled !== false,
       },
+
+      // AI 配置状态（仅返回脱敏的能力开关，不返回 provider、model 或 API Key）
+      ai: aiStatus,
 
       // 时间戳
       timestamp: new Date().toISOString(),

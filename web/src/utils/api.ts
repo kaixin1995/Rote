@@ -148,7 +148,7 @@ api.interceptors.response.use(
 
         try {
           // 刷新token
-          const newToken = await refreshTokenRequest();
+          const newToken = await refreshAccessToken();
           processQueue(null, newToken);
           // 刷新成功后，自动为原请求补充新token并重试
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -196,7 +196,7 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-const refreshTokenRequest = async (): Promise<string> => {
+export const refreshAccessToken = async (): Promise<string> => {
   const refreshTokenValue = authService.getRefreshToken();
   if (!refreshTokenValue) {
     throw new Error('No refresh token available');

@@ -23,23 +23,57 @@
 - **Self-Hosted Deployment**: One-click deployment using Docker or Dokploy
 - **Separated Architecture**: Frontend and backend use separated architecture design, deploy only the services you need
 - **Markdown Articles**: Standalone Article support, can be referenced by notes, offering a pure writing and reading experience
+- **AI Memory**: Optional AI chat over your own notes and articles, with semantic search, related notes, streamed responses, and source references
+- **Admin-Controlled AI**: AI, vector storage, automatic indexing, and public semantic discovery are disabled by default and must be explicitly enabled by an administrator
 - **iOS Client**: More elegant App client
 
 ### Quick Start
 
 #### Method 1: Using Docker Hub Image
 
-Copy [docker-compose.yml](https://github.com/Rabithua/Rote/blob/main/docker-compose.yml) to your server with Docker and Docker Compose installed
+Copy [docker-compose.yml](docker-compose.yml) to your server with Docker and Docker Compose installed
 
 > Note: If you use a reverse proxy, VITE_API_BASE should be your backend address after the reverse proxy
+>
+> Rote now uses `pgvector/pgvector:pg17-trixie` by default. It behaves like PostgreSQL 17 and additionally supports the optional AI vector extension. Plain `postgres:17` is only a temporary compatibility path and may not be supported by future Rote versions.
+>
+> `latest` is the stable image. If you are reading the develop branch documentation or testing unreleased AI Memory features, use `IMAGE_TAG=develop`.
 
 ```bash
-# Use latest version (default config file)
-VITE_API_BASE=http://<your-ip-address>:18000 docker-compose up -d
+# 1. Create a .env file beside docker-compose.yml
+cat > .env <<'EOF'
+VITE_API_BASE=http://YOUR_SERVER_IP:18000
+POSTGRES_PASSWORD=change_this_password
+EOF
 
-# Use specific version
-IMAGE_TAG=v1.0.0 docker-compose up -d
+# 2. Replace YOUR_SERVER_IP and change_this_password before first start.
+#    Use a strong URL-safe password. Avoid characters such as @ : / # % in POSTGRES_PASSWORD.
+#    Keep this password unchanged after the database volume has been initialized.
+
+# 3. Start Rote with the latest stable image
+docker compose up -d
 ```
+
+Optional `.env` values:
+
+```bash
+# Use a specific version
+IMAGE_TAG=v1.0.0
+
+# Use the develop branch image for testing unreleased features
+IMAGE_TAG=develop
+
+# Use plain PostgreSQL without pgvector.
+# Compatibility-only; future Rote versions may require pgvector-capable PostgreSQL.
+POSTGRES_IMAGE=postgres:17
+```
+
+After the containers are running:
+
+1. Open `http://<your-ip-address>:18001`.
+2. Complete the setup page and create the first administrator account.
+3. Sign in and configure site settings from the Admin dashboard.
+4. Optional: if your image tag includes AI Memory support, open `Admin -> AI Settings` to configure chat and embedding providers, enable pgvector, and backfill existing notes/articles.
 
 #### Method 2: Using Dokploy (Recommended)
 
@@ -58,6 +92,12 @@ The iOS app can connect to your self-hosted backend.
 2. Set `API Base` to your public backend URL (or reverse-proxy URL).
 3. Continue with the normal login flow.
 
+### AI Memory
+
+AI Memory is optional and disabled by default. It is available in the `develop` image and will be available in stable images after the next release that includes AI Memory. Administrators can enable it from `Admin -> AI Settings` after configuring chat and embedding providers. Rote supports OpenAI-compatible providers, including OpenAI, OpenRouter, Ollama / LM Studio, DeepSeek, SiliconFlow, DashScope / Qwen, Zhipu GLM, Moonshot / Kimi, Volcengine Ark, Tencent Hunyuan, Baidu Qianfan, and custom OpenAI-compatible endpoints.
+
+Only authenticated, email-verified users can use AI features. AI conversations stay in the current browser session and are not persisted to the database. Notes and articles are indexed only when AI vector storage and automatic indexing are enabled by an administrator.
+
 ### Detailed Instructions
 
 For more deployment options and configuration instructions, please check the documentation in the `doc/` directory:
@@ -65,6 +105,7 @@ For more deployment options and configuration instructions, please check the doc
 - [Self-Hosted Deployment Guide](https://rote.ink/doc/selfhosted) - Complete deployment and configuration guide
 - [API Documentation](doc/userguide/API-ENDPOINTS.md) - API interface usage guide
 - [API Key Guide](doc/userguide/API-KEY-GUIDE.md) - How to use API Key
+- [AI Vector Migration Guide](doc/userguide/AI-VECTOR-MIGRATION.zh.md) - Upgrade an existing self-hosted database to AI Memory and pgvector support (Chinese)
 
 ### Video Tutorials (Bilibili)
 

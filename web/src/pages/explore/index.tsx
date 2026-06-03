@@ -28,6 +28,20 @@ import { Link } from 'react-router-dom';
 import useSWR from 'swr';
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+function formatGithubCount(value: unknown) {
+  const count = Number(value) || 0;
+  if (count < 1000) {
+    return { number: count, suffix: '', decimalPlaces: 0 };
+  }
+
+  const divisor = count < 1_000_000 ? 1000 : 1_000_000;
+  const suffix = count < 1_000_000 ? 'k' : 'm';
+  const compactNumber = count / divisor;
+  const decimalPlaces = compactNumber < 10 && count % divisor !== 0 ? 1 : 0;
+
+  return { number: compactNumber, suffix, decimalPlaces };
+}
+
 const communityProjects = [
   {
     key: 'roteSkill',
@@ -116,22 +130,22 @@ const SideBar = () => {
   const dataRender = [
     {
       key: 'stargazers_count',
-      icon: <Star className="size-4" />,
+      icon: <Star className="size-4 shrink-0" />,
       title: t('star'),
     },
     {
       key: 'forks_count',
-      icon: <GitFork className="size-4" />,
+      icon: <GitFork className="size-4 shrink-0" />,
       title: t('fork'),
     },
     {
       key: 'open_issues_count',
-      icon: <MessageCircleQuestionIcon className="size-4" />,
+      icon: <MessageCircleQuestionIcon className="size-4 shrink-0" />,
       title: t('issues'),
     },
     {
       key: 'watchers_count',
-      icon: <Eye className="size-4" />,
+      icon: <Eye className="size-4 shrink-0" />,
       title: t('watch'),
     },
   ];
@@ -148,14 +162,26 @@ const SideBar = () => {
         >
           <div className="text-sm font-light">{t('githubOpenSource')}</div>
           <div className="grid w-4/5 grid-cols-2 justify-between gap-2">
-            {dataRender.map((item) => (
-              <div key={item.key} className="flex items-center gap-2">
-                {item.icon}
-                <div className="flex items-center gap-1 text-sm">
-                  <SlidingNumber number={roteGithubData[item.key]} /> {item.title}
+            {dataRender.map((item) => {
+              const count = formatGithubCount(roteGithubData[item.key]);
+
+              return (
+                <div key={item.key} className="flex min-w-0 items-center gap-2">
+                  {item.icon}
+                  <div className="flex min-w-0 items-center gap-1 text-sm">
+                    <span className="inline-flex whitespace-nowrap tabular-nums">
+                      <SlidingNumber
+                        className="inline-flex"
+                        number={count.number}
+                        decimalPlaces={count.decimalPlaces}
+                      />
+                      {count.suffix}
+                    </span>
+                    <span className="min-w-0 truncate">{item.title}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="text-info text-xs">
             {t('lastPushTime')}

@@ -64,6 +64,11 @@ export class SiteTestSuite {
       TestAssertions.assertNotNull(status.isInitialized, 'isInitialized should be present');
       TestAssertions.assertNotNull(status.databaseConnected, 'databaseConnected should be present');
       TestAssertions.assertNotNull(status.site, 'Site info should be present');
+      TestAssertions.assertNotNull(status.ai, 'AI status should be present');
+      TestAssertions.assertNotNull(
+        typeof status.ai.available === 'boolean',
+        'AI availability should be boolean'
+      );
 
       const duration = Date.now() - startTime;
       this.resultManager.recordResult('Get Site Status', true, 'Site status retrieved', duration);

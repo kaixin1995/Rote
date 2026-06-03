@@ -46,12 +46,14 @@ function RoteItem({
   mutateSingle,
   showAvatar = true,
   enableContentCollapse = true,
+  showReactions = true,
 }: {
   rote: Rote;
   mutate?: SWRInfiniteKeyedMutator<Rotes>;
   mutateSingle?: KeyedMutator<Rote>;
   showAvatar?: boolean;
   enableContentCollapse?: boolean;
+  showReactions?: boolean;
 }) {
   const { t } = useTranslation('translation', {
     keyPrefix: 'components.roteItem',
@@ -270,11 +272,12 @@ function RoteItem({
         )}
 
         {/* Reactions */}
-        {inView ? (
-          <ReactionsPart rote={rote} mutate={mutate} mutateSingle={mutateSingle} />
-        ) : (
-          <SmilePlus className="bg-foreground/5 ml-auto size-6 cursor-pointer rounded-2xl p-1 duration-300 hover:scale-110" />
-        )}
+        {showReactions &&
+          (inView ? (
+            <ReactionsPart rote={rote} mutate={mutate} mutateSingle={mutateSingle} />
+          ) : (
+            <SmilePlus className="bg-foreground/5 ml-auto size-6 cursor-pointer rounded-2xl p-1 duration-300 hover:scale-110" />
+          ))}
       </div>
 
       {inView && (

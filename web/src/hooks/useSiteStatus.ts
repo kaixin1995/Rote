@@ -62,6 +62,14 @@ interface SiteStatusData {
   passkey?: {
     enabled: boolean;
   };
+  ai?: {
+    enabled: boolean;
+    vectorEnabled: boolean;
+    publicExploreVectorEnabled: boolean;
+    available: boolean;
+    vectorAvailable: boolean;
+    vectorInstalled: boolean;
+  };
   frontendConfig: FrontendConfig;
   timestamp: string;
 }

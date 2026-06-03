@@ -13,12 +13,16 @@ function ContainerWithSideBar({
   floatButtons,
   children,
   className,
+  hideSidebarToggleButton,
+  hideFloatBtnsOnMobile,
 }: {
   sidebar?: ReactNode;
   sidebarHeader?: ReactNode;
   floatButtons?: ReactNode;
   children?: ReactNode;
   className?: string;
+  hideSidebarToggleButton?: boolean;
+  hideFloatBtnsOnMobile?: boolean;
 }) {
   const [drawOpen, setDrawOpen] = useState(false);
 
@@ -31,21 +35,23 @@ function ContainerWithSideBar({
       {(sidebar || sidebarHeader) && (
         <SideContentLayout>
           {sidebarHeader}
-          {sidebar && <div className="sticky top-0 flex w-full flex-col divide-y">{sidebar}</div>}
+          {sidebar && <div className="flex w-full flex-col divide-y">{sidebar}</div>}
         </SideContentLayout>
       )}
 
-      <FloatBtns>
+      <FloatBtns hideOnMobile={hideFloatBtnsOnMobile}>
         {floatButtons}
-        <Button
-          size="icon"
-          className="rounded-md shadow-md md:hidden"
-          onClick={() => setDrawOpen(!drawOpen)}
-          aria-label="Open sidebar"
-          title="Open sidebar"
-        >
-          <Layers className="size-4" />
-        </Button>
+        {!hideSidebarToggleButton && (
+          <Button
+            size="icon"
+            className="rounded-md shadow-md md:hidden"
+            onClick={() => setDrawOpen(!drawOpen)}
+            aria-label="Open sidebar"
+            title="Open sidebar"
+          >
+            <Layers className="size-4" />
+          </Button>
+        )}
       </FloatBtns>
 
       <Drawer open={drawOpen} onOpenChange={setDrawOpen}>

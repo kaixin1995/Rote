@@ -4,23 +4,28 @@ import { Button } from '@/components/ui/button';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
 import { useAuthState } from '@/state/profile';
 import { get } from '@/utils/api';
-import { Database, Globe, Settings, Shield, Users } from 'lucide-react';
+import { Brain, Database, Globe, Settings, Shield, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
+import AIConfigTab from './components/AIConfigTab';
 import OAuthConfigTab from './components/OAuthConfigTab';
 import SiteConfigTab from './components/SiteConfigTab';
 import StorageConfigTab from './components/StorageConfigTab';
 import UIConfigTab from './components/UIConfigTab';
 import UsersTab from './components/UsersTab';
+import DashboardTab from './components/DashboardTab';
 import type { SystemConfig } from './types';
+import { Activity } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.admin' });
   const { authReady, profile } = useAuthState();
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'site' | 'storage' | 'ui' | 'oauth' | 'users'>('site');
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'site' | 'storage' | 'ui' | 'oauth' | 'users' | 'ai'
+  >('dashboard');
 
   const {
     data: configs,
@@ -43,6 +48,7 @@ export default function AdminDashboard() {
   const [securityConfig, setSecurityConfig] = useState<SystemConfig['security'] | undefined>(
     undefined
   );
+  const [aiConfig, setAiConfig] = useState<SystemConfig['ai'] | undefined>(undefined);
 
   useEffect(() => {
     if (configs) {
@@ -73,6 +79,7 @@ export default function AdminDashboard() {
           requireVerifiedEmailForExplore: false,
         }
       );
+      setAiConfig(configs.ai);
     }
   }, [configs]);
 
@@ -103,6 +110,14 @@ export default function AdminDashboard() {
       <div className="flex flex-col divide-y">
         {/* Tab 导航 */}
         <div className="noScrollBar flex divide-x overflow-x-scroll">
+          <Button
+            variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('dashboard')}
+            className="flex items-center gap-2 rounded-none"
+          >
+            <Activity className="size-4" />
+            {t('tabs.dashboard', 'Dashboard')}
+          </Button>
           <Button
             variant={activeTab === 'site' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('site')}
@@ -136,6 +151,14 @@ export default function AdminDashboard() {
             {t('tabs.users')}
           </Button>
           <Button
+            variant={activeTab === 'ai' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('ai')}
+            className="flex items-center gap-2 rounded-none"
+          >
+            <Brain className="size-4" />
+            {t('tabs.ai')}
+          </Button>
+          <Button
             variant={activeTab === 'oauth' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('oauth')}
             className="flex items-center gap-2 rounded-none"
@@ -144,6 +167,9 @@ export default function AdminDashboard() {
             {t('tabs.oauth')}
           </Button>
         </div>
+
+        {/* 数据看板 */}
+        {activeTab === 'dashboard' && <DashboardTab />}
 
         {/* 站点配置 */}
         {activeTab === 'site' && (
@@ -187,6 +213,17 @@ export default function AdminDashboard() {
           <OAuthConfigTab
             securityConfig={securityConfig}
             setSecurityConfig={setSecurityConfig}
+            isSaving={isSaving}
+            setIsSaving={setIsSaving}
+            onMutate={mutate}
+          />
+        )}
+
+        {/* AI 配置 */}
+        {activeTab === 'ai' && (
+          <AIConfigTab
+            aiConfig={aiConfig}
+            setAiConfig={setAiConfig}
             isSaving={isSaving}
             setIsSaving={setIsSaving}
             onMutate={mutate}

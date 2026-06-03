@@ -4,20 +4,33 @@ import NavBar from '@/components/layout/navBar';
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
 import SearchBar from '@/components/others/SearchBox';
 import RoteList from '@/components/rote/roteList';
+import RoteItem from '@/components/rote/roteItem';
 import { DatePicker } from '@/components/ui/date-picker';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useSiteStatus } from '@/hooks/useSiteStatus';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
+import { profileAtom } from '@/state/profile';
 import { loadTagsAtom, tagsAtom } from '@/state/tags';
-import type { ApiGetRotesParams, Statistics } from '@/types/main';
-import { get } from '@/utils/api';
+import type { ApiGetRotesParams, Rote, Rotes, Statistics } from '@/types/main';
+import type { AiSemanticResult } from '@/utils/aiApi';
+import { aiSearch } from '@/utils/aiApi';
+import { get, post } from '@/utils/api';
 import { useAPIGet, useAPIInfinite } from '@/utils/fetcher';
 import { getRotesV2 } from '@/utils/roteApi';
 import { format } from 'date-fns';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { ActivityIcon, Filter, RefreshCw } from 'lucide-react';
+import { ActivityIcon, AlertCircle, Filter, MessageSquareDashed, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+
+type SearchMode = 'keyword' | 'semantic';
+
+type SemanticSearchData = {
+  results: AiSemanticResult[];
+  rotes: Rotes;
+};
 
 function SideBar() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.filter' });
@@ -51,7 +64,11 @@ function MineFilter() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.filter' });
 
   const tags = useAtomValue(tagsAtom);
+  const profile = useAtomValue(profileAtom);
   const loadTags = useSetAtom(loadTagsAtom);
+  const { data: siteStatus } = useSiteStatus();
+  const canUseAi = siteStatus?.ai?.available === true && profile?.emailVerified === true;
+
   useEffect(() => {
     if (tags === null) loadTags();
   }, [tags, loadTags]);
@@ -65,6 +82,13 @@ function MineFilter() {
     keyword: location.state?.initialKeyword || '',
     date: location.state?.date || '',
   });
+  const [searchMode, setSearchMode] = useState<SearchMode>('keyword');
+
+  useEffect(() => {
+    if (!canUseAi && searchMode === 'semantic') {
+      setSearchMode('keyword');
+    }
+  }, [canUseAi, searchMode]);
 
   const getProps = useCallback(
     (pageIndex: number, _previousPageData: any): ApiGetRotesParams => {
@@ -104,8 +128,83 @@ function MineFilter() {
     }
   );
 
+  const semanticKey =
+    canUseAi && searchMode === 'semantic' && filter.keyword.trim()
+      ? {
+          key: 'ai-semantic-search',
+          keyword: filter.keyword.trim(),
+          tags: filter.tags.hasEvery.join('|'),
+          date: filter.date,
+        }
+      : null;
+
+  const {
+    data: semanticData,
+    isLoading: semanticLoading,
+    isValidating: semanticValidating,
+    error: semanticError,
+    mutate: mutateSemantic,
+  } = useAPIGet<SemanticSearchData>(
+    semanticKey,
+    async () => {
+      const results = await aiSearch({
+        query: filter.keyword.trim(),
+        scope: 'mine',
+        sourceTypes: ['rote'],
+        limit: 50,
+        tags:
+          filter.tags.hasEvery.length > 0
+            ? { include: filter.tags.hasEvery, match: 'all' }
+            : undefined,
+        timeRange: filter.date
+          ? {
+              from: `${filter.date}T00:00:00.000Z`,
+              to: `${filter.date}T23:59:59.999Z`,
+            }
+          : undefined,
+      });
+      const filteredResults = results.filter((result) => {
+        const tags = Array.isArray(result.metadata?.tags) ? result.metadata.tags : [];
+        const tagsMatched =
+          filter.tags.hasEvery.length === 0 ||
+          filter.tags.hasEvery.every((tag: string) => tags.includes(tag));
+        const dateMatched =
+          !filter.date ||
+          (typeof result.metadata?.createdAt === 'string' &&
+            result.metadata.createdAt.startsWith(filter.date));
+        return tagsMatched && dateMatched;
+      });
+      const ids = filteredResults.map((result) => result.sourceId);
+
+      if (ids.length === 0) {
+        return { results: [], rotes: [] };
+      }
+
+      const response = await post('/notes/batch', { ids });
+      const rotes = response.data as Rotes;
+      const roteById = new Map(rotes.map((rote: Rote) => [rote.id, rote]));
+      const orderedRotes = filteredResults
+        .map((result) => roteById.get(result.sourceId))
+        .filter((rote): rote is Rote => Boolean(rote));
+
+      return {
+        results: filteredResults.filter((result) => roteById.has(result.sourceId)),
+        rotes: orderedRotes,
+      };
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
+  );
+
   // 当 filter 变化时，重置分页并重新验证
-  const prevFilterRef = useRef<{ tags: string[]; keyword: string; date: string } | null>(null);
+  const prevFilterRef = useRef<{
+    tags: string[];
+    keyword: string;
+    date: string;
+    mode: SearchMode;
+  } | null>(null);
   const isInitialMount = useRef(true);
 
   useEffect(() => {
@@ -116,6 +215,7 @@ function MineFilter() {
         tags: filter.tags.hasEvery,
         keyword: filter.keyword,
         date: filter.date,
+        mode: searchMode,
       };
       return;
     }
@@ -123,6 +223,7 @@ function MineFilter() {
     const currentTags = filter.tags.hasEvery;
     const currentKeyword = filter.keyword;
     const currentDate = filter.date;
+    const currentMode = searchMode;
     const prevFilter = prevFilterRef.current;
 
     if (!prevFilter) {
@@ -130,6 +231,7 @@ function MineFilter() {
         tags: currentTags,
         keyword: currentKeyword,
         date: currentDate,
+        mode: currentMode,
       };
       return;
     }
@@ -140,36 +242,57 @@ function MineFilter() {
       currentTags.some((tag: string, index: number) => tag !== prevFilter.tags[index]);
     const keywordChanged = currentKeyword !== prevFilter.keyword;
     const dateChanged = currentDate !== prevFilter.date;
+    const modeChanged = currentMode !== prevFilter.mode;
 
-    if (tagsChanged || keywordChanged || dateChanged) {
+    if (tagsChanged || keywordChanged || dateChanged || modeChanged) {
       // 更新引用
       prevFilterRef.current = {
         tags: currentTags,
         keyword: currentKeyword,
         date: currentDate,
+        mode: currentMode,
       };
-      // 重置到第一页并重新验证
-      setSize(1);
-      mutate();
+      if (currentMode === 'keyword') {
+        // 重置到第一页并重新验证
+        setSize(1);
+        mutate();
+      } else {
+        void mutateSemantic();
+      }
     }
-  }, [filter.tags.hasEvery, filter.keyword, filter.date, setSize, mutate]);
+  }, [
+    filter.tags.hasEvery,
+    filter.keyword,
+    filter.date,
+    searchMode,
+    setSize,
+    mutate,
+    mutateSemantic,
+  ]);
 
   // 处理错误提示
   useEffect(() => {
-    if (error) {
+    const activeError = searchMode === 'semantic' ? semanticError : error;
+    if (activeError) {
       const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
+        activeError?.response?.data?.message ||
+        activeError?.message ||
         t('searchError', { defaultValue: '搜索失败，请稍后重试' });
       toast.error(errorMessage);
     }
-  }, [error, t]);
+  }, [error, semanticError, searchMode, t]);
 
   const refreshData = () => {
-    if (isLoading || isValidating) {
+    const activeLoading = searchMode === 'semantic' ? semanticLoading : isLoading;
+    const activeValidating = searchMode === 'semantic' ? semanticValidating : isValidating;
+    if (activeLoading || activeValidating) {
       return;
     }
-    mutate();
+    if (searchMode === 'semantic') {
+      void mutateSemantic();
+    } else {
+      mutate();
+    }
   };
 
   const tagsClickHandler = useCallback((tag: string) => {
@@ -231,6 +354,51 @@ function MineFilter() {
     [t, filter.tags.hasEvery, tags, tagsClickHandler]
   );
 
+  const renderSemanticResults = () => {
+    if (!filter.keyword.trim()) {
+      return (
+        <div className="bg-background flex shrink-0 flex-col items-center justify-center gap-4 py-8">
+          <MessageSquareDashed className="text-theme/30 size-10" />
+          <div className="text-info text-center font-light">{t('semantic.emptyQuery')}</div>
+        </div>
+      );
+    }
+
+    if (semanticLoading || semanticValidating) {
+      return <LoadingPlaceholder className="py-12" size={6} />;
+    }
+
+    if (semanticError) {
+      const errorMessage =
+        semanticError?.response?.data?.message ||
+        semanticError?.message ||
+        t('searchError', { defaultValue: '搜索失败，请稍后重试' });
+      return (
+        <div className="bg-background flex shrink-0 flex-col items-center justify-center gap-4 py-8">
+          <AlertCircle className="text-destructive size-10" />
+          <div className="text-destructive text-center font-light">{errorMessage}</div>
+        </div>
+      );
+    }
+
+    if (!semanticData || semanticData.rotes.length === 0) {
+      return (
+        <div className="bg-background flex shrink-0 flex-col items-center justify-center gap-4 py-8">
+          <MessageSquareDashed className="text-theme/30 size-10" />
+          <div className="text-info text-center font-light">{t('semantic.empty')}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative flex w-full flex-col divide-y">
+        {semanticData.rotes.map((rote) => (
+          <RoteItem key={rote.id} rote={rote} />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <ContainerWithSideBar
       sidebar={<SideBar />}
@@ -244,15 +412,38 @@ function MineFilter() {
       }
     >
       <NavBar title={t('title')} icon={<Filter className="size-5" />} onNavClick={refreshData}>
-        {isLoading ||
-          (isValidating && (
-            <RefreshCw className="text-primary ml-auto size-4 animate-spin duration-300" />
-          ))}
+        <div className="ml-auto flex items-center gap-3">
+          {canUseAi && (
+            <ToggleGroup
+              type="single"
+              value={searchMode}
+              onValueChange={(value) => {
+                if (value === 'keyword' || value === 'semantic') {
+                  setSearchMode(value);
+                }
+              }}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="keyword" className="px-3 text-xs">
+                {t('searchMode.keyword')}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="semantic" className="px-3 text-xs">
+                {t('searchMode.semantic')}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          {(searchMode === 'semantic'
+            ? semanticLoading || semanticValidating
+            : isLoading || isValidating) && (
+            <RefreshCw className="text-primary size-4 animate-spin duration-300" />
+          )}
+        </div>
       </NavBar>
 
-      <div className="flex w-full items-center divide-x">
+      <div className="flex w-full flex-col divide-y sm:flex-row sm:items-center sm:divide-x sm:divide-y-0">
         <SearchBar
-          className="flex-1"
+          className="min-w-0 flex-1"
           defaultValue={filter.keyword}
           onSearch={(keyword) => {
             const trimmedKeyword = keyword.trim();
@@ -261,21 +452,31 @@ function MineFilter() {
               keyword: trimmedKeyword,
             }));
           }}
-          isLoading={isLoading || isValidating}
+          isLoading={
+            searchMode === 'semantic'
+              ? semanticLoading || semanticValidating
+              : isLoading || isValidating
+          }
         />
-        <DatePicker
-          date={filter.date ? new Date(filter.date) : undefined}
-          className="rounded-none border-none bg-none"
-          setDate={(date) => {
-            setFilter((prev) => ({
-              ...prev,
-              date: date ? format(date, 'yyyy-MM-dd') : '',
-            }));
-          }}
-        />
+        <div className="flex shrink-0 items-center">
+          <DatePicker
+            date={filter.date ? new Date(filter.date) : undefined}
+            className="rounded-none border-none bg-none"
+            setDate={(date) => {
+              setFilter((prev) => ({
+                ...prev,
+                date: date ? format(date, 'yyyy-MM-dd') : '',
+              }));
+            }}
+          />
+        </div>
       </div>
       {TagsBlock}
-      <RoteList data={data} loadMore={loadMore} mutate={mutate} error={error} />
+      {searchMode === 'semantic' ? (
+        renderSemanticResults()
+      ) : (
+        <RoteList data={data} loadMore={loadMore} mutate={mutate} error={error} />
+      )}
     </ContainerWithSideBar>
   );
 }

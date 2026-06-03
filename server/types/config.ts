@@ -1,5 +1,5 @@
 // 配置分组类型
-export type ConfigGroup = 'site' | 'storage' | 'security' | 'notification' | 'ui' | 'system';
+export type ConfigGroup = 'site' | 'storage' | 'security' | 'notification' | 'ui' | 'system' | 'ai';
 
 // 配置项类型定义
 export interface SiteConfig {
@@ -86,6 +86,34 @@ export interface SystemConfig {
   lastMigrationVersion?: string;
 }
 
+export interface AiProviderConfig {
+  providerId: string;
+  apiFormat?: 'openai_compatible';
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+}
+
+export interface AiIndexingConfig {
+  chunkSize: number;
+  chunkOverlap: number;
+  batchSize: number;
+  maxRetries: number;
+  paused?: boolean;
+}
+
+export interface AiConfig {
+  enabled: boolean;
+  vectorEnabled: boolean;
+  autoIndexEnabled: boolean;
+  publicExploreVectorEnabled: boolean;
+  chat: AiProviderConfig;
+  embedding: AiProviderConfig & {
+    dimensions: number;
+  };
+  indexing: AiIndexingConfig;
+}
+
 // 所有配置类型联合
 export type ConfigData =
   | SiteConfig
@@ -93,7 +121,8 @@ export type ConfigData =
   | SecurityConfig
   | NotificationConfig
   | UiConfig
-  | SystemConfig;
+  | SystemConfig
+  | AiConfig;
 
 // 配置更新选项
 export interface ConfigUpdateOptions {
