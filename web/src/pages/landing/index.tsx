@@ -1,3 +1,5 @@
+import v2ReleaseSvg from '@/assets/v2.0.svg?raw';
+import AiStreamingMarkdown from '@/components/ai/AiStreamingMarkdown';
 import { SlidingNumber } from '@/components/animate-ui/text/sliding-number';
 import { AppStoreIcon } from '@/components/icons/Apple';
 import LanguageSwitcher from '@/components/others/languageSwitcher';
@@ -12,22 +14,37 @@ import { useTypewriter } from '@/hooks/useTypewriter';
 import { cn } from '@/utils/cn';
 import { formatTimeAgo, isTokenValid } from '@/utils/main';
 import {
+  ArrowDown,
   ArrowUpRight,
+  Blend,
   BookOpen,
+  Brain,
   Code,
   Eye,
   GitFork,
   Github,
   Globe2,
+  Laugh,
+  Link as LinkIcon,
   MessageCircleQuestionIcon,
+  Search,
   Server,
   Shield,
+  SlidersHorizontal,
   Sparkles,
   Split,
   Star,
+  Workflow,
   Wrench,
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import {
+  type CSSProperties,
+  type WheelEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -38,6 +55,15 @@ function Landing() {
   const { isInitialized, isLoading, error } = useSystemStatus();
   const { data: siteStatus } = useSiteStatus();
   const toastShownRef = useRef(false);
+  const aiMemoryFeatureListRef = useRef<HTMLDivElement>(null);
+  const aiMemoryExampleRef = useRef<HTMLDivElement>(null);
+  const aiMemoryAutoScrollPausedRef = useRef(false);
+  const hasStartedAiMemoryStreamRef = useRef(false);
+  const [streamedAiMemoryAnswer, setStreamedAiMemoryAnswer] = useState('');
+  const [isAiMemoryAnswerStreaming, setIsAiMemoryAnswerStreaming] = useState(false);
+  const [shouldStartAiMemoryStream, setShouldStartAiMemoryStream] = useState(false);
+  const [isAiMemoryAutoScrollPaused, setIsAiMemoryAutoScrollPaused] = useState(false);
+  const [aiMemoryFeatureListHeight, setAiMemoryFeatureListHeight] = useState(620);
 
   // 打字机效果文本数组
   const typewriterTexts = t('typewriterTexts', { returnObjects: true }) as string[];
@@ -127,6 +153,153 @@ function Landing() {
     },
   ];
 
+  const aiMemoryFeatures = [
+    {
+      icon: Search,
+      title: t('aiMemory.features.semantic.title'),
+      description: t('aiMemory.features.semantic.description'),
+    },
+    {
+      icon: Laugh,
+      title: t('aiMemory.features.sources.title'),
+      description: t('aiMemory.features.sources.description'),
+    },
+    {
+      icon: Blend,
+      title: t('aiMemory.features.agent.title'),
+      description: t('aiMemory.features.agent.description'),
+    },
+    {
+      icon: SlidersHorizontal,
+      title: t('aiMemory.features.admin.title'),
+      description: t('aiMemory.features.admin.description'),
+    },
+  ];
+  const aiMemoryExampleSources = t('aiMemory.example.sources', { returnObjects: true }) as string[];
+  const aiMemoryExampleAnswer = t('aiMemory.example.answer');
+  const aiMemoryExampleScope = t('aiMemory.example.scope.items', {
+    returnObjects: true,
+  }) as string[];
+  const aiMemoryExampleDebug = t('aiMemory.example.debug.items', {
+    returnObjects: true,
+  }) as string[];
+  const aiMemoryExampleThinking = [
+    {
+      title: t('aiMemory.example.thinking.route.title'),
+      content: t('aiMemory.example.thinking.route.content'),
+    },
+    {
+      title: t('aiMemory.example.thinking.evidence.title'),
+      content: t('aiMemory.example.thinking.evidence.content'),
+    },
+  ];
+
+  const scrollToAiMemoryExampleEnd = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = aiMemoryExampleRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+  }, []);
+
+  const handleAiMemoryExampleScroll = useCallback(() => {
+    const container = aiMemoryExampleRef.current;
+    if (!container) return;
+    const distanceToBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
+    const isPaused = distanceToBottom > 80;
+    aiMemoryAutoScrollPausedRef.current = isPaused;
+    setIsAiMemoryAutoScrollPaused(isPaused);
+  }, []);
+
+  const returnAiMemoryExampleToBottom = useCallback(() => {
+    aiMemoryAutoScrollPausedRef.current = false;
+    setIsAiMemoryAutoScrollPaused(false);
+    scrollToAiMemoryExampleEnd('smooth');
+  }, [scrollToAiMemoryExampleEnd]);
+
+  const handleAiMemoryExampleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    if (event.deltaY < 0) {
+      aiMemoryAutoScrollPausedRef.current = true;
+      setIsAiMemoryAutoScrollPaused(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const featureList = aiMemoryFeatureListRef.current;
+    if (!featureList) return;
+
+    const updateFeatureListHeight = () => {
+      const height = Math.ceil(featureList.getBoundingClientRect().height);
+      if (height <= 0) return;
+      setAiMemoryFeatureListHeight(height);
+    };
+
+    updateFeatureListHeight();
+
+    const observer = new ResizeObserver(updateFeatureListHeight);
+    observer.observe(featureList);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const container = aiMemoryExampleRef.current;
+    if (!container) return;
+
+    if (!('IntersectionObserver' in window)) {
+      setShouldStartAiMemoryStream(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setShouldStartAiMemoryStream(true);
+        observer.disconnect();
+      },
+      { threshold: 0.35 }
+    );
+
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldStartAiMemoryStream || hasStartedAiMemoryStreamRef.current) return;
+    hasStartedAiMemoryStreamRef.current = true;
+
+    const shouldReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (shouldReduceMotion) {
+      setStreamedAiMemoryAnswer(aiMemoryExampleAnswer);
+      setIsAiMemoryAnswerStreaming(false);
+      return;
+    }
+
+    let index = 0;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const streamNextChunk = () => {
+      index = Math.min(aiMemoryExampleAnswer.length, index + 2);
+      setStreamedAiMemoryAnswer(aiMemoryExampleAnswer.slice(0, index));
+      requestAnimationFrame(() => {
+        if (aiMemoryAutoScrollPausedRef.current) return;
+        scrollToAiMemoryExampleEnd();
+      });
+
+      if (index < aiMemoryExampleAnswer.length) {
+        timeoutId = setTimeout(streamNextChunk, 75);
+        return;
+      }
+
+      setIsAiMemoryAnswerStreaming(false);
+    };
+
+    setStreamedAiMemoryAnswer('');
+    setIsAiMemoryAnswerStreaming(true);
+    timeoutId = setTimeout(streamNextChunk, 700);
+
+    return () => clearTimeout(timeoutId);
+  }, [aiMemoryExampleAnswer, scrollToAiMemoryExampleEnd, shouldStartAiMemoryStream]);
+
   const andMoreFeatures = [
     {
       icon: Server,
@@ -212,15 +385,23 @@ function Landing() {
       <div className="bg-background relative space-y-6 divide-y-[0.5px] overflow-hidden border-r border-l py-20 sm:mx-4">
         {/* Main heading - 更克制的设计 */}
         <div className="space-y-2 divide-y-[0.5px] px-2">
-          <h1 className="text-foreground text-3xl leading-tight font-bold tracking-tight sm:text-4xl lg:text-5xl">
-            {t('headingBefore')}
-            <br className="block sm:hidden" />
-            <span className="text-theme inline-block">
-              {typewriterText}
-              <span className="animate-pulse font-thin">|</span>
-            </span>
-            {t('headingAfter')}
-          </h1>
+          <div className="space-y-3">
+            <div
+              className="text-foreground h-10 w-fit [&_svg]:block [&_svg]:h-full [&_svg]:w-auto"
+              role="img"
+              aria-label="Rote v2.0 AI is ready"
+              dangerouslySetInnerHTML={{ __html: v2ReleaseSvg }}
+            />
+            <h1 className="text-foreground text-3xl leading-tight font-bold tracking-tight sm:text-4xl lg:text-5xl">
+              {t('headingBefore')}
+              <br className="block sm:hidden" />
+              <span className="text-theme inline-block">
+                {typewriterText}
+                <span className="animate-pulse font-thin">|</span>
+              </span>
+              {t('headingAfter')}
+            </h1>
+          </div>
 
           {/* 副标题 - 更清晰的层次 */}
           <p className="text-info pb-3 text-xl leading-relaxed font-light">{t('subtitle')}</p>
@@ -346,6 +527,169 @@ function Landing() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="bg-background divide-y border-x sm:mx-4">
+        <div className="space-y-2 divide-y-[0.5px] p-2">
+          <p className="text-theme/20 pb-2 font-mono text-xs font-light uppercase">
+            {t('aiMemory.tagline')}
+          </p>
+          <h2 className="text-3xl font-bold">{t('aiMemory.title')}</h2>
+          <p className="text-info text-lg font-light">{t('aiMemory.subtitle')}</p>
+        </div>
+
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+          <div ref={aiMemoryFeatureListRef} className="divide-y-[0.5px] self-start px-2">
+            {aiMemoryFeatures.map((feature, index) => (
+              <div
+                key={index}
+                className="hover:bg-accent/5 group flex flex-row items-start gap-5 py-6 transition-all duration-300"
+              >
+                <div className="border-theme bg-theme/10 group-hover:bg-theme/20 flex size-12 shrink-0 items-center justify-center rounded-md border-[0.5px] border-dashed transition-all duration-300">
+                  <feature.icon className="text-theme size-6" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
+                  <p className="text-info leading-relaxed font-light">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative min-w-0 self-start">
+            <div
+              ref={aiMemoryExampleRef}
+              className="noScrollBar bg-background max-h-[clamp(420px,70dvh,620px)] overflow-x-hidden overflow-y-auto border-x lg:h-(--ai-memory-example-height) lg:max-h-none"
+              style={
+                {
+                  '--ai-memory-example-height': `${aiMemoryFeatureListHeight}px`,
+                } as CSSProperties
+              }
+              onScroll={handleAiMemoryExampleScroll}
+              onWheel={handleAiMemoryExampleWheel}
+            >
+              <div className="divide-y-[0.5px]">
+                <div className="px-4 py-4">
+                  <div className="mx-auto flex max-w-3xl flex-col gap-2 text-sm">
+                    <div className="wrap-break-word whitespace-pre-line">
+                      {t('aiMemory.example.user')}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-foreground/2 px-4 py-4">
+                  <div className="mx-auto flex max-w-3xl flex-col gap-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground flex shrink-0 items-center gap-1 font-medium whitespace-nowrap select-none">
+                        <SlidersHorizontal className="size-3 shrink-0" />
+                        {t('aiMemory.example.scope.title')}:
+                      </span>
+                      {aiMemoryExampleScope.map((item) => (
+                        <span
+                          key={item}
+                          className="text-info bg-foreground/5 rounded px-1.5 py-0.5"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground flex shrink-0 items-center gap-1 font-medium whitespace-nowrap select-none">
+                        <Workflow className="size-3 shrink-0" />
+                        {t('aiMemory.example.debug.title')}:
+                      </span>
+                      {aiMemoryExampleDebug.map((item) => (
+                        <span
+                          key={item}
+                          className="text-muted-foreground bg-foreground/5 rounded px-1.5 py-0.5"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      {aiMemoryExampleThinking.map((item) => (
+                        <div
+                          key={item.title}
+                          className="flex min-w-0 items-center gap-1.5 text-xs leading-5"
+                        >
+                          <span className="text-muted-foreground flex shrink-0 items-center gap-1 font-medium whitespace-nowrap select-none">
+                            <Brain className="size-3 shrink-0" />
+                            {item.title}:
+                          </span>
+                          <div
+                            className="noScrollBar text-muted-foreground min-w-0 flex-1 overflow-x-auto whitespace-nowrap opacity-80"
+                            style={{
+                              WebkitMaskImage:
+                                'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                              maskImage:
+                                'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                              paddingRight: '24px',
+                            }}
+                          >
+                            {item.content}
+                          </div>
+                          <span className="text-muted-foreground shrink-0 whitespace-nowrap opacity-70">
+                            {t('aiMemory.example.thinking.expand')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="relative flex w-full items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground flex shrink-0 items-center gap-1 font-medium whitespace-nowrap select-none">
+                        <LinkIcon className="size-3 shrink-0" />
+                        {t('aiMemory.example.sourceTitle')}:
+                      </span>
+                      <div
+                        className="noScrollBar flex flex-1 items-center gap-1.5 overflow-x-auto"
+                        style={{
+                          WebkitMaskImage:
+                            'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                          maskImage:
+                            'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                          paddingRight: '24px',
+                        }}
+                      >
+                        {aiMemoryExampleSources.map((source, index) => (
+                          <span
+                            key={`${index}-${source}`}
+                            className="hover:bg-foreground/5 hover:text-foreground inline-flex shrink-0 items-center gap-1 font-mono text-xs underline transition-colors"
+                          >
+                            <span>[{index + 1}]</span>
+                            <span className="max-w-[120px] truncate">{source}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <AiStreamingMarkdown
+                      content={streamedAiMemoryAnswer}
+                      isStreaming={isAiMemoryAnswerStreaming}
+                    />
+                    <div className="h-6 shrink-0" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            {isAiMemoryAutoScrollPaused && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="absolute bottom-6 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full shadow-sm"
+                onClick={returnAiMemoryExampleToBottom}
+                aria-label={t('aiMemory.example.backToBottom')}
+                title={t('aiMemory.example.backToBottom')}
+              >
+                <ArrowDown className="size-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

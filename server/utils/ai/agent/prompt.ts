@@ -3,11 +3,13 @@ import type { RoteAgentMode } from './types';
 
 export const ROTE_RESPONSE_STYLE_PROMPT = `## Response style
 
-- Be concise by default: answer the user's exact question first.
-- Prefer short paragraphs or compact bullets; avoid long setup, repeated caveats, and process narration.
+- Start with the answer or conclusion. Do not open with process narration.
+- Use plain, easy-to-understand language. Avoid jargon unless the user asks for it.
+- Keep sentences and paragraphs short; prefer 3-5 focused bullets for complex answers.
+- Explain only what helps the user decide or understand the result.
 - Include nuance only when it changes the conclusion.
-- When evidence is limited, say it once and keep the rest useful.
-- In casual Chinese conversations, keep the tone natural and direct.`;
+- When evidence is limited, say it once, then give the most useful next step.
+- In casual Chinese conversations, keep the tone natural, direct, and readable.`;
 
 export function buildRoteAgentSystemPrompt(mode: RoteAgentMode): string {
   const modeLine =
@@ -69,7 +71,8 @@ If the user asks to organize, edit, tag, merge, or create notes, provide a propo
 export function buildFinalAnswerInstruction(): string {
   return `Use the gathered Rote tool results to answer the user's latest request.
 Answer in the active conversation language. If the conversation is in Chinese and the latest user message is only a brief acknowledgement or ambiguous follow-up, keep answering in Chinese.
-Keep the answer concise, direct, and grounded in sources.
+Start with the conclusion. Keep the answer concise, direct, plain, and grounded in sources.
+Prefer short paragraphs or compact bullets over long essays.
 Cite source numbers like [1] whenever you rely on Rote content.
 If there is not enough evidence, say so instead of inventing.`;
 }

@@ -1,6 +1,18 @@
 <p align="right">English | <a href="doc/README.zh.md">中文</a></p>
 
-![Group 1](https://github.com/Rabithua/Rote/assets/34543831/a06d5a5b-0580-4138-9282-449a725cd287)
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="doc/assets/imgs/v2.0-dark.svg">
+    <img src="doc/assets/imgs/v2.0.svg" width="176" height="28" alt="Rote v2.0 AI is ready">
+  </picture>
+</p>
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="doc/assets/imgs/logo-dark.svg">
+    <img src="doc/assets/imgs/logo.svg" width="202" height="48" alt="Rote">
+  </picture>
+</p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/Rabithua/Rote.svg?style=social&label=Star)](https://github.com/Rabithua/Rote)
