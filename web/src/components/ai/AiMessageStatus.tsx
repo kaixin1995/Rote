@@ -199,6 +199,8 @@ export function ThinkingTraceEntry({
   const lineRef = useRef<HTMLDivElement>(null);
   const expandedRef = useRef<HTMLDivElement>(null);
   const inlineText = useMemo(() => text.replace(/\s+/g, ' ').trim(), [text]);
+  const traceId = `thinking-trace-${phase}`;
+  const ariaExpanded = isExpanded ? 'true' : 'false';
 
   useEffect(() => {
     if (isExpanded) return;
@@ -240,23 +242,22 @@ export function ThinkingTraceEntry({
         {isExpanded && <div className="min-w-0 flex-1" />}
         <button
           type="button"
-          aria-expanded={isExpanded}
-          aria-controls={`thinking-trace-${phase}`}
+          aria-expanded={ariaExpanded}
+          aria-controls={traceId}
           className="text-muted-foreground hover:text-foreground shrink-0 whitespace-nowrap opacity-70 transition-colors"
           onClick={onToggle}
         >
           {isExpanded ? t('thinkingTrace.collapse') : t('thinkingTrace.expand')}
         </button>
       </div>
-      {isExpanded && (
-        <div
-          id={`thinking-trace-${phase}`}
-          ref={expandedRef}
-          className="text-muted-foreground mt-1 max-h-36 overflow-y-auto text-xs leading-5 whitespace-pre-wrap"
-        >
-          {text}
-        </div>
-      )}
+      <div
+        id={traceId}
+        ref={expandedRef}
+        hidden={!isExpanded}
+        className="text-muted-foreground mt-1 max-h-36 overflow-y-auto text-xs leading-5 whitespace-pre-wrap"
+      >
+        {text}
+      </div>
     </div>
   );
 }
@@ -285,7 +286,7 @@ export function ThinkingTrace({ message }: { message: AiMemoryMessage }) {
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {entries.map((entry) => {
         const title = t(`thinkingTrace.${entry.phase}`);
         const isExpanded = expandedPhases[entry.phase] || false;
