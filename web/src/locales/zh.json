@@ -1350,6 +1350,8 @@
       "exporting": "导出中...",
       "exportSuccess": "图片已下载",
       "exportSplitSuccess": "内容较长，已拆分为 {{count}} 张图片下载",
+      "exportPdfSuccess": "已打开 PDF 打印窗口",
+      "longPressExportPdf": "长按导出 PDF",
       "exportFailed": "导出失败"
     },
     "selection": {

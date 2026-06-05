@@ -159,6 +159,39 @@ html {
     width: 100% !important;
     display: block !important;
   }
+  .print-container.article-print-container {
+    width: 720px !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    background: #fff !important;
+    box-sizing: border-box !important;
+  }
+  .print-container.article-print-container > * {
+    width: 720px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+  }
+  .print-container.article-print-container .prose {
+    max-width: none !important;
+    overflow: hidden !important;
+  }
+  .print-container.article-print-container .prose pre {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+  .print-container.article-print-container .prose pre code {
+    white-space: inherit !important;
+    overflow-wrap: inherit !important;
+    word-break: inherit !important;
+  }
+  .print-container.article-print-container .prose code {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
   @page {
     margin: 0.5cm;
   }

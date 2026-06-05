@@ -1364,6 +1364,8 @@
       "exporting": "エクスポート中...",
       "exportSuccess": "画像をダウンロードしました",
       "exportSplitSuccess": "内容が長いため、{{count}}枚の画像としてダウンロードしました",
+      "exportPdfSuccess": "PDF印刷ダイアログを開きました",
+      "longPressExportPdf": "長押しでPDFをエクスポート",
       "exportFailed": "エクスポートに失敗しました"
     },
     "selection": {

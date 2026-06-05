@@ -1364,6 +1364,8 @@
       "exporting": "Exporting...",
       "exportSuccess": "Image downloaded",
       "exportSplitSuccess": "Content is long, downloaded as {{count}} images",
+      "exportPdfSuccess": "PDF print dialog opened",
+      "longPressExportPdf": "Long press to export PDF",
       "exportFailed": "Export failed"
     },
     "selection": {

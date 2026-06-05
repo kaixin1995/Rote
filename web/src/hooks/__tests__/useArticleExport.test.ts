@@ -15,6 +15,7 @@ function makePNGBlob(size = 1024): Blob {
 const mockToBlob = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
+const mockPrint = vi.fn();
 
 let cardWidth = 720;
 let cardHeight = 800;
@@ -114,6 +115,11 @@ beforeEach(() => {
     writable: true,
     configurable: true,
   });
+  Object.defineProperty(window, 'print', {
+    value: mockPrint,
+    writable: true,
+    configurable: true,
+  });
 
   mockToBlob.mockResolvedValue(makePNGBlob());
 
@@ -145,6 +151,7 @@ describe('useArticleExport', () => {
     const { result } = renderHook(() => useArticleExport());
     expect(result.current.exporting).toBe(false);
     expect(typeof result.current.handleExportImage).toBe('function');
+    expect(typeof result.current.handleExportPdf).toBe('function');
   });
 
   it('does nothing with empty content', async () => {
@@ -248,6 +255,23 @@ describe('useArticleExport', () => {
     expect(mockClick).toHaveBeenCalled();
     expect(mockToastSuccess).toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+
+  it('prints article PDF without capturing PNG', async () => {
+    let printContainer: Element | null = null;
+    mockPrint.mockImplementationOnce(() => {
+      printContainer = document.querySelector('.print-container.article-print-container');
+    });
+
+    const { result } = renderHook(() => useArticleExport());
+    await act(async () => {
+      await result.current.handleExportPdf({ title: 'Art', content: 'Text' });
+    });
+
+    expect(mockPrint).toHaveBeenCalled();
+    expect(printContainer).not.toBeNull();
+    expect(mockToBlob).not.toHaveBeenCalled();
+    expect(mockToastSuccess).toHaveBeenCalledWith('exportPdfSuccess');
   });
 
   it('cleans up DOM after export', async () => {
