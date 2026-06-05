@@ -40,6 +40,7 @@ export function useAiAnswerExport() {
     setExporting(true);
     let cleanupOffscreenContainers: () => void = () => {};
     let logExportError: (step: string, error?: unknown) => void = () => {};
+    let cleanupRenderedElement: (() => void) | undefined;
 
     try {
       const [{ createRoot }, exportImage, { default: AiAnswerExportCard }] = await Promise.all([
@@ -48,13 +49,11 @@ export function useAiAnswerExport() {
         import('@/components/ai/AiAnswerExportCard'),
       ]);
       const {
-        calculateScale,
-        captureElementToPng,
         cleanupOffscreenContainers: cleanup,
-        downloadBlob,
+        exportElementToPng,
         logExport,
         logExportError: logError,
-        waitForImagesToLoad,
+        renderOffscreenExportElement,
         toDataURL,
       } = exportImage;
       cleanupOffscreenContainers = cleanup;
@@ -74,29 +73,27 @@ export function useAiAnswerExport() {
         }
       }
 
-      const container = document.createElement('div');
-      container.className = 'ai-answer-export-container';
-      container.style.cssText = 'position:absolute;left:-9999px;top:0;';
-      document.body.appendChild(container);
-
-      const root = createRoot(container);
-      await new Promise<void>((resolve) => {
-        root.render(
-          <AiAnswerExportCard
-            content={content}
-            sources={sources}
-            sourceTitle={sourceTitle}
-            author={resolvedAuthor}
-            onReady={resolve}
-          />
-        );
+      const {
+        container,
+        element: cardEl,
+        cleanup: cleanupElement,
+      } = await renderOffscreenExportElement({
+        className: 'ai-answer-export-container',
+        render: (container, onReady) => {
+          const root = createRoot(container);
+          root.render(
+            <AiAnswerExportCard
+              content={content}
+              sources={sources}
+              sourceTitle={sourceTitle}
+              author={resolvedAuthor}
+              onReady={onReady}
+            />
+          );
+          return () => root.unmount();
+        },
       });
-
-      const cardEl = container.firstElementChild as HTMLElement;
-      if (!cardEl) throw new Error('Card not rendered');
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await waitForImagesToLoad(cardEl);
+      cleanupRenderedElement = cleanupElement;
 
       if (format === 'pdf') {
         container.classList.add('print-container');
@@ -107,17 +104,22 @@ export function useAiAnswerExport() {
         logExport(`[${exportId}] Done AI answer PDF`);
         toast.success(t('exportSuccess'));
       } else {
-        const rect = cardEl.getBoundingClientRect();
-        const scale = calculateScale(rect.width, rect.height);
-        const blob = await captureElementToPng(cardEl, scale);
-        downloadBlob(blob, `${getAiAnswerFilename(content)}.png`);
-        logExport(`[${exportId}] Done AI answer PNG`, { sizeKB: (blob.size / 1024).toFixed(0) });
-        toast.success(t('exportSuccess'));
+        const result = await exportElementToPng(cardEl, `${getAiAnswerFilename(content)}.png`);
+        logExport(`[${exportId}] Done AI answer PNG`, {
+          mode: result.mode,
+          files: result.files,
+          outputPixels: `${result.outputWidth}x${result.outputHeight}`,
+          sizeKB: (result.totalSize / 1024).toFixed(0),
+        });
+        toast.success(
+          result.files > 1 ? t('exportSplitSuccess', { count: result.files }) : t('exportSuccess')
+        );
       }
     } catch (error) {
       logExportError(`[${exportId}] Failed AI answer ${format}`, error);
       toast.error(t('exportFailed'));
     } finally {
+      cleanupRenderedElement?.();
       cleanupOffscreenContainers();
       setExporting(false);
     }

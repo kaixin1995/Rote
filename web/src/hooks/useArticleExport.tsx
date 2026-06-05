@@ -1,13 +1,11 @@
 import ExportCard from '@/components/article/ExportCard';
 import {
-  captureElementToPng,
   cleanupOffscreenContainers,
-  calculateScale,
-  downloadBlob,
+  exportElementToPng,
   logExport,
   logExportError,
+  renderOffscreenExportElement,
   toDataURL,
-  waitForImagesToLoad,
 } from '@/utils/exportImage';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -37,6 +35,7 @@ export function useArticleExport() {
     if (exporting) return;
 
     setExporting(true);
+    let cleanupRenderedElement: (() => void) | undefined;
 
     try {
       logExport(`[${exportId}] Start`, {
@@ -53,48 +52,45 @@ export function useArticleExport() {
         }
       }
 
-      const container = document.createElement('div');
-      container.style.cssText = 'position:fixed;left:-9999px;top:0;';
-      document.body.appendChild(container);
-
-      const root = createRoot(container);
-      await new Promise<void>((resolve) => {
-        root.render(
-          <ExportCard
-            title={title || 'Untitled'}
-            content={content}
-            author={resolvedAuthor}
-            onReady={resolve}
-          />
-        );
+      const { element: cardEl, cleanup } = await renderOffscreenExportElement({
+        render: (container, onReady) => {
+          const root = createRoot(container);
+          root.render(
+            <ExportCard
+              title={title || 'Untitled'}
+              content={content}
+              author={resolvedAuthor}
+              onReady={onReady}
+            />
+          );
+          return () => root.unmount();
+        },
       });
-
-      const cardEl = container.firstElementChild as HTMLElement;
-      if (!cardEl) throw new Error('Card not rendered');
-
-      await new Promise((r) => setTimeout(r, 100));
-      await waitForImagesToLoad(cardEl);
+      cleanupRenderedElement = cleanup;
 
       const rect = cardEl.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      const scale = calculateScale(rect.width, rect.height);
 
       logExport(`[${exportId}] Capturing`, {
         size: `${rect.width}x${rect.height}`,
-        dpr,
-        scale,
-        outputPixels: `${rect.width * scale}x${rect.height * scale}`,
+        dpr: window.devicePixelRatio || 1,
       });
 
-      const blob = await captureElementToPng(cardEl, scale);
-      downloadBlob(blob, `${title || 'article'}.png`);
+      const result = await exportElementToPng(cardEl, `${title || 'article'}.png`);
 
-      logExport(`[${exportId}] Done`, { sizeKB: (blob.size / 1024).toFixed(0) });
-      toast.success(t('exportSuccess'));
+      logExport(`[${exportId}] Done`, {
+        mode: result.mode,
+        files: result.files,
+        outputPixels: `${result.outputWidth}x${result.outputHeight}`,
+        sizeKB: (result.totalSize / 1024).toFixed(0),
+      });
+      toast.success(
+        result.files > 1 ? t('exportSplitSuccess', { count: result.files }) : t('exportSuccess')
+      );
     } catch (e) {
       logExportError(`[${exportId}] Failed`, e);
       toast.error(t('exportFailed'));
     } finally {
+      cleanupRenderedElement?.();
       cleanupOffscreenContainers();
       setExporting(false);
     }

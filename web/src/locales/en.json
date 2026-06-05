@@ -454,6 +454,7 @@
         "exportPdf": "Print / Save PDF",
         "exporting": "Exporting...",
         "exportSuccess": "Image downloaded",
+        "exportSplitSuccess": "Content is long, downloaded as {{count}} images",
         "exportFailed": "Export failed"
       },
       "inputPlaceholder": "Ask your Rote...",
@@ -1279,6 +1280,7 @@
       "exportImage": "Export Image",
       "exporting": "Exporting...",
       "exportSuccess": "Image downloaded",
+      "exportSplitSuccess": "Content is long, downloaded as {{count}} images",
       "exportFailed": "Export failed"
     },
     "roteList": {
@@ -1361,6 +1363,7 @@
       "exportImage": "Export Image",
       "exporting": "Exporting...",
       "exportSuccess": "Image downloaded",
+      "exportSplitSuccess": "Content is long, downloaded as {{count}} images",
       "exportFailed": "Export failed"
     },
     "selection": {

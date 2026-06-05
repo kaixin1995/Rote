@@ -454,6 +454,7 @@
         "exportPdf": "PDFを印刷 / 保存",
         "exporting": "生成中...",
         "exportSuccess": "画像をダウンロードしました",
+        "exportSplitSuccess": "内容が長いため、{{count}}枚の画像としてダウンロードしました",
         "exportFailed": "エクスポートに失敗しました"
       },
       "inputPlaceholder": "Rote に質問...",
@@ -1279,6 +1280,7 @@
       "exportImage": "画像をエクスポート",
       "exporting": "エクスポート中...",
       "exportSuccess": "画像をダウンロードしました",
+      "exportSplitSuccess": "内容が長いため、{{count}}枚の画像としてダウンロードしました",
       "exportFailed": "エクスポート失敗"
     },
     "roteList": {
@@ -1361,6 +1363,7 @@
       "exportImage": "画像をエクスポート",
       "exporting": "エクスポート中...",
       "exportSuccess": "画像をダウンロードしました",
+      "exportSplitSuccess": "内容が長いため、{{count}}枚の画像としてダウンロードしました",
       "exportFailed": "エクスポートに失敗しました"
     },
     "selection": {

@@ -27,6 +27,8 @@ vi.mock('html-to-image', () => ({
 // Mock HTMLCanvasElement for the master canvas chunking logic
 HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
   drawImage: vi.fn(),
+  fillRect: vi.fn(),
+  getImageData: vi.fn().mockReturnValue({ data: new Uint8ClampedArray([0, 0, 0, 255]) }),
 });
 HTMLCanvasElement.prototype.toBlob = vi.fn().mockImplementation((cb) => {
   cb(makePNGBlob());
@@ -153,31 +155,77 @@ describe('useArticleExport', () => {
     expect(mockToBlob).not.toHaveBeenCalled();
   });
 
-  it('captures at correct scale accounting for devicePixelRatio', async () => {
+  it('captures at the shared high quality scale', async () => {
     cardWidth = 720;
     cardHeight = 800;
-    // Area = 576000. MAX = 16777216. maxAreaScale = 5.39. maxDimScale = 8192/800 = 10.24.
-    // safeScale = 5.39. DPR = 2. Capped at 4.
     const { result } = renderHook(() => useArticleExport());
     await act(async () => {
       await result.current.handleExportImage({ title: 'T', content: 'C' });
     });
     const [, opts] = mockToBlob.mock.calls[0];
     expect(opts.pixelRatio).toBe(4);
+    expect(opts.canvasWidth).toBe(opts.width);
+    expect(opts.canvasHeight).toBe(opts.height);
+    expect(opts.skipAutoScale).toBe(true);
   });
 
-  it('reduces scale for tall articles', async () => {
+  it('keeps scale and slices tall articles', async () => {
     cardWidth = 720;
     cardHeight = 25000;
-    // Area = 18000000. MAX = 160000000. maxAreaScale = sqrt(160M/18M) = 2.98
-    // maxDimScale = 32767/25000 = 1.31
-    // safeScale = 1.31
     const { result } = renderHook(() => useArticleExport());
     await act(async () => {
       await result.current.handleExportImage({ title: 'T', content: 'C' });
     });
-    const [, opts] = mockToBlob.mock.calls[0];
-    expect(opts.pixelRatio).toBe(2.5);
+    expect(mockToBlob.mock.calls.length).toBeGreaterThan(1);
+    const pixelRatios = mockToBlob.mock.calls.map(([, opts]) => (opts as any).pixelRatio);
+    const outputHeights = mockToBlob.mock.calls.map(([, opts]) => (opts as any).height * 4);
+    const skipAutoScaleFlags = mockToBlob.mock.calls.map(([, opts]) => (opts as any).skipAutoScale);
+    expect(pixelRatios.every((pixelRatio) => pixelRatio === 4)).toBe(true);
+    expect(outputHeights.every((height) => height <= 32767)).toBe(true);
+    expect(outputHeights.some((height) => height > 16384)).toBe(true);
+    expect(skipAutoScaleFlags.every(Boolean)).toBe(true);
+    expect(mockToastSuccess).toHaveBeenCalledWith('exportSplitSuccess');
+  });
+
+  it('uses original filename for a single image and suffixes sliced images', async () => {
+    const downloads: string[] = [];
+    const orig = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      if (tag === 'a') {
+        const a = orig('a');
+        let filename = '';
+        Object.defineProperty(a, 'download', {
+          get: () => filename,
+          set: (value) => {
+            filename = value;
+            downloads.push(value);
+          },
+          configurable: true,
+        });
+        Object.defineProperty(a, 'click', { value: vi.fn() });
+        return a;
+      }
+      return orig(tag);
+    });
+
+    const { result } = renderHook(() => useArticleExport());
+    await act(async () => {
+      await result.current.handleExportImage({ title: 'Short', content: 'C' });
+    });
+
+    expect(downloads).toEqual(['Short.png']);
+
+    downloads.length = 0;
+    cardHeight = 25000;
+    mockToBlob.mockClear();
+
+    await act(async () => {
+      await result.current.handleExportImage({ title: 'Long', content: 'C' });
+    });
+
+    expect(downloads[0]).toBe('Long-1.png');
+    expect(downloads[downloads.length - 1]).toMatch(/^Long-\d+\.png$/);
+    vi.restoreAllMocks();
   });
 
   it('downloads valid PNG', async () => {

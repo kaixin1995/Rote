@@ -440,6 +440,7 @@
         "exportPdf": "打印 / 导出 PDF",
         "exporting": "生成中...",
         "exportSuccess": "图片已下载",
+        "exportSplitSuccess": "内容较长，已拆分为 {{count}} 张图片下载",
         "exportFailed": "导出失败"
       },
       "inputPlaceholder": "问问你的 Rote...",
@@ -1265,6 +1266,7 @@
       "exportImage": "导出图片",
       "exporting": "导出中...",
       "exportSuccess": "图片已下载",
+      "exportSplitSuccess": "内容较长，已拆分为 {{count}} 张图片下载",
       "exportFailed": "导出失败"
     },
     "roteList": {
@@ -1347,6 +1349,7 @@
       "exportImage": "导出图片",
       "exporting": "导出中...",
       "exportSuccess": "图片已下载",
+      "exportSplitSuccess": "内容较长，已拆分为 {{count}} 张图片下载",
       "exportFailed": "导出失败"
     },
     "selection": {
