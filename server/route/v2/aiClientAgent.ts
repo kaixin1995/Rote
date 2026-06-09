@@ -1,0 +1,129 @@
+import type { Hono } from 'hono';
+import { type User } from '../../drizzle/schema';
+import { authenticateJWT } from '../../middleware/jwtAuth';
+import type { HonoContext, HonoVariables } from '../../types/hono';
+import {
+  buildFinalAnswerInstruction,
+  buildRoteAgentSystemPrompt,
+} from '../../utils/ai/agent/prompt';
+import { executeClientRoteTool } from '../../utils/ai/agent/clientRuntime';
+import { getNativeRoteTools } from '../../utils/ai/agent/tools';
+import { DEFAULT_AGENT_POLICY } from '../../utils/ai/agent/types';
+import { getPgvectorStatus, getStoredAiConfig, isAiEligibleUser } from '../../utils/dbMethods';
+import { bodyTypeCheck, createResponse } from '../../utils/main';
+
+const AI_VERIFICATION_REQUIRED_MESSAGE = `AI features require a verified account`;
+const AI_MEMORY_TOOLS_UNAVAILABLE_MESSAGE = `AI memory tools are not available`;
+
+function normalizeSourcePreview(text: unknown): string {
+  return String(text || '')
+    .replace(/^(Title:[^\n]*\n)?(Tags:[^\n]*\n)?/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+}
+
+function toClientSource(source: any) {
+  const metadata = source?.metadata || {};
+  const tags = Array.isArray(metadata.tags)
+    ? metadata.tags.filter((tag: unknown) => typeof tag === `string`).slice(0, 8)
+    : [];
+
+  return {
+    sourceType: source.sourceType,
+    sourceId: source.sourceId,
+    similarity: Number(source.similarity) || 0,
+    preview: normalizeSourcePreview(source.text),
+    metadata: {
+      title: typeof metadata.title === `string` ? metadata.title : '',
+      tags,
+      state: typeof metadata.state === `string` ? metadata.state : undefined,
+      archived: typeof metadata.archived === 'boolean' ? metadata.archived : undefined,
+      createdAt: metadata.createdAt,
+    },
+  };
+}
+
+async function getClientToolConfig(userId: string) {
+  const [config, vectorStatus, eligible] = await Promise.all([
+    getStoredAiConfig(),
+    getPgvectorStatus(),
+    isAiEligibleUser(userId),
+  ]);
+  const memoryAvailable =
+    eligible &&
+    config.enabled === true &&
+    config.vectorEnabled === true &&
+    vectorStatus.installed === true;
+
+  return { config, eligible, memoryAvailable };
+}
+
+export function registerClientAgentRoutes(router: Hono<{ Variables: HonoVariables }>) {
+  router.get('/client-agent/bootstrap', authenticateJWT, async (c: HonoContext) => {
+    const user = c.get('user') as User;
+    const { eligible, memoryAvailable } = await getClientToolConfig(user.id);
+
+    if (!eligible) return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+    if (!memoryAvailable) {
+      return c.json(createResponse(null, AI_MEMORY_TOOLS_UNAVAILABLE_MESSAGE), 403);
+    }
+
+    const policy = {
+      maxIterations: DEFAULT_AGENT_POLICY.maxIterations,
+      maxToolCalls: DEFAULT_AGENT_POLICY.maxToolCalls,
+      maxSources: DEFAULT_AGENT_POLICY.maxSources,
+    };
+
+    return c.json(
+      createResponse({
+        systemPrompt: buildRoteAgentSystemPrompt('chat'),
+        finalAnswerInstruction: buildFinalAnswerInstruction(),
+        tools: getNativeRoteTools().map((tool) => tool.definition),
+        policy,
+      }),
+      200
+    );
+  });
+
+  router.post(
+    '/client-agent/tools/execute',
+    authenticateJWT,
+    bodyTypeCheck,
+    async (c: HonoContext) => {
+      const user = c.get('user') as User;
+      const body = await c.req.json();
+      const { config, eligible, memoryAvailable } = await getClientToolConfig(user.id);
+
+      if (!eligible) return c.json(createResponse(null, AI_VERIFICATION_REQUIRED_MESSAGE), 403);
+      if (!memoryAvailable) {
+        return c.json(createResponse(null, AI_MEMORY_TOOLS_UNAVAILABLE_MESSAGE), 403);
+      }
+
+      const result = await executeClientRoteTool({
+        userId: user.id,
+        config,
+        toolName: body?.toolName,
+        arguments: body?.arguments,
+        request: body?.request,
+        state: body?.state,
+        sourceKeys: body?.sourceKeys,
+      });
+
+      return c.json(
+        createResponse({
+          observations: result.observations,
+          displaySummary: result.displaySummary,
+          modelContent: result.modelContent,
+          sources: Array.isArray(result.sources) ? result.sources.map(toClientSource) : [],
+          plan: result.plan,
+          statePatch: result.statePatch,
+          state: result.state,
+          sourceKeys: result.sourceKeys,
+          clarification: result.clarification,
+        }),
+        200
+      );
+    }
+  );
+}

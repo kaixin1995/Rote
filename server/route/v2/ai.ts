@@ -24,7 +24,7 @@ import {
 } from '../../utils/dbMethods';
 import { bodyTypeCheck, createResponse } from '../../utils/main';
 import { registerAdminAiRoutes } from './aiAdmin';
-import { registerPersonalAiRoutes } from './aiPersonal';
+import { registerClientAgentRoutes } from './aiClientAgent';
 
 const aiRouter = new Hono<{ Variables: HonoVariables }>();
 const VALID_AI_SOURCE_TYPES = new Set<AiSourceType>(['rote', 'article']);
@@ -164,8 +164,12 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
     config.enabled === true &&
     Boolean(config.chat?.baseUrl?.trim()) &&
     Boolean(config.chat?.model?.trim());
-  const available =
-    eligible && chatAvailable && config.vectorEnabled === true && vectorStatus.installed === true;
+  const memoryAvailable =
+    eligible &&
+    config.enabled === true &&
+    config.vectorEnabled === true &&
+    vectorStatus.installed === true;
+  const available = memoryAvailable && chatAvailable;
   return c.json(
     createResponse({
       enabled: config.enabled,
@@ -177,13 +181,14 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
       chatModel: config.chat?.model || '',
       chatMode: config.enabled ? (isLocalChat ? 'local' : 'site') : 'disabled',
       available,
+      memoryAvailable,
       memoryStats,
     }),
     200
   );
 });
 
-registerPersonalAiRoutes(aiRouter);
+registerClientAgentRoutes(aiRouter);
 
 aiRouter.post('/site/test', authenticateJWT, async (c: HonoContext) => {
   const user = c.get('user') as User;

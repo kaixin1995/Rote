@@ -1,0 +1,71 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { testPersonalAiProvider } from '@/utils/personalAiProvider';
+
+const remoteConfig = {
+  enabled: true,
+  baseUrl: 'https://api.example.com/v1',
+  model: 'remote-model',
+  apiKey: 'remote-token',
+  temperature: 0.2,
+};
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe(`personal AI provider test`, () => {
+  it(`calls the configured remote API from the browser`, async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ choices: [{ message: { content: 'OK' } }], usage: { total_tokens: 1 } })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          choices: [
+            {
+              message: {
+                tool_calls: [
+                  {
+                    function: {
+                      name: 'rote_tool_calling_probe',
+                      arguments: `{"token":"rote-tool-probe"}`,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await testPersonalAiProvider(remoteConfig);
+
+    expect(result.data.success).toBe(true);
+    expect(result.data.toolCalling?.supported).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer remote-token`,
+        },
+      })
+    );
+  });
+
+  it(`maps remote browser fetch failures to a cors error code`, async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError(`Failed to fetch`)));
+
+    await expect(testPersonalAiProvider(remoteConfig)).rejects.toThrow(`personal_ai_cors_blocked`);
+  });
+});

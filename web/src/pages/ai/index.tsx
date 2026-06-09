@@ -190,6 +190,7 @@ function AiMemoryPage() {
       unavailable,
       mode: personalAi.mode,
       personalConfig: isPersonalModelMode ? activePersonalConfig : undefined,
+      toolsAvailable: isPersonalModelMode ? status?.memoryAvailable === true : undefined,
       labels: aiRunLabels,
     });
     if (!started) {

@@ -13,8 +13,7 @@ import {
   type LocalChatToolCall,
 } from '@/utils/localAi';
 
-const LOCAL_ASSISTANT_PROMPT =
-  'You are a helpful assistant running privately on the user device. Answer in the active conversation language.';
+const PERSONAL_ASSISTANT_PROMPT = `You are a helpful assistant using the user-selected model from this browser. Answer in the active conversation language.`;
 
 function parseArguments(call: LocalChatToolCall): unknown {
   try {
@@ -44,7 +43,7 @@ export async function localAiAgentStream(params: {
   const messages: LocalChatMessage[] = [
     {
       role: 'system',
-      content: bootstrap?.systemPrompt || LOCAL_ASSISTANT_PROMPT,
+      content: bootstrap?.systemPrompt || PERSONAL_ASSISTANT_PROMPT,
     },
     ...(params.payload.history || []).slice(-8),
     { role: 'user', content: params.payload.message },
@@ -69,7 +68,7 @@ export async function localAiAgentStream(params: {
       onContent: (text) => params.handlers.onDelta?.(text),
     });
     if (!response.message.content?.trim()) {
-      throw new Error('Local model did not return a usable answer');
+      throw new Error(`Personal model did not return a usable answer`);
     }
     if (response.usage) params.handlers.onUsage?.(response.usage, 'answer');
     params.handlers.onDone?.();

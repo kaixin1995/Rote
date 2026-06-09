@@ -11,6 +11,7 @@ pnpm-debug.log*
 bun-debug.log*
 __pycache__/
 *.py[cod]
+.codegraph/
 ._*
 data
 .DS_Store

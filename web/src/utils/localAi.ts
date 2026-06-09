@@ -42,10 +42,10 @@ async function readError(response: Response): Promise<string> {
   try {
     const body = JSON.parse(text);
     return (
-      body?.error?.message || body?.message || `Local model request failed (${response.status})`
+      body?.error?.message || body?.message || `Personal model request failed (${response.status})`
     );
   } catch {
-    return text || `Local model request failed (${response.status})`;
+    return text || `Personal model request failed (${response.status})`;
   }
 }
 
@@ -104,7 +104,7 @@ export async function streamLocalChatCompletion(params: {
     signal: params.signal,
   });
   if (!response.ok) throw new Error(await readError(response));
-  if (!response.body) throw new Error('Local model returned an empty stream');
+  if (!response.body) throw new Error(`Personal model returned an empty stream`);
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

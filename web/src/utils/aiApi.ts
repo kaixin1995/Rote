@@ -1,6 +1,5 @@
 import { authService } from './auth';
 import { get, getApiUrl, post, refreshAccessToken } from './api';
-import { isLocalPersonalAiProvider, type PersonalAiProviderConfig } from '@/state/localAi';
 
 export type AiSourceType = 'rote' | 'article';
 
@@ -10,6 +9,7 @@ export interface AiStatus {
   publicExploreVectorEnabled: boolean;
   eligible: boolean;
   available: boolean;
+  memoryAvailable?: boolean;
   chatAvailable?: boolean;
   chatProviderId?: string;
   chatModel?: string;
@@ -37,22 +37,6 @@ export interface AiSemanticResult {
     createdAt?: string;
     updatedAt?: string;
     [key: string]: unknown;
-  };
-}
-
-export interface AiChatResponse {
-  answer: string;
-  sources: AiSemanticResult[];
-  plan?: PlannerAgentDto;
-  clarification?: AiClarification;
-}
-
-export interface AiLocalContextResponse {
-  messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
-  sources: AiSemanticResult[];
-  memoryStats?: {
-    roteCount: number;
-    indexedRoteCount: number;
   };
 }
 
@@ -240,12 +224,6 @@ export type ClientAgentToolResult = {
 
 export const getAiStatus = () => get('/ai/status').then((res) => res.data as AiStatus);
 
-export const getAiLocalContext = (payload: {
-  message: string;
-  limit?: number;
-  history?: { role: 'user' | 'assistant'; content: string }[];
-}) => post('/ai/local-context', payload).then((res) => res.data as AiLocalContextResponse);
-
 export const testSiteAiProvider = (onProgress?: AiProviderTestProgressHandler) => {
   onProgress?.('site');
   return post('/ai/site/test', {}).then((res) => ({
@@ -253,25 +231,6 @@ export const testSiteAiProvider = (onProgress?: AiProviderTestProgressHandler) =
     message: res.message,
   }));
 };
-
-export const testPersonalRemoteAiProvider = (
-  provider: PersonalAiProviderConfig,
-  onProgress?: AiProviderTestProgressHandler
-) => {
-  onProgress?.('personal_remote');
-  return post('/ai/personal-remote/test', { provider }).then((res) => ({
-    data: res.data as AiProviderTestResult,
-    message: res.message,
-  }));
-};
-
-export const testPersonalAiProvider = (
-  provider: PersonalAiProviderConfig,
-  onProgress?: AiProviderTestProgressHandler
-) =>
-  isLocalPersonalAiProvider(provider)
-    ? testPersonalLocalAiProvider(provider, onProgress)
-    : testPersonalRemoteAiProvider(provider, onProgress);
 
 export type AiChatPayload = {
   message: string;
@@ -286,9 +245,6 @@ export type AiChatPayload = {
   debug?: boolean;
 };
 
-export const aiChat = (payload: AiChatPayload) =>
-  post('/ai/chat', payload).then((res) => res.data as AiChatResponse);
-
 export const getClientAgentBootstrap = () =>
   get('/ai/client-agent/bootstrap').then((res) => res.data as ClientAgentBootstrap);
 
@@ -302,12 +258,8 @@ export const executeClientAgentTool = (payload: {
   post('/ai/client-agent/tools/execute', payload).then((res) => res.data as ClientAgentToolResult);
 
 async function createAiStreamRequest(
-  endpoint:
-    | '/ai/chat/stream'
-    | '/ai/agent/stream'
-    | '/ai/personal-remote/stream'
-    | '/ai/personal-agent/stream',
-  payload: AiChatPayload | (AiChatPayload & { provider: PersonalAiProviderConfig }),
+  endpoint: '/ai/chat/stream' | '/ai/agent/stream',
+  payload: AiChatPayload,
   signal?: AbortSignal
 ) {
   let token = authService.getAccessToken();
@@ -388,298 +340,6 @@ export async function aiAgentStream(
 ): Promise<void> {
   const response = await createAiStreamRequest('/ai/agent/stream', payload, signal);
   await readAiStreamResponse(response, handlers);
-}
-
-export async function personalRemoteAiStream(
-  payload: AiChatPayload & { provider: PersonalAiProviderConfig },
-  handlers: AiChatStreamHandlers,
-  signal?: AbortSignal
-): Promise<void> {
-  const response = await createAiStreamRequest('/ai/personal-remote/stream', payload, signal);
-  await readAiStreamResponse(response, handlers);
-}
-
-export async function personalAgentStream(
-  payload: AiChatPayload & { provider: PersonalAiProviderConfig },
-  handlers: AiChatStreamHandlers,
-  signal?: AbortSignal
-): Promise<void> {
-  const response = await createAiStreamRequest('/ai/personal-agent/stream', payload, signal);
-  await readAiStreamResponse(response, handlers);
-}
-
-function normalizeLocalBaseUrl(baseUrl: string): string {
-  return baseUrl.trim().replace(/\/+$/, '');
-}
-
-function getLocalBaseUrlCandidates(baseUrl: string): string[] {
-  const normalized = normalizeLocalBaseUrl(baseUrl);
-  if (!normalized) return [];
-
-  const candidates = [normalized];
-  try {
-    const url = new URL(normalized);
-    const alternate =
-      url.hostname === '127.0.0.1' ? 'localhost' : url.hostname === 'localhost' ? '127.0.0.1' : '';
-    if (alternate) {
-      url.hostname = alternate;
-      candidates.push(url.toString().replace(/\/+$/, ''));
-    }
-  } catch {
-    // Keep the original value; validation errors will surface from fetch.
-  }
-
-  return Array.from(new Set(candidates));
-}
-
-async function fetchLocalChatCompletion(
-  config: PersonalAiProviderConfig,
-  payload: Record<string, unknown>,
-  signal?: AbortSignal
-): Promise<Response> {
-  let lastError: unknown;
-
-  for (const baseUrl of getLocalBaseUrlCandidates(config.baseUrl)) {
-    try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-        },
-        body: JSON.stringify(payload),
-        signal,
-      });
-      const contentType = response.headers.get('content-type') || '';
-      if (!response.ok || contentType.includes('text/html')) {
-        throw new Error(await readResponseError(response));
-      }
-      return response;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Local AI request failed');
-}
-
-export async function localAiChatStream(
-  config: PersonalAiProviderConfig,
-  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
-  handlers: Pick<AiChatStreamHandlers, 'onDelta' | 'onThinking' | 'onUsage' | 'onDone' | 'onError'>,
-  signal?: AbortSignal
-): Promise<void> {
-  const response = await fetchLocalChatCompletion(
-    config,
-    {
-      model: config.model,
-      messages,
-      temperature: config.temperature,
-      stream: true,
-      stream_options: { include_usage: true },
-    },
-    signal
-  );
-  if (!response.body) {
-    throw new Error('Streaming response is not supported in this browser');
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  const dispatch = (block: string) => {
-    const dataLines = block
-      .split('\n')
-      .filter((line) => line.startsWith('data:'))
-      .map((line) => line.slice(5).trimStart());
-    if (!dataLines.length) return;
-
-    dataLines.forEach((dataText) => {
-      if (!dataText || dataText === '[DONE]') return;
-      try {
-        const payload = JSON.parse(dataText);
-        const choice = payload?.choices?.[0];
-        const delta = choice?.delta || choice?.message || {};
-        const reasoning = delta.reasoning_content || delta.reasoning || '';
-        const content = delta.content || '';
-        if (typeof reasoning === 'string' && reasoning) {
-          handlers.onThinking?.('answer', reasoning);
-        }
-        if (typeof content === 'string' && content) {
-          handlers.onDelta?.(content);
-        }
-        const usage = payload?.usage;
-        if (
-          usage &&
-          typeof usage.prompt_tokens === 'number' &&
-          typeof usage.completion_tokens === 'number' &&
-          typeof usage.total_tokens === 'number'
-        ) {
-          handlers.onUsage?.(
-            {
-              prompt_tokens: usage.prompt_tokens,
-              completion_tokens: usage.completion_tokens,
-              total_tokens: usage.total_tokens,
-            },
-            'answer'
-          );
-        }
-      } catch (error: any) {
-        handlers.onError?.(error?.message || 'Failed to parse local AI response');
-      }
-    });
-  };
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
-      let boundary = buffer.indexOf('\n\n');
-      while (boundary !== -1) {
-        const block = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        dispatch(block);
-        boundary = buffer.indexOf('\n\n');
-      }
-    }
-
-    const tail = buffer.trim();
-    if (tail) dispatch(tail);
-    handlers.onDone?.();
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-export async function testPersonalLocalAiProvider(
-  config: PersonalAiProviderConfig,
-  onProgress?: AiProviderTestProgressHandler
-): Promise<{ data: AiProviderTestResult; message: string }> {
-  const startedAt = Date.now();
-  onProgress?.('local_chat');
-  const response = await fetchLocalChatCompletion(config, {
-    model: config.model,
-    messages: [
-      { role: 'system', content: 'You are a connectivity test endpoint.' },
-      { role: 'user', content: 'Reply with OK.' },
-    ],
-    temperature: 0,
-    stream: false,
-  });
-
-  const body = await response.json();
-  const content = body?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string') {
-    throw new Error('Local AI returned an invalid chat completion response');
-  }
-  onProgress?.('tool_calling');
-  const toolCalling = await probeLocalAiToolCalling(config);
-
-  return {
-    data: {
-      success: true,
-      model: config.model,
-      latencyMs: Date.now() - startedAt,
-      sample: content.slice(0, 120),
-      usage: body?.usage,
-      toolCalling,
-    },
-    message: toolCalling.supported
-      ? 'Personal local AI test successful'
-      : 'Personal local AI chat works, but tool calling was not detected',
-  };
-}
-
-async function probeLocalAiToolCalling(
-  config: PersonalAiProviderConfig
-): Promise<AiToolCallingProbeResult> {
-  const toolName = 'rote_tool_calling_probe';
-  try {
-    const response = await fetchLocalChatCompletion(config, {
-      model: config.model,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are testing OpenAI-compatible tool calling. Call the provided tool exactly once. Do not answer with normal text.',
-        },
-        {
-          role: 'user',
-          content: 'Call rote_tool_calling_probe with token set to rote-tool-probe.',
-        },
-      ],
-      temperature: 0,
-      stream: false,
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: toolName,
-            description: 'Records that the model can emit a tool call.',
-            parameters: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                token: {
-                  type: 'string',
-                  description: 'Must be rote-tool-probe.',
-                },
-              },
-              required: ['token'],
-            },
-          },
-        },
-      ],
-      tool_choice: {
-        type: 'function',
-        function: { name: toolName },
-      },
-    });
-
-    const body = await response.json();
-    const message = body?.choices?.[0]?.message;
-    const toolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
-    const toolCall = toolCalls.find((call: any) => call?.function?.name === toolName);
-    if (!toolCall) {
-      return {
-        supported: false,
-        message: 'Chat works, but no tool call was returned by the model.',
-        rawContent: typeof message?.content === 'string' ? message.content : undefined,
-      };
-    }
-
-    let parsedArgs: Record<string, unknown> = {};
-    try {
-      const args = JSON.parse(toolCall.function?.arguments || '{}');
-      if (args && typeof args === 'object' && !Array.isArray(args)) {
-        parsedArgs = args;
-      }
-    } catch {
-      return {
-        supported: false,
-        message: 'A tool call was returned, but its arguments were not valid JSON.',
-        toolName,
-        rawContent: typeof message?.content === 'string' ? message.content : undefined,
-      };
-    }
-
-    return {
-      supported: true,
-      message: 'Tool calling detected.',
-      toolName,
-      arguments: parsedArgs,
-      rawContent: typeof message?.content === 'string' ? message.content : undefined,
-    };
-  } catch (error: any) {
-    return {
-      supported: false,
-      message: 'Tool calling probe failed.',
-      error: error?.message || String(error),
-    };
-  }
 }
 
 async function readAiStreamResponse(

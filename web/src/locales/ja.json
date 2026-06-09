@@ -541,8 +541,8 @@
         "modelPlaceholder": "gemma-4-12b-it または gpt-4.1-mini",
         "apiKey": "API Key（任意）",
         "personalUnavailable": "個人 AI 設定でモデル/API を有効化し、入力してください",
-        "personalPrivacy": "個人モードでは、Rote バックエンドが設定されたモデルを一時的に呼び出し、メモリーツールを実行します。Base URL、モデル名、Key はサーバー設定に保存されません。",
-        "personalProxyNote": "ローカルアドレスのテストはブラウザから直接行い、リモートアドレスは Rote バックエンド経由で一時転送します。実際の AI 回答はこの設定で Rote Agent の tool calling ループを実行します。",
+        "personalPrivacy": "個人モードでは、このブラウザが設定されたモデル/API を直接呼び出します。Base URL、モデル名、Key は Rote バックエンドへ送信されず、サーバー設定にも保存されません。",
+        "personalProxyNote": "API テストと AI 回答はいずれも現在のブラウザからこの Base URL へ直接接続します。Rote バックエンドはモデルが tool call を要求した場合にのみメモリーツールを実行します。クラウド API がブラウザ CORS を許可しない場合は、ローカルブリッジを使用してください。",
         "probeChecking": "確認中",
         "probeReady": "設定準備完了",
         "probePartial": "一部利用可能",
@@ -559,7 +559,7 @@
         "testToastStarting": "API テストを準備しています...",
         "testToastSite": "サイト AI API と tool calling をテストしています...",
         "testToastLocalChat": "このブラウザからチャット API を直接テストしています...",
-        "testToastRemoteProxy": "Rote バックエンド経由でリモート API と tool calling をテストしています...",
+        "testToastRemoteProxy": "このブラウザからリモート API と tool calling を直接テストしています...",
         "testToastToolCalling": "tool calling を検出しています...",
         "testSuccess": "API テスト成功",
         "testPartial": "チャット API は利用できますが、tool calling は検出されませんでした",
@@ -568,6 +568,17 @@
         "toolCallingSupported": "tool calling を検出しました。完全なメモリーツールを利用できます。",
         "toolCallingUnsupported": "tool calling は検出されませんでした：{{reason}}",
         "toolCallingUnknown": "モデルが tool call を返しませんでした",
+        "toolCallingReasons": {
+          "noCall": "モデルが tool call を返しませんでした",
+          "invalidArguments": "モデルは tool call を返しましたが、引数が有効な JSON ではありません",
+          "probeFailed": "tool calling の検出に失敗しました"
+        },
+        "errors": {
+          "corsBlocked": "このブラウザからリモート API に直接アクセスできません。クラウド API が CORS を許可していない可能性があります。ローカルブリッジを使用してください。",
+          "proxyIntercepted": "ローカル AI リクエストがプロキシクライアントにより遮断または終了されました。127.0.0.1/localhost をプロキシ除外リストへ追加するか、Base URL の 127.0.0.1 と localhost を切り替えてください。",
+          "requestFailed": "個人モデル/API リクエストに失敗しました",
+          "invalidResponse": "個人モデル/API が無効なチャットレスポンスを返しました"
+        },
         "siteCapability": "サイト Agent は検索計画のため、tool calling 対応モデルが最適です。深い思考は必須ではなく、reasoning 出力がなくても動作します。",
         "personalCapability": "個人モデル/API モードも同じ Rote Agent を使います。メモリーツールを完全に使うには OpenAI 互換 tool calling 対応モデルが必要です。深い思考/reasoning は任意の表示出力です。",
         "startGuideTitle": "llama.cpp 起動例",

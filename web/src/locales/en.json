@@ -537,8 +537,8 @@
         "modelPlaceholder": "gemma-4-12b-it or gpt-4.1-mini",
         "apiKey": "API Key (optional)",
         "personalUnavailable": "Enable and fill in your model/API in Personal AI settings first",
-        "personalPrivacy": "In personal mode, the Rote backend temporarily calls your configured model and executes memory tools. The Base URL, model, and key are not saved to server settings.",
-        "personalProxyNote": "Local addresses are tested directly from the browser; remote addresses are temporarily proxied through the Rote backend. Actual AI answers use this config in the Rote Agent tool-calling loop.",
+        "personalPrivacy": "In personal mode, this browser calls your configured model/API directly. The Base URL, model, and key are not sent to the Rote backend or saved to server settings.",
+        "personalProxyNote": "API tests and AI answers both call this Base URL directly from the current browser. The Rote backend only executes memory tools when the model requests tool calls. If a cloud API does not allow browser CORS, use a local bridge.",
         "probeChecking": "Checking",
         "probeReady": "Configuration ready",
         "probePartial": "Partly ready",
@@ -555,7 +555,7 @@
         "testToastStarting": "Preparing the API test...",
         "testToastSite": "Testing the site AI API and tool calling...",
         "testToastLocalChat": "Testing the chat API directly from this browser...",
-        "testToastRemoteProxy": "Testing the remote API and tool calling through the Rote backend...",
+        "testToastRemoteProxy": "Testing the remote API and tool calling directly from this browser...",
         "testToastToolCalling": "Checking tool calling...",
         "testSuccess": "API test successful",
         "testPartial": "Chat API works, but tool calling was not detected",
@@ -564,6 +564,17 @@
         "toolCallingSupported": "Tool calling detected. Full memory tools can be used.",
         "toolCallingUnsupported": "Tool calling was not detected: {{reason}}",
         "toolCallingUnknown": "The model did not return a tool call",
+        "toolCallingReasons": {
+          "noCall": "The model did not return a tool call",
+          "invalidArguments": "The model returned a tool call, but its arguments were not valid JSON",
+          "probeFailed": "Tool calling probe failed"
+        },
+        "errors": {
+          "corsBlocked": "This browser could not access the remote API directly. The cloud API probably does not allow CORS. Use a local bridge instead.",
+          "proxyIntercepted": "The local AI request was intercepted or closed by a proxy client. Add 127.0.0.1/localhost to the proxy bypass list, or switch the Base URL between 127.0.0.1 and localhost.",
+          "requestFailed": "Personal model/API request failed",
+          "invalidResponse": "The personal model/API returned an invalid chat response"
+        },
         "siteCapability": "The site Agent works best with a model that supports tool calling for retrieval planning. Deep thinking is optional; the flow still works without reasoning output.",
         "personalCapability": "Personal model/API mode uses the same Rote Agent. The model needs OpenAI-compatible tool calling for full memory-tool support; deep thinking/reasoning remains optional display output.",
         "startGuideTitle": "llama.cpp start example",

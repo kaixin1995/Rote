@@ -1,10 +1,6 @@
 import type { PersonalAiMode, PersonalAiSettings } from '@/state/localAi';
-import {
-  testPersonalAiProvider,
-  testSiteAiProvider,
-  type AiProviderTestProgressStep,
-  type AiStatus,
-} from '@/utils/aiApi';
+import { testSiteAiProvider, type AiProviderTestProgressStep, type AiStatus } from '@/utils/aiApi';
+import { testPersonalAiProvider } from '@/utils/personalAiProvider';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -81,13 +77,24 @@ export function usePersonalAiTesting({
     };
   }
 
+  function getTranslatedProviderMessage(value: unknown) {
+    if (typeof value !== 'string') return '';
+    if (value === 'personal_ai_cors_blocked') return t('personal.errors.corsBlocked');
+    if (value === 'personal_ai_proxy_intercepted') return t('personal.errors.proxyIntercepted');
+    if (value === 'personal_ai_request_failed') return t('personal.errors.requestFailed');
+    if (value === 'personal_ai_invalid_response') return t('personal.errors.invalidResponse');
+    if (value === 'tool_calling_no_call') return t('personal.toolCallingReasons.noCall');
+    if (value === 'tool_calling_invalid_arguments') {
+      return t('personal.toolCallingReasons.invalidArguments');
+    }
+    if (value === 'tool_calling_probe_failed') return t('personal.toolCallingReasons.probeFailed');
+    return value;
+  }
+
   function getTestMessage(error: any) {
-    return (
-      error?.response?.data?.message ||
-      error?.message ||
-      error?.response?.data?.error ||
-      t('personal.testFailed')
-    );
+    const message =
+      error?.response?.data?.message || error?.message || error?.response?.data?.error;
+    return getTranslatedProviderMessage(message) || t('personal.testFailed');
   }
 
   function getTestProgressMessage(step: AiProviderTestProgressStep) {
@@ -130,9 +137,9 @@ export function usePersonalAiTesting({
       const toolCallingSupported = response.data.toolCalling?.supported === true;
       const toolCallingUnsupported = response.data.toolCalling?.supported === false;
       const toolCallingReason =
-        response.data.toolCalling?.error ||
-        response.data.toolCalling?.message ||
-        t('personal.toolCallingUnknown');
+        getTranslatedProviderMessage(
+          response.data.toolCalling?.error || response.data.toolCalling?.message
+        ) || t('personal.toolCallingUnknown');
       const message = toolCallingSupported
         ? t('personal.toolCallingSupported')
         : toolCallingUnsupported
