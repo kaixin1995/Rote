@@ -3,16 +3,7 @@ import { AiSourceList } from '@/components/ai/AiSourceList';
 import NavBar from '@/components/layout/navBar';
 import { SoftBottom } from '@/components/others/SoftBottom';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
 import {
   aiChatMessagesAtom,
@@ -20,19 +11,8 @@ import {
   getCurrentAiAssistantSources,
   sanitizeAiChatMessages,
 } from '@/state/aiChat';
-import {
-  getAiStatus,
-  testPersonalAiProvider,
-  testSiteAiProvider,
-  type AiAgentPhase,
-  type AiAgentToolProgressStatus,
-  type AiProviderTestProgressStep,
-} from '@/utils/aiApi';
-import {
-  personalAiSettingsAtom,
-  withPersonalAiDefaults,
-  type PersonalAiMode,
-} from '@/state/localAi';
+import { getAiStatus } from '@/utils/aiApi';
+import { personalAiSettingsAtom, withPersonalAiDefaults } from '@/state/localAi';
 import {
   clearAiRun,
   isAiRunActive,
@@ -47,9 +27,7 @@ import {
   ArrowUpRight,
   BrainCircuit,
   BrainCog,
-  Cloud,
   Loader,
-  RefreshCw,
   Send,
   Settings2,
   Sparkles,
@@ -58,7 +36,6 @@ import {
 import {
   type FormEvent,
   type KeyboardEvent,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -66,16 +43,15 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
-
-type PersonalAiTestStatus = 'idle' | 'testing' | 'success' | 'warning' | 'error';
-
-type PersonalAiTestState = Record<
-  PersonalAiMode,
-  {
-    status: PersonalAiTestStatus;
-  }
->;
+import {
+  buttonType,
+  ghostButtonVariant,
+  iconButtonSize,
+  statusBlockClasses,
+} from './components/aiPageClasses';
+import { PersonalAiDialog } from './components/PersonalAiDialog';
+import { useAiRunLabels } from './hooks/useAiRunLabels';
+import { usePersonalAiTesting } from './hooks/usePersonalAiTesting';
 
 function AiMemoryPage() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.aiMemory' });
@@ -90,12 +66,9 @@ function AiMemoryPage() {
   const [isPromptsExpanded, setIsPromptsExpanded] = useState(false);
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
   const [isPersonalAiDialogOpen, setIsPersonalAiDialogOpen] = useState(false);
-  const [personalAiTestState, setPersonalAiTestState] = useState<PersonalAiTestState>({
-    site: { status: 'idle' },
-    personal: { status: 'idle' },
-  });
   const messageEndRef = useRef<HTMLDivElement>(null);
   const isSending = runState.isSending;
+  const aiRunLabels = useAiRunLabels();
 
   const {
     data: status,
@@ -150,24 +123,11 @@ function AiMemoryPage() {
   const indexedRoteCount = memoryStats?.indexedRoteCount ?? 0;
   const roteCount = memoryStats?.roteCount ?? 0;
   const vectorProgress = roteCount > 0 ? Math.round((indexedRoteCount / roteCount) * 100) : 0;
-
-  function getAgentPhaseLabel(phase: AiAgentPhase) {
-    return t(`timeline.phases.${phase}`);
-  }
-
-  function getToolStartedLabel(toolName: string) {
-    return t(`timeline.tools.${toolName}`, { defaultValue: toolName });
-  }
-
-  function getToolStatusLabel(status: AiAgentToolProgressStatus) {
-    return t(`timeline.toolStatus.${status}`);
-  }
-
-  function getToolFinishedLabel(toolName: string) {
-    return t(`timeline.toolDone.${toolName}`, {
-      defaultValue: t('timeline.toolDone.default'),
-    });
-  }
+  const { personalAiTestState, getModeProbe, testPersonalAiMode } = usePersonalAiTesting({
+    status,
+    isStatusLoading,
+    personalAi,
+  });
 
   const scrollToMessageEnd = useCallback((behavior: ScrollBehavior = 'smooth') => {
     messageEndRef.current?.scrollIntoView({ block: 'end', behavior });
@@ -230,16 +190,7 @@ function AiMemoryPage() {
       unavailable,
       mode: personalAi.mode,
       personalConfig: isPersonalModelMode ? activePersonalConfig : undefined,
-      labels: {
-        phase: getAgentPhaseLabel,
-        toolStarted: getToolStartedLabel,
-        toolStatus: getToolStatusLabel,
-        toolFinished: getToolFinishedLabel,
-        sourcesFound: (count) => t('timeline.sourcesFound', { count }),
-        askFailed: t('messages.askFailed'),
-        fallbackNoAnswerWithSources: t('messages.fallbackNoAnswerWithSources'),
-        fallbackNoAnswerNoSources: t('messages.fallbackNoAnswerNoSources'),
-      },
+      labels: aiRunLabels,
     });
     if (!started) {
       setInput(question);
@@ -258,122 +209,6 @@ function AiMemoryPage() {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void sendMessage(input);
-    }
-  }
-
-  function getModeProbe(mode: PersonalAiMode) {
-    if (mode === 'site') {
-      const ready = Boolean(status?.available);
-      const partial = !ready && Boolean(status?.chatAvailable);
-      return {
-        ready,
-        label: isStatusLoading
-          ? t('personal.probeChecking')
-          : ready
-            ? t('personal.probeReady')
-            : partial
-              ? t('personal.probePartial')
-              : t('personal.probeMissing'),
-        detail: isStatusLoading
-          ? t('personal.siteProbeChecking')
-          : ready
-            ? t('personal.siteProbeReady')
-            : partial
-              ? t('personal.siteProbePartial')
-              : t('personal.siteProbeMissing'),
-      };
-    }
-
-    const config = personalAi.personal;
-    const configured = Boolean(config.baseUrl.trim()) && Boolean(config.model.trim());
-    return {
-      ready: configured,
-      label: configured
-        ? config.enabled
-          ? t('personal.probeReady')
-          : t('personal.probeConfigured')
-        : t('personal.probeMissing'),
-      detail: configured
-        ? config.enabled
-          ? t('personal.personalProbeReady')
-          : t('personal.personalProbeDisabled')
-        : t('personal.personalProbeMissing'),
-    };
-  }
-
-  function getTestMessage(error: any) {
-    return (
-      error?.response?.data?.message ||
-      error?.message ||
-      error?.response?.data?.error ||
-      t('personal.testFailed')
-    );
-  }
-
-  function getTestProgressMessage(step: AiProviderTestProgressStep) {
-    if (step === 'site') return t('personal.testToastSite');
-    if (step === 'personal_remote') return t('personal.testToastRemoteProxy');
-    if (step === 'tool_calling') return t('personal.testToastToolCalling');
-    return t('personal.testToastLocalChat');
-  }
-
-  async function testPersonalAiMode(mode: PersonalAiMode) {
-    const probe = getModeProbe(mode);
-    if (!probe.ready && mode !== 'site') {
-      toast.error(probe.detail);
-      setPersonalAiTestState((prev) => ({
-        ...prev,
-        [mode]: { status: 'error' },
-      }));
-      return;
-    }
-
-    const toastId = toast.loading(t('personal.testToastStarting'));
-    const updateTestToast = (step: AiProviderTestProgressStep) => {
-      toast.loading(getTestProgressMessage(step), { id: toastId });
-    };
-
-    setPersonalAiTestState((prev) => ({
-      ...prev,
-      [mode]: { status: 'testing' },
-    }));
-
-    try {
-      const response =
-        mode === 'site'
-          ? await testSiteAiProvider(updateTestToast)
-          : await testPersonalAiProvider(personalAi.personal, updateTestToast);
-      const latencyText =
-        typeof response.data.latencyMs === 'number'
-          ? t('personal.testLatency', { ms: response.data.latencyMs })
-          : '';
-      const toolCallingSupported = response.data.toolCalling?.supported === true;
-      const toolCallingUnsupported = response.data.toolCalling?.supported === false;
-      const toolCallingReason =
-        response.data.toolCalling?.error ||
-        response.data.toolCalling?.message ||
-        t('personal.toolCallingUnknown');
-      const message = toolCallingSupported
-        ? t('personal.toolCallingSupported')
-        : toolCallingUnsupported
-          ? t('personal.toolCallingUnsupported', { reason: toolCallingReason })
-          : latencyText || response.message || t('personal.testSuccess');
-      setPersonalAiTestState((prev) => ({
-        ...prev,
-        [mode]: { status: toolCallingUnsupported ? 'warning' : 'success' },
-      }));
-      if (toolCallingUnsupported) {
-        toast.warning(message, { id: toastId, duration: 6000 });
-      } else {
-        toast.success(message, { id: toastId });
-      }
-    } catch (error: any) {
-      const message = getTestMessage(error);
-      setPersonalAiTestState((prev) => ({
-        ...prev,
-        [mode]: { status: 'error' },
-      }));
-      toast.error(message, { id: toastId, duration: 8000 });
     }
   }
 
@@ -401,21 +236,34 @@ function AiMemoryPage() {
       <div className="px-4 py-2">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="text-md min-w-0 truncate">{t('status.title')}</div>
-          <div className="text-info flex min-w-0 items-center justify-end gap-2 text-right text-xs font-light">
-            {isStatusLoading || isStatusValidating ? (
-              <Loader className="size-3 shrink-0 animate-spin" />
-            ) : null}
-            {!isStatusLoading && !status?.available ? (
-              <button
-                type="button"
-                className="hover:text-foreground min-w-0 cursor-pointer truncate text-left duration-200 hover:opacity-60"
-                onClick={() => refreshStatus()}
-              >
-                {statusText}
-              </button>
-            ) : (
-              <span className="min-w-0 truncate">{statusText}</span>
-            )}
+          <div className={statusBlockClasses.actions}>
+            <div className={statusBlockClasses.statusText}>
+              {isStatusLoading || isStatusValidating ? (
+                <Loader className={statusBlockClasses.statusLoader} />
+              ) : null}
+              {!isStatusLoading && !status?.available ? (
+                <button
+                  type={buttonType}
+                  className={statusBlockClasses.statusRefresh}
+                  onClick={() => refreshStatus()}
+                >
+                  {statusText}
+                </button>
+              ) : (
+                <span className={statusBlockClasses.truncate}>{statusText}</span>
+              )}
+            </div>
+            <Button
+              type={buttonType}
+              variant={ghostButtonVariant}
+              size={iconButtonSize}
+              className={statusBlockClasses.settingsButton}
+              onClick={() => setIsPersonalAiDialogOpen(true)}
+              aria-label={t('personal.openSettings')}
+              title={t('personal.openSettings')}
+            >
+              <Settings2 className={statusBlockClasses.settingsIcon} />
+            </Button>
           </div>
         </div>
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-sm">
@@ -451,203 +299,7 @@ function AiMemoryPage() {
             ? t('personal.personalPrivacy')
             : t('privacy.description')}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-3 w-full"
-          onClick={() => setIsPersonalAiDialogOpen(true)}
-        >
-          <Settings2 className="size-4" />
-          {t('personal.openSettings')}
-        </Button>
       </div>
-    );
-  };
-
-  const PersonalAiDialog = () => {
-    const setMode = (mode: PersonalAiMode) => {
-      setPersonalAiSettings({ ...personalAi, mode });
-    };
-    const setProviderField = (patch: Partial<typeof personalAi.personal>) => {
-      setPersonalAiSettings({
-        ...personalAi,
-        personal: { ...personalAi.personal, ...patch },
-      });
-    };
-    const modeOptions: Array<{
-      mode: PersonalAiMode;
-      icon: ReactNode;
-      title: string;
-      description: string;
-    }> = [
-      {
-        mode: 'site',
-        icon: <Cloud className="size-4" />,
-        title: t('personal.siteMode'),
-        description: t('personal.siteModeDesc'),
-      },
-      {
-        mode: 'personal',
-        icon: <BrainCog className="size-4" />,
-        title: t('personal.personalMode'),
-        description: t('personal.personalModeDesc'),
-      },
-    ];
-    const editableConfig = personalAi.personal;
-    const activeProbe = getModeProbe(personalAi.mode);
-    const activeTest = personalAiTestState[personalAi.mode];
-
-    return (
-      <Dialog open={isPersonalAiDialogOpen} onOpenChange={setIsPersonalAiDialogOpen}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('personal.title')}</DialogTitle>
-            <DialogDescription>{t('personal.description')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {modeOptions.map((option) => (
-                <button
-                  key={option.mode}
-                  type="button"
-                  className={`rounded-md border p-3 text-left duration-200 ${
-                    personalAi.mode === option.mode
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => setMode(option.mode)}
-                >
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    {option.icon}
-                    <span>{option.title}</span>
-                  </div>
-                  <div className="mt-2">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
-                        getModeProbe(option.mode).ready
-                          ? personalAi.mode === option.mode
-                            ? 'bg-background/20 text-background'
-                            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                          : personalAi.mode === option.mode
-                            ? 'bg-background/15 text-background/80'
-                            : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {getModeProbe(option.mode).label}
-                    </span>
-                  </div>
-                  <p className="mt-2 line-clamp-3 text-xs opacity-80">{option.description}</p>
-                </button>
-              ))}
-            </div>
-
-            <div className="rounded-md border p-4">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0 self-center">
-                  <p className="text-sm font-medium">{t('personal.probeTitle')}</p>
-                  <p className="text-muted-foreground mt-1 text-xs">{activeProbe.detail}</p>
-                </div>
-                <div className="flex justify-start sm:justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    disabled={activeTest.status === 'testing' || isStatusLoading}
-                    onClick={() => testPersonalAiMode(personalAi.mode)}
-                  >
-                    {activeTest.status === 'testing' ? (
-                      <Loader className="size-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="size-4" />
-                    )}
-                    {t('personal.testButton')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {personalAi.mode === 'site' ? (
-              <div className="rounded-md border p-4">
-                <div className="flex items-start gap-3">
-                  <Cloud className="mt-0.5 size-4 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">{t('personal.siteTitle')}</p>
-                    <p className="text-muted-foreground mt-1 text-xs">{t('personal.siteDesc')}</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-md border p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <Label>{t('personal.enablePersonal')}</Label>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {t('personal.enablePersonalDesc')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={editableConfig.enabled}
-                    onCheckedChange={(enabled) => setProviderField({ enabled })}
-                  />
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="space-y-2">
-                    <Label>{t('personal.baseUrl')}</Label>
-                    <Input
-                      value={editableConfig.baseUrl}
-                      placeholder="http://127.0.0.1:8080/v1 or https://api.openai.com/v1"
-                      onChange={(event) => setProviderField({ baseUrl: event.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t('personal.model')}</Label>
-                    <Input
-                      value={editableConfig.model}
-                      placeholder="gemma-4-12b-it or gpt-4.1-mini"
-                      onChange={(event) => setProviderField({ model: event.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t('personal.apiKey')}</Label>
-                    <Input
-                      type="password"
-                      value={editableConfig.apiKey}
-                      onChange={(event) => setProviderField({ apiKey: event.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-muted-foreground mt-3 text-xs">
-                  {t('personal.personalProxyNote')}
-                </p>
-              </div>
-            )}
-
-            {personalAi.mode === 'personal' ? (
-              <div className="bg-muted/20 rounded-md border p-3">
-                <p className="text-sm font-medium">{t('personal.startGuideTitle')}</p>
-                <code className="bg-background mt-2 block overflow-x-auto rounded-md border px-3 py-2 text-xs">
-                  llama-server --hf-repo google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0 --host 127.0.0.1
-                  --port 8080 --alias gemma-4-12b-it --ctx-size 4096
-                </code>
-                <p className="text-muted-foreground mt-2 text-xs">{t('personal.startGuideDesc')}</p>
-              </div>
-            ) : null}
-
-            <div className="bg-muted/20 rounded-md border p-3">
-              <p className="text-sm font-medium">{t('personal.capabilityTitle')}</p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {personalAi.mode === 'site'
-                  ? t('personal.siteCapability')
-                  : t('personal.personalCapability')}
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     );
   };
 
@@ -717,7 +369,16 @@ function AiMemoryPage() {
       hideSidebarToggleButton={true}
       hideFloatBtnsOnMobile={true}
     >
-      <PersonalAiDialog />
+      <PersonalAiDialog
+        open={isPersonalAiDialogOpen}
+        onOpenChange={setIsPersonalAiDialogOpen}
+        personalAi={personalAi}
+        personalAiTestState={personalAiTestState}
+        isStatusLoading={isStatusLoading}
+        getModeProbe={getModeProbe}
+        setPersonalAiSettings={setPersonalAiSettings}
+        onTestMode={testPersonalAiMode}
+      />
       <NavBar title={t('title')} icon={<BrainCircuit className="size-5" />}>
         <div className="ml-auto flex items-center gap-2">
           {isSending && <Loader className="size-4 animate-spin" />}
