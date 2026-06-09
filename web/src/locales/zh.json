@@ -623,7 +623,10 @@
         "fallback": "降级原因：{{reason}}",
         "providerError": "模型工具调用失败",
         "toolError": "检索工具失败",
-        "warnings": "提示：{{warnings}}"
+        "warnings": "提示：{{warnings}}",
+        "warningLabels": {
+          "semanticSearchTextFallback": "语义检索不可用，已使用文本搜索"
+        }
       },
       "timeline": {
         "title": "进度",

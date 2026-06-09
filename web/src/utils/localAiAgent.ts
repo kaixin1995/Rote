@@ -63,6 +63,7 @@ export async function localAiAgentStream(params: {
     const response = await streamLocalChatCompletion({
       config: params.config,
       messages,
+      enableThinking: true,
       signal: params.signal,
       onReasoning: (text) => params.handlers.onThinking?.('answer', text),
       onContent: (text) => params.handlers.onDelta?.(text),
@@ -81,6 +82,7 @@ export async function localAiAgentStream(params: {
       config: params.config,
       messages,
       tools: bootstrap.tools,
+      enableThinking: true,
       signal: params.signal,
       onReasoning: (text) =>
         params.handlers.onThinking?.(step === 0 ? 'route_decision' : 'evidence_decision', text),
@@ -165,6 +167,7 @@ export async function localAiAgentStream(params: {
     const response = await streamLocalChatCompletion({
       config: params.config,
       messages,
+      enableThinking: true,
       signal: params.signal,
       onReasoning: (text) => params.handlers.onThinking?.('answer', text),
       onContent: (text) => params.handlers.onDelta?.(text),

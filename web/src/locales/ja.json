@@ -637,7 +637,10 @@
         "fallback": "フォールバック：{{reason}}",
         "providerError": "モデルのツール呼び出しに失敗",
         "toolError": "検索ツールに失敗",
-        "warnings": "警告：{{warnings}}"
+        "warnings": "警告：{{warnings}}",
+        "warningLabels": {
+          "semanticSearchTextFallback": "セマンティック検索が利用できないため、テキスト検索を使用しました"
+        }
       },
       "timeline": {
         "title": "進捗",

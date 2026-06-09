@@ -96,4 +96,19 @@ describe('local AI client', () => {
       chat_template_kwargs: { enable_thinking: false },
     });
   });
+
+  it(`can enable model thinking for local browser calls`, async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([{ choices: [{ delta: {} }] }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await streamLocalChatCompletion({
+      config,
+      messages: [{ role: 'user', content: 'Think' }],
+      enableThinking: true,
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      chat_template_kwargs: { enable_thinking: true },
+    });
+  });
 });

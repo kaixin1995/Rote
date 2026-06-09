@@ -1,4 +1,4 @@
-import type { PersonalAiProviderConfig } from '@/state/localAi';
+import { isLocalPersonalAiProvider, type PersonalAiProviderConfig } from '@/state/localAi';
 import type { AiTokenUsage } from '@/utils/aiApi';
 
 export type LocalChatToolCall = {
@@ -85,6 +85,7 @@ export async function streamLocalChatCompletion(params: {
   config: PersonalAiProviderConfig;
   messages: LocalChatMessage[];
   tools?: LocalChatToolDefinition[];
+  enableThinking?: boolean;
   signal?: AbortSignal;
   onReasoning?: (text: string) => void;
   onContent?: (text: string) => void;
@@ -98,7 +99,9 @@ export async function streamLocalChatCompletion(params: {
       temperature: params.config.temperature,
       stream: true,
       stream_options: { include_usage: true },
-      chat_template_kwargs: { enable_thinking: false },
+      ...(isLocalPersonalAiProvider(params.config)
+        ? { chat_template_kwargs: { enable_thinking: params.enableThinking === true } }
+        : {}),
       ...(params.tools?.length ? { tools: params.tools, tool_choice: 'auto' } : {}),
     }),
     signal: params.signal,

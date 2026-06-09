@@ -633,7 +633,10 @@
         "fallback": "Fallback: {{reason}}",
         "providerError": "Model tool calling failed",
         "toolError": "Retrieval tool failed",
-        "warnings": "Warnings: {{warnings}}"
+        "warnings": "Warnings: {{warnings}}",
+        "warningLabels": {
+          "semanticSearchTextFallback": "Semantic search is unavailable; text search was used"
+        }
       },
       "timeline": {
         "title": "Progress",

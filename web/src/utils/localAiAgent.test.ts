@@ -44,6 +44,7 @@ describe('local AI agent', () => {
     });
 
     expect(onDelta).toHaveBeenCalledWith('private reply');
+    expect(mocks.complete).toHaveBeenCalledWith(expect.objectContaining({ enableThinking: true }));
     expect(mocks.bootstrap).not.toHaveBeenCalled();
     expect(mocks.executeTool).not.toHaveBeenCalled();
   });

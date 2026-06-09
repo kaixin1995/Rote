@@ -44,6 +44,50 @@ function toClientSource(source: any) {
   };
 }
 
+function sanitizeClientWarning(value: unknown): string {
+  const text = String(value || '').trim();
+  if (text.startsWith('semantic_search_fallback_text')) {
+    return 'semantic_search_fallback_text';
+  }
+  return text;
+}
+
+function sanitizeWarningArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map(sanitizeClientWarning).filter(Boolean)));
+}
+
+function sanitizeClientPlan(plan: any) {
+  if (!plan) return plan;
+  return {
+    ...plan,
+    toolResult: plan.toolResult
+      ? {
+          ...plan.toolResult,
+          warnings: sanitizeWarningArray(plan.toolResult.warnings),
+        }
+      : plan.toolResult,
+    debugTrace: plan.debugTrace
+      ? {
+          ...plan.debugTrace,
+          warnings: sanitizeWarningArray(plan.debugTrace.warnings),
+        }
+      : plan.debugTrace,
+  };
+}
+
+function sanitizeClientModelContent(value: string): string {
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed?.plan?.warnings) {
+      parsed.plan.warnings = sanitizeWarningArray(parsed.plan.warnings);
+    }
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return value.replace(/semantic_search_fallback_text:[^"\n]+/g, 'semantic_search_fallback_text');
+  }
+}
+
 async function getClientToolConfig(userId: string) {
   const [config, vectorStatus, eligible] = await Promise.all([
     getStoredAiConfig(),
@@ -112,11 +156,11 @@ export function registerClientAgentRoutes(router: Hono<{ Variables: HonoVariable
 
       return c.json(
         createResponse({
-          observations: result.observations,
+          observations: result.observations.map(sanitizeClientWarning),
           displaySummary: result.displaySummary,
-          modelContent: result.modelContent,
+          modelContent: sanitizeClientModelContent(result.modelContent),
           sources: Array.isArray(result.sources) ? result.sources.map(toClientSource) : [],
-          plan: result.plan,
+          plan: sanitizeClientPlan(result.plan),
           statePatch: result.statePatch,
           state: result.state,
           sourceKeys: result.sourceKeys,
