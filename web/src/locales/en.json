@@ -1371,6 +1371,7 @@
       "saveSuccess": "Save successful",
       "saveFailed": "Save failed",
       "minimumPermission": "At least one permission is required",
+      "permissionUnavailable": "(not available for this account)",
       "permissions": {
         "SENDROTE": "Create Rote",
         "GETROTE": "Get Rote",

@@ -1361,6 +1361,7 @@
       "saveSuccess": "保存成功",
       "saveFailed": "保存失败",
       "minimumPermission": "至少需要一个权限",
+      "permissionUnavailable": "（当前账号不可用）",
       "permissions": {
         "SENDROTE": "创建Rote",
         "GETROTE": "获取Rote",

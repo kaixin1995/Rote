@@ -109,10 +109,7 @@ function AiMemoryPage() {
     Boolean(activePersonalConfig.baseUrl.trim()) &&
     Boolean(activePersonalConfig.model.trim());
   const unavailable =
-    !isStatusLoading &&
-    (isPersonalModelMode
-      ? !personalAiReady
-      : !status?.enabled || !status.vectorEnabled || !status.available);
+    !isStatusLoading && (isPersonalModelMode ? !personalAiReady : status?.available !== true);
   const unavailableText = isPersonalModelMode
     ? t('personal.personalUnavailable')
     : status?.eligible === false

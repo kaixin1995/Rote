@@ -1375,6 +1375,7 @@
       "saveSuccess": "保存成功",
       "saveFailed": "保存失敗",
       "minimumPermission": "少なくとも1つの権限が必要です",
+      "permissionUnavailable": "（このアカウントでは利用不可）",
       "permissions": {
         "SENDROTE": "Rote を作成",
         "GETROTE": "Rote を取得",

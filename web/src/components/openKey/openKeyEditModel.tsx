@@ -1,3 +1,4 @@
+import { usePermissions } from '@/hooks/usePermissions';
 import { useSiteStatus } from '@/hooks/useSiteStatus';
 import { useOpenKeys } from '@/state/openKeys';
 import type { OpenKey } from '@/types/main';
@@ -21,6 +22,7 @@ function OpenKeyEditModel({ openKey, close, mutate }: OpenKeyEditModelProps) {
     keyPrefix: 'components.openKeyEditModel',
   });
   const { data: siteStatus } = useSiteStatus();
+  const { capabilities } = usePermissions();
   const [openKeys, setOpenKeys] = useOpenKeys();
   const defaultCheckedList: string[] = openKey.permissions;
   const checkboxRef = useRef<HTMLButtonElement>(null);
@@ -28,25 +30,40 @@ function OpenKeyEditModel({ openKey, close, mutate }: OpenKeyEditModelProps) {
   const processedOptions = useMemo(() => {
     // 完全依赖后端返回的 permissionKeys，未配置时返回空列表
     const permissionKeys = siteStatus?.frontendConfig.permissionKeys ?? [];
-    return permissionKeys.map((key) => ({
-      value: key,
-      checked: false,
-      disabled: false,
-      // i18n key 统一为 components.openKeyEditModel.permissions.${key}
-      label: t(`permissions.${key}`),
-    })) as Array<{
+    return permissionKeys.map((key) => {
+      const attachmentAllowed = capabilities?.['attachment.upload']?.allowed === true;
+      const videoAllowed = capabilities?.['attachment.video.upload']?.allowed === true;
+      const disabled =
+        (key === 'UPLOADATTACHMENT' && !attachmentAllowed) ||
+        (key === 'UPLOADVIDEO' && (!attachmentAllowed || !videoAllowed));
+
+      return {
+        value: key,
+        checked: false,
+        disabled,
+        // i18n key 统一为 components.openKeyEditModel.permissions.${key}
+        label: t(`permissions.${key}`),
+      };
+    }) as Array<{
       value: string;
       checked: boolean;
       disabled: boolean;
       label: string;
     }>;
-  }, [t, siteStatus?.frontendConfig?.permissionKeys]);
+  }, [capabilities, t, siteStatus?.frontendConfig?.permissionKeys]);
 
   const [checkedList, setCheckedList] = useState<string[]>(defaultCheckedList);
 
-  const checkAll = processedOptions.length === checkedList.length;
+  const enabledOptionValues = useMemo(
+    () => processedOptions.filter((option) => !option.disabled).map((option) => option.value),
+    [processedOptions]
+  );
+  const checkAll =
+    enabledOptionValues.length > 0 &&
+    enabledOptionValues.every((value) => checkedList.includes(value));
 
-  const onChange = (value: string) => {
+  const onChange = (value: string, disabled: boolean) => {
+    if (disabled) return;
     setCheckedList((prev: string[]) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
     );
@@ -54,17 +71,18 @@ function OpenKeyEditModel({ openKey, close, mutate }: OpenKeyEditModelProps) {
 
   // 修正 onCheckAllChange 以适配 shadcn Checkbox 的 onCheckedChange 签名
   const onCheckAllChange = (checked: boolean) => {
-    setCheckedList(checked ? processedOptions.map((option) => option.value) : []);
+    setCheckedList(checked ? enabledOptionValues : []);
   };
 
   function save() {
-    if (checkedList.length === 0) {
+    const availableCheckedList = checkedList.filter((value) => enabledOptionValues.includes(value));
+    if (availableCheckedList.length === 0) {
       toast.error(t('minimumPermission'));
       return;
     }
     close();
     const toastId = toast.loading(t('saving'));
-    put('/api-keys/' + openKey.id, { permissions: checkedList })
+    put('/api-keys/' + openKey.id, { permissions: availableCheckedList })
       .then((res) => {
         toast.success(t('saveSuccess'), {
           id: toastId,
@@ -97,10 +115,16 @@ function OpenKeyEditModel({ openKey, close, mutate }: OpenKeyEditModelProps) {
               <Checkbox
                 id={checkboxId}
                 checked={checkedList.includes(option.value)}
-                onCheckedChange={() => onChange(option.value)}
+                disabled={option.disabled}
+                onCheckedChange={() => onChange(option.value, option.disabled)}
                 className="accent-primary scale-110"
               />
-              <span className="text-foreground text-sm">{option.label}</span>
+              <span className="text-foreground text-sm">
+                {option.label}
+                {option.disabled && (
+                  <span className="text-muted-foreground ml-1">{t('permissionUnavailable')}</span>
+                )}
+              </span>
             </label>
           );
         })}
@@ -110,6 +134,7 @@ function OpenKeyEditModel({ openKey, close, mutate }: OpenKeyEditModelProps) {
           ref={checkboxRef}
           onCheckedChange={onCheckAllChange}
           checked={checkAll}
+          disabled={enabledOptionValues.length === 0}
           className="accent-primary ml-auto"
         />
         <span className="text-muted-foreground text-sm select-none">{t('selectAll')}</span>
