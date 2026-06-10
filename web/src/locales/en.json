@@ -550,8 +550,8 @@
         "probeConfigured": "Configured",
         "probeMissing": "Not ready",
         "siteProbeChecking": "Reading the site AI status.",
-        "siteProbeReady": "The site AI configuration, account eligibility, and AI memory index are ready.",
-        "siteProbePartial": "The site chat model is configured, but account eligibility or the AI memory index is not ready.",
+        "siteProbeReady": "Site AI chat is ready. AI memory availability depends on the vector index status.",
+        "siteProbePartial": "The site chat model and permission are configured, but account eligibility is not ready.",
         "siteProbeMissing": "Site AI is not available yet. Use a personal model or contact an admin.",
         "personalProbeReady": "The model/API is enabled. You can test it; answers will use this configuration.",
         "personalProbeDisabled": "Model/API settings are filled in, so you can test the API. Turn on the switch to use it for answers.",
@@ -1290,10 +1290,6 @@
           "ai.site.chat": {
             "label": "Site Cloud AI Chat",
             "description": "Allow the cloud chat model configured by the site."
-          },
-          "ai.memory.search": {
-            "label": "AI Memory Search",
-            "description": "Allow AI to search the user's notes and use memory tools."
           }
         },
         "userDialog": {

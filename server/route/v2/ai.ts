@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { getAiAccessError, getUserAiAccess } from '../../authz/aiAccess';
+import {
+  getAiAccessError,
+  getAiAccessErrorFromAccess,
+  getAiMemoryAccessError,
+  getUserAiAccess,
+  isAiMemoryAvailableForAccess,
+} from '../../authz/aiAccess';
 import { type User } from '../../drizzle/schema';
 import { authenticateJWT } from '../../middleware/jwtAuth';
 import type { HonoContext, HonoVariables } from '../../types/hono';
@@ -19,7 +25,6 @@ import {
   getOwnerAiMemoryStats,
   getPgvectorStatus,
   getStoredAiConfig,
-  isAiEligibleUser,
   prepareRoteChatContext,
   searchMemoryWithFallback,
   logAiTokenUsage,
@@ -95,6 +100,7 @@ async function streamToolPlannedChatResponse(
     limit: body?.limit,
     excludeIds: body?.excludeIds,
     history: body?.history,
+    enableThinking: body?.enableThinking === true,
     onPlanThinkingDelta: async (text) => {
       await writeSseEvent(stream, 'thinking', { phase: 'retrieval_planning', text });
     },
@@ -166,12 +172,7 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
     config.enabled === true &&
     Boolean(config.chat?.baseUrl?.trim()) &&
     Boolean(config.chat?.model?.trim());
-  const memoryAvailable =
-    eligible &&
-    access.memoryAllowed &&
-    config.enabled === true &&
-    config.vectorEnabled === true &&
-    vectorStatus.installed === true;
+  const memoryAvailable = isAiMemoryAvailableForAccess({ access, config, vectorStatus });
   const available = eligible && access.siteChatAllowed && chatAvailable;
   return c.json(
     createResponse({
@@ -180,7 +181,6 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
       publicExploreVectorEnabled: config.publicExploreVectorEnabled,
       eligible,
       siteChatAllowed: access.siteChatAllowed,
-      memoryAllowed: access.memoryAllowed,
       chatAvailable,
       chatProviderId: config.chat?.providerId || '',
       chatModel: config.chat?.model || '',
@@ -207,7 +207,7 @@ aiRouter.post('/site/test', authenticateJWT, async (c: HonoContext) => {
     Boolean(config.chat?.model?.trim());
   const vectorAvailable = config.vectorEnabled === true && vectorStatus.installed === true;
 
-  const accessError = await getAiAccessError(user, 'ai.site.chat');
+  const accessError = await getAiAccessError(user);
   if (accessError) {
     return c.json(
       createResponse(
@@ -266,7 +266,7 @@ aiRouter.post('/site/test', authenticateJWT, async (c: HonoContext) => {
 
 aiRouter.post('/search', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
-  const accessError = await getAiAccessError(user, 'ai.memory.search');
+  const accessError = await getAiMemoryAccessError(user);
   if (accessError) {
     return c.json(createResponse(null, accessError), 403);
   }
@@ -295,7 +295,7 @@ aiRouter.post('/search', authenticateJWT, bodyTypeCheck, async (c: HonoContext) 
 
 aiRouter.post('/related-notes', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
-  const accessError = await getAiAccessError(user, 'ai.memory.search');
+  const accessError = await getAiMemoryAccessError(user);
   if (accessError) {
     return c.json(createResponse(null, accessError), 403);
   }
@@ -344,7 +344,8 @@ aiRouter.post('/related-notes', authenticateJWT, bodyTypeCheck, async (c: HonoCo
 
 aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
-  const accessError = await getAiAccessError(user, 'ai.site.chat');
+  const access = await getUserAiAccess(user);
+  const accessError = getAiAccessErrorFromAccess(access);
   if (accessError) {
     return c.json(createResponse(null, accessError), 403);
   }
@@ -356,7 +357,9 @@ aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) =>
     return c.json(createResponse(null, 'Message is required'), 400);
   }
 
-  const result = (await isAiEligibleUser(user.id))
+  const [config, vectorStatus] = await Promise.all([getStoredAiConfig(), getPgvectorStatus()]);
+  const memoryAvailable = isAiMemoryAvailableForAccess({ access, config, vectorStatus });
+  const result = memoryAvailable
     ? await chatWithRoteContext({
         ownerId: user.id,
         message,
@@ -378,10 +381,9 @@ aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) =>
 
 aiRouter.post('/agent/stream', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
-  const siteAccessError = await getAiAccessError(user, 'ai.site.chat');
-  const memoryAccessError = await getAiAccessError(user, 'ai.memory.search');
-  if (siteAccessError || memoryAccessError) {
-    return c.json(createResponse(null, (siteAccessError || memoryAccessError)!), 403);
+  const memoryAccessError = await getAiMemoryAccessError(user);
+  if (memoryAccessError) {
+    return c.json(createResponse(null, memoryAccessError), 403);
   }
 
   const body = await c.req.json();
@@ -428,7 +430,8 @@ aiRouter.post('/agent/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCon
 
 aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoContext) => {
   const user = c.get('user') as User;
-  const accessError = await getAiAccessError(user, 'ai.site.chat');
+  const access = await getUserAiAccess(user);
+  const accessError = getAiAccessErrorFromAccess(access);
   if (accessError) {
     return c.json(createResponse(null, accessError), 403);
   }
@@ -443,7 +446,8 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
   return streamSSE(c, async (stream) => {
     try {
       await stream.write(': connected\n\n');
-      if (await isAiEligibleUser(user.id)) {
+      const [config, vectorStatus] = await Promise.all([getStoredAiConfig(), getPgvectorStatus()]);
+      if (isAiMemoryAvailableForAccess({ access, config, vectorStatus })) {
         await streamToolPlannedChatResponse(stream, user, body, message);
       } else {
         await streamDirectSiteChat({

@@ -39,7 +39,6 @@ VALUES
 		) THEN 'allow' ELSE 'deny' END
 	),
 	('user', 'ai.site.chat', 'deny'),
-	('user', 'ai.memory.search', 'deny'),
 	('moderator', 'attachment.upload', 'allow'),
 	(
 		'moderator',
@@ -52,12 +51,9 @@ VALUES
 		) THEN 'allow' ELSE 'deny' END
 	),
 	('moderator', 'ai.site.chat', 'deny'),
-	('moderator', 'ai.memory.search', 'deny'),
 	('admin', 'attachment.upload', 'allow'),
 	('admin', 'attachment.video.upload', 'allow'),
 	('admin', 'ai.site.chat', 'allow'),
-	('admin', 'ai.memory.search', 'allow'),
 	('super_admin', 'attachment.upload', 'allow'),
 	('super_admin', 'attachment.video.upload', 'allow'),
-	('super_admin', 'ai.site.chat', 'allow'),
-	('super_admin', 'ai.memory.search', 'allow');
+	('super_admin', 'ai.site.chat', 'allow');

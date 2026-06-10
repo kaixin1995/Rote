@@ -8,7 +8,6 @@ import RoteItem from '@/components/rote/roteItem';
 import { DatePicker } from '@/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useSiteStatus } from '@/hooks/useSiteStatus';
-import { usePermissions } from '@/hooks/usePermissions';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
 import { profileAtom } from '@/state/profile';
 import { loadTagsAtom, tagsAtom } from '@/state/tags';
@@ -68,11 +67,7 @@ function MineFilter() {
   const profile = useAtomValue(profileAtom);
   const loadTags = useSetAtom(loadTagsAtom);
   const { data: siteStatus } = useSiteStatus();
-  const { capabilities } = usePermissions();
-  const canUseAi =
-    siteStatus?.ai?.memoryAvailable === true &&
-    profile?.emailVerified === true &&
-    capabilities?.['ai.memory.search'].allowed === true;
+  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.emailVerified === true;
 
   useEffect(() => {
     if (tags === null) loadTags();

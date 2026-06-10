@@ -1,7 +1,9 @@
-import type { CapabilityKey } from './capabilities';
+import type { AiConfig } from '../types/config';
+import { getPgvectorStatus, getStoredAiConfig } from '../utils/dbMethods/ai';
 import { getEffectiveCapabilitiesForUser } from './capabilityService';
 
 export const AI_VERIFICATION_REQUIRED_MESSAGE = 'AI features require a verified account';
+export const AI_MEMORY_UNAVAILABLE_MESSAGE = 'AI memory tools are not available';
 
 type AiAccessUser = {
   id: string;
@@ -13,21 +15,44 @@ export async function getUserAiAccess(user: AiAccessUser) {
   return {
     verified: user.emailVerified === true,
     siteChatAllowed: effective.capabilities['ai.site.chat'].allowed,
-    memoryAllowed: effective.capabilities['ai.memory.search'].allowed,
   };
 }
 
-export async function getAiAccessError(
-  user: AiAccessUser,
-  capability: Extract<CapabilityKey, 'ai.site.chat' | 'ai.memory.search'>
-): Promise<string | null> {
-  const access = await getUserAiAccess(user);
+type AiAccess = Awaited<ReturnType<typeof getUserAiAccess>>;
+type PgvectorStatus = Awaited<ReturnType<typeof getPgvectorStatus>>;
+
+export function getAiAccessErrorFromAccess(access: AiAccess): string | null {
   if (!access.verified) return AI_VERIFICATION_REQUIRED_MESSAGE;
-  if (capability === 'ai.site.chat' && !access.siteChatAllowed) {
-    return 'capability_required:ai.site.chat';
-  }
-  if (capability === 'ai.memory.search' && !access.memoryAllowed) {
-    return 'capability_required:ai.memory.search';
-  }
+  if (!access.siteChatAllowed) return 'capability_required:ai.site.chat';
   return null;
+}
+
+export async function getAiAccessError(user: AiAccessUser): Promise<string | null> {
+  return getAiAccessErrorFromAccess(await getUserAiAccess(user));
+}
+
+export function isAiMemoryAvailableForAccess(params: {
+  access: AiAccess;
+  config: AiConfig;
+  vectorStatus: PgvectorStatus;
+}): boolean {
+  return (
+    getAiAccessErrorFromAccess(params.access) === null &&
+    params.config.enabled === true &&
+    params.config.vectorEnabled === true &&
+    params.vectorStatus.installed === true
+  );
+}
+
+export async function getAiMemoryAccessError(user: AiAccessUser): Promise<string | null> {
+  const [access, config, vectorStatus] = await Promise.all([
+    getUserAiAccess(user),
+    getStoredAiConfig(),
+    getPgvectorStatus(),
+  ]);
+  const accessError = getAiAccessErrorFromAccess(access);
+  if (accessError) return accessError;
+  return isAiMemoryAvailableForAccess({ access, config, vectorStatus })
+    ? null
+    : AI_MEMORY_UNAVAILABLE_MESSAGE;
 }

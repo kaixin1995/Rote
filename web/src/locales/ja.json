@@ -554,8 +554,8 @@
         "probeConfigured": "設定済み",
         "probeMissing": "未準備",
         "siteProbeChecking": "サイト AI の状態を読み取っています。",
-        "siteProbeReady": "サイト AI 設定、アカウント資格、AI メモリー索引が準備完了です。",
-        "siteProbePartial": "サイトのチャットモデルは設定済みですが、アカウント資格または AI メモリー索引が未準備です。",
+        "siteProbeReady": "サイト AI チャットは利用できます。AI メモリーの可用性はベクトル索引の状態に依存します。",
+        "siteProbePartial": "サイトのチャットモデルと権限は設定済みですが、アカウント資格が未準備です。",
         "siteProbeMissing": "サイト AI はまだ利用できません。個人モデルを使うか管理者に連絡してください。",
         "personalProbeReady": "モデル/API は有効です。API をテストできます。回答時はこの設定を使用します。",
         "personalProbeDisabled": "モデル/API 設定は入力済みなので API をテストできます。回答に使うにはスイッチをオンにしてください。",
@@ -1294,10 +1294,6 @@
           "ai.site.chat": {
             "label": "サイトのクラウド AI チャット",
             "description": "サイトで設定されたクラウドチャットモデルの使用を許可します。"
-          },
-          "ai.memory.search": {
-            "label": "AI メモリー検索",
-            "description": "AI によるユーザーのノート検索とメモリーツールの使用を許可します。"
           }
         },
         "userDialog": {

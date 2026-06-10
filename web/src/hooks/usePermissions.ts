@@ -6,8 +6,8 @@ import useSWR from 'swr';
 export function usePermissions() {
   const { profile } = useAuthState();
   const result = useSWR<EffectivePermissionsResponse>(
-    profile?.id ? '/permissions/me' : null,
-    async (url: string) => {
+    profile?.id ? (['/permissions/me', profile.id] as const) : null,
+    async ([url]: readonly [string, string]) => {
       const response = await get(url);
       return response.data as EffectivePermissionsResponse;
     }

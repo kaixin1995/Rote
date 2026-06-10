@@ -4,7 +4,6 @@ export const CAPABILITY_KEYS = [
   'attachment.upload',
   'attachment.video.upload',
   'ai.site.chat',
-  'ai.memory.search',
 ] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
@@ -24,14 +23,12 @@ const USER_DEFAULTS: Record<CapabilityKey, boolean> = {
   'attachment.upload': true,
   'attachment.video.upload': false,
   'ai.site.chat': false,
-  'ai.memory.search': false,
 };
 
 const ADMIN_DEFAULTS: Record<CapabilityKey, boolean> = {
   'attachment.upload': true,
   'attachment.video.upload': true,
   'ai.site.chat': true,
-  'ai.memory.search': true,
 };
 
 export const ROLE_DEFAULT_CAPABILITIES: Record<string, Record<CapabilityKey, boolean>> = {

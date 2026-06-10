@@ -556,6 +556,7 @@ export async function createRetrievalPlan(params: {
   getTagCounts?: () => Promise<Array<{ name: string; count: number }>>;
   maxSteps?: number;
   maxToolCalls?: number;
+  enableThinking?: boolean;
   onThinkingDelta?: (text: string) => Promise<void> | void;
   onUsage?: (usage: ChatCompletionUsage) => Promise<void> | void;
 }): Promise<PlannerAgentResult> {
@@ -586,7 +587,7 @@ export async function createRetrievalPlan(params: {
     try {
       response = await completeWithTools(params.config.chat, messages, toolDefinitions, {
         temperature: 0,
-        enableThinking: true,
+        enableThinking: params.enableThinking === true,
         onReasoning: params.onThinkingDelta,
       });
     } catch (error: any) {

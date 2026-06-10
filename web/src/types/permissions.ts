@@ -2,7 +2,6 @@ export const CAPABILITY_KEYS = [
   'attachment.upload',
   'attachment.video.upload',
   'ai.site.chat',
-  'ai.memory.search',
 ] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
