@@ -1,6 +1,10 @@
 import type { Attachment } from '@/types/main';
 import { VideoAttachmentPreview } from '@/components/rote/VideoAttachmentPreview';
-import { getAttachmentMediaKind } from '@/utils/directUpload';
+import {
+  getAttachmentImagePreviewSrc,
+  getAttachmentImageThumbnailSrc,
+  getAttachmentMediaKind,
+} from '@/utils/directUpload';
 import { generateVideoPoster } from '@/utils/generateVideoPoster';
 import { CirclePlay, X } from 'lucide-react';
 import { PhotoView } from 'react-photo-view';
@@ -58,8 +62,14 @@ function AttachmentItem({
     mediaKind === 'video'
       ? localPosterSrc || (!(attachment instanceof File) ? attachment.posterUrl || '' : '')
       : objectUrl ||
-        (!(attachment instanceof File) ? attachment.compressUrl || attachment.url : '');
-  const previewSrc = objectUrl || (!(attachment instanceof File) ? attachment.url : '');
+        (!(attachment instanceof File) ? getAttachmentImageThumbnailSrc(attachment) : '');
+  const previewSrc =
+    objectUrl ||
+    (!(attachment instanceof File)
+      ? mediaKind === 'video'
+        ? attachment.url
+        : getAttachmentImagePreviewSrc(attachment)
+      : '');
   const progressValue =
     typeof uploadProgress === 'number' ? Math.max(0, Math.min(100, uploadProgress)) : 0;
 

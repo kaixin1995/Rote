@@ -1,5 +1,9 @@
 import type { Attachment } from '@/types/main';
-import { getAttachmentMediaKind } from '@/utils/directUpload';
+import {
+  getAttachmentImagePreviewSrc,
+  getAttachmentImageThumbnailSrc,
+  getAttachmentMediaKind,
+} from '@/utils/directUpload';
 import { CirclePlay } from 'lucide-react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import { VideoAttachmentPreview } from './VideoAttachmentPreview';
@@ -37,6 +41,8 @@ export default function AttachmentsGrid({ attachments, withTimeStamp }: Attachme
           <PhotoProvider>
             {sortedAttachments.map((file, index) => {
               const isLivePhoto = getAttachmentMediaKind(file) === 'livePhoto';
+              const previewSrc = getAttachmentImagePreviewSrc(file);
+              const thumbSrc = getAttachmentImageThumbnailSrc(file);
               const imageClassName =
                 attachments.length % 3 === 0
                   ? 'aspect-square w-[calc(1/3*100%-4px)]'
@@ -51,11 +57,11 @@ export default function AttachmentsGrid({ attachments, withTimeStamp }: Attachme
                   : 'bg-foreground/3 block h-full w-full object-cover';
 
               return (
-                <PhotoView key={`files_${index}`} src={file.url}>
+                <PhotoView key={`files_${index}`} src={previewSrc}>
                   <div className={`${imageClassName} relative grow overflow-hidden`}>
                     <img
                       className={renderedImageClassName}
-                      src={`${file.compressUrl || file.url}`}
+                      src={thumbSrc}
                       crossOrigin={withTimeStamp ? 'anonymous' : undefined}
                       alt=""
                     />

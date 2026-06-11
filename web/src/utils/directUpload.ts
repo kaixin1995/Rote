@@ -167,6 +167,42 @@ export function getAttachmentMediaKind(attachment: File | Attachment): MediaKind
   return null;
 }
 
+export function isHeicLikeAttachment(attachment: File | Attachment) {
+  const mimetype =
+    (attachment instanceof File ? attachment.type : attachment.details?.mimetype)?.toLowerCase() ||
+    '';
+  if (mimetype === 'image/heic' || mimetype === 'image/heif') {
+    return true;
+  }
+
+  const candidateNames =
+    attachment instanceof File
+      ? [attachment.name]
+      : [
+          attachment.details?.originalname,
+          attachment.details?.key,
+          attachment.url,
+          attachment.compressUrl,
+        ];
+
+  return candidateNames.some((name) => /\.(heic|heif)(\?|#|$)/i.test(name || ''));
+}
+
+export function getAttachmentImageThumbnailSrc(attachment: Attachment) {
+  return attachment.compressUrl || attachment.url || '';
+}
+
+export function getAttachmentImagePreviewSrc(attachment: Attachment) {
+  const mediaKind = getAttachmentMediaKind(attachment);
+  const shouldUseWebSafeStill = mediaKind === 'livePhoto' || isHeicLikeAttachment(attachment);
+
+  if (shouldUseWebSafeStill) {
+    return attachment.compressUrl || attachment.url || '';
+  }
+
+  return attachment.url || attachment.compressUrl || '';
+}
+
 export function isImageLikeAttachment(attachment: File | Attachment) {
   const mediaKind = getAttachmentMediaKind(attachment);
   return mediaKind === 'image' || mediaKind === 'livePhoto';
