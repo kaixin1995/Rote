@@ -1,4 +1,5 @@
 import type { Attachment } from '@/types/main';
+import { LivePhotoAttachmentPreview } from '@/components/rote/LivePhotoAttachmentPreview';
 import { VideoAttachmentPreview } from '@/components/rote/VideoAttachmentPreview';
 import {
   getAttachmentImagePreviewSrc,
@@ -6,7 +7,7 @@ import {
   getAttachmentMediaKind,
 } from '@/utils/directUpload';
 import { generateVideoPoster } from '@/utils/generateVideoPoster';
-import { CirclePlay, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { PhotoView } from 'react-photo-view';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -111,6 +112,15 @@ function AttachmentItem({
             </>
           )}
         </>
+      ) : isLivePhoto && !(attachment instanceof File) ? (
+        <LivePhotoAttachmentPreview
+          attachment={attachment}
+          className="relative h-full w-full"
+          imageClassName={`h-full w-full object-cover ${isUploading ? 'opacity-80' : ''}`}
+          badgeClassName="bottom-1.5 left-1.5"
+          previewSrc={previewSrc}
+          thumbnailSrc={thumbSrc}
+        />
       ) : (
         <PhotoView src={previewSrc}>
           <div className="relative h-full w-full">
@@ -121,12 +131,6 @@ function AttachmentItem({
               src={thumbSrc}
               alt="uploaded"
             />
-            {isLivePhoto && (
-              <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold tracking-normal text-white">
-                <CirclePlay className="size-3" />
-                LIVE
-              </span>
-            )}
           </div>
         </PhotoView>
       )}

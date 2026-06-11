@@ -1496,9 +1496,7 @@
       "livePhoto": {
         "badge": "LIVE",
         "open": "Open Live Photo",
-        "title": "Live Photo preview",
-        "videoLabel": "Live Photo video",
-        "playbackFailed": "This Live Photo video cannot be played in the current browser."
+        "videoLabel": "Live Photo video"
       }
     }
   },
