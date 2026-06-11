@@ -4,8 +4,8 @@ import {
   getAttachmentImageThumbnailSrc,
   getAttachmentMediaKind,
 } from '@/utils/directUpload';
-import { CirclePlay } from 'lucide-react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
+import { LivePhotoAttachmentPreview } from './LivePhotoAttachmentPreview';
 import { VideoAttachmentPreview } from './VideoAttachmentPreview';
 import 'react-photo-view/dist/react-photo-view.css';
 
@@ -56,7 +56,17 @@ export default function AttachmentsGrid({ attachments, withTimeStamp }: Attachme
                   ? 'bg-foreground/3 block w-full object-cover'
                   : 'bg-foreground/3 block h-full w-full object-cover';
 
-              return (
+              return isLivePhoto ? (
+                <LivePhotoAttachmentPreview
+                  key={`files_${index}`}
+                  attachment={file}
+                  className={imageClassName}
+                  imageClassName={renderedImageClassName}
+                  previewSrc={previewSrc}
+                  thumbnailSrc={thumbSrc}
+                  crossOrigin={withTimeStamp ? 'anonymous' : undefined}
+                />
+              ) : (
                 <PhotoView key={`files_${index}`} src={previewSrc}>
                   <div className={`${imageClassName} relative grow overflow-hidden`}>
                     <img
@@ -65,12 +75,6 @@ export default function AttachmentsGrid({ attachments, withTimeStamp }: Attachme
                       crossOrigin={withTimeStamp ? 'anonymous' : undefined}
                       alt=""
                     />
-                    {isLivePhoto && (
-                      <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold tracking-normal text-white">
-                        <CirclePlay className="size-3" />
-                        LIVE
-                      </span>
-                    )}
                   </div>
                 </PhotoView>
               );

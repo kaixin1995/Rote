@@ -2,6 +2,7 @@ import type { Attachment } from '@/types/main';
 import {
   getAttachmentImagePreviewSrc,
   getAttachmentImageThumbnailSrc,
+  getAttachmentLivePhotoPlaybackSrc,
   isHeicLikeAttachment,
 } from '@/utils/directUpload';
 import { describe, expect, it } from 'vitest';
@@ -53,6 +54,25 @@ describe('attachment image display sources', () => {
 
     expect(getAttachmentImagePreviewSrc(attachment)).toBe(
       'https://cdn.example.com/users/u/compressed/live.webp'
+    );
+  });
+
+  it('uses the paired MOV when playing a Live Photo', () => {
+    const attachment = makeAttachment({
+      url: 'https://cdn.example.com/users/u/uploads/live.HEIC',
+      compressUrl: 'https://cdn.example.com/users/u/compressed/live.webp',
+      details: {
+        mimetype: 'image/heic',
+        mediaKind: 'livePhoto',
+        key: 'users/u/uploads/live.HEIC',
+        pairedVideoKey: 'users/u/paired-videos/live.mov',
+        pairedVideoUrl: 'https://cdn.example.com/users/u/paired-videos/live.mov',
+        pairedVideoMimetype: 'video/quicktime',
+      },
+    });
+
+    expect(getAttachmentLivePhotoPlaybackSrc(attachment)).toBe(
+      'https://cdn.example.com/users/u/paired-videos/live.mov'
     );
   });
 

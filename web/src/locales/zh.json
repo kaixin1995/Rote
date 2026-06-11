@@ -1481,6 +1481,15 @@
     },
     "verifiedIcon": {
       "tooltip": "已验证邮箱"
+    },
+    "attachments": {
+      "livePhoto": {
+        "badge": "LIVE",
+        "open": "打开 Live Photo",
+        "title": "Live Photo 预览",
+        "videoLabel": "Live Photo 视频",
+        "playbackFailed": "当前浏览器无法播放这个 Live Photo 视频。"
+      }
     }
   },
   "article": {

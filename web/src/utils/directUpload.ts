@@ -203,6 +203,14 @@ export function getAttachmentImagePreviewSrc(attachment: Attachment) {
   return attachment.url || attachment.compressUrl || '';
 }
 
+export function getAttachmentLivePhotoPlaybackSrc(attachment: Attachment) {
+  if (getAttachmentMediaKind(attachment) !== 'livePhoto') {
+    return '';
+  }
+
+  return attachment.details?.pairedVideoUrl || '';
+}
+
 export function isImageLikeAttachment(attachment: File | Attachment) {
   const mediaKind = getAttachmentMediaKind(attachment);
   return mediaKind === 'image' || mediaKind === 'livePhoto';

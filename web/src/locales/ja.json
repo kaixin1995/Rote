@@ -1495,6 +1495,15 @@
     },
     "verifiedIcon": {
       "tooltip": "確認済みメールアドレス"
+    },
+    "attachments": {
+      "livePhoto": {
+        "badge": "LIVE",
+        "open": "Live Photo を開く",
+        "title": "Live Photo プレビュー",
+        "videoLabel": "Live Photo ビデオ",
+        "playbackFailed": "現在のブラウザではこの Live Photo ビデオを再生できません。"
+      }
     }
   },
   "article": {
