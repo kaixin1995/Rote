@@ -105,7 +105,7 @@ passkeyRouter.post('/register/options', authenticateJWT, async (c: HonoContext) 
     excludeCredentials,
     authenticatorSelection: {
       residentKey: 'required',
-      userVerification: 'preferred',
+      userVerification: 'required',
     },
   });
 
@@ -137,6 +137,7 @@ passkeyRouter.post('/register/verify', authenticateJWT, async (c: HonoContext) =
     expectedChallenge,
     expectedOrigin: config.origin,
     expectedRPID: config.rpId,
+    requireUserVerification: true,
   });
 
   if (!verification.verified || !verification.registrationInfo) {
@@ -167,7 +168,7 @@ passkeyRouter.post('/authenticate/options', async (c: HonoContext) => {
 
   const options = await generateAuthenticationOptions({
     rpID: config.rpId,
-    userVerification: 'preferred',
+    userVerification: 'required',
     // allowCredentials: [] allows discoverable credentials (passkeys without username)
   });
 
@@ -205,6 +206,7 @@ passkeyRouter.post('/authenticate/verify', async (c: HonoContext) => {
     expectedChallenge,
     expectedOrigin: config.origin,
     expectedRPID: config.rpId,
+    requireUserVerification: true,
     credential: {
       id: passkey.credentialId,
       publicKey: new Uint8Array(passkey.publicKey),
