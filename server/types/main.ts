@@ -8,9 +8,15 @@ export interface UploadResult {
     mtime: Date | null | undefined;
     hash: string | null | undefined;
     // 对象存储中的 Key，便于删除和追踪
+    mediaKind?: 'image' | 'video' | 'livePhoto' | null;
     key?: string;
     compressKey?: string;
     posterKey?: string;
+    pairedVideoKey?: string;
+    pairedVideoUrl?: string;
+    pairedVideoMimetype?: string | null;
+    pairedVideoSize?: number;
+    pairedVideoFilename?: string;
   };
 }
 

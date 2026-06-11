@@ -71,12 +71,17 @@ export type Attachment = {
     originalname?: string;
     encoding?: string;
     mimetype?: string | null;
-    mediaKind?: 'image' | 'video';
+    mediaKind?: 'image' | 'video' | 'livePhoto';
     size?: number;
     bucket?: string;
     key?: string;
     compressKey?: string;
     posterKey?: string;
+    pairedVideoKey?: string;
+    pairedVideoUrl?: string;
+    pairedVideoMimetype?: string | null;
+    pairedVideoSize?: number;
+    pairedVideoFilename?: string;
     acl?: string;
     contentType?: string;
     contentDisposition?: string | null;

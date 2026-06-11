@@ -32,7 +32,10 @@ export default function NoteExportCard({
   }, [onReady]);
 
   const imageAttachments = attachments?.filter(
-    (a) => a.details?.mediaKind === 'image' || (!a.details?.mediaKind && a.url)
+    (a) =>
+      a.details?.mediaKind === 'image' ||
+      a.details?.mediaKind === 'livePhoto' ||
+      (!a.details?.mediaKind && a.url)
   );
 
   return (

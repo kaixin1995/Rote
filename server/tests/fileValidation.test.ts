@@ -75,6 +75,54 @@ describe('fileValidation', () => {
     );
   });
 
+  it('treats Live Photos as image-like attachments', () => {
+    expect(
+      inferAttachmentMediaKind({
+        pairedVideoKey: 'users/test/paired-videos/live.mov',
+      })
+    ).toBe('livePhoto');
+
+    expect(() =>
+      validateRoteAttachmentDetails([
+        {
+          details: {
+            mediaKind: 'image',
+            mimetype: 'image/png',
+          },
+        },
+        {
+          details: {
+            mediaKind: 'livePhoto',
+            mimetype: 'image/heic',
+            key: 'users/test/uploads/live.heic',
+            compressKey: 'users/test/compressed/live.webp',
+            pairedVideoKey: 'users/test/paired-videos/live.mov',
+          },
+        },
+      ])
+    ).not.toThrow();
+  });
+
+  it('rejects mixing Live Photos with standalone videos', () => {
+    expect(() =>
+      validateRoteAttachmentDetails([
+        {
+          details: {
+            mediaKind: 'livePhoto',
+            mimetype: 'image/heic',
+            pairedVideoKey: 'users/test/paired-videos/live.mov',
+          },
+        },
+        {
+          details: {
+            mediaKind: 'video',
+            mimetype: 'video/mp4',
+          },
+        },
+      ])
+    ).toThrow('Images and videos cannot be uploaded together in the same Rote');
+  });
+
   it('uses configured video upload size limit', () => {
     const maxVideoSizeMB = DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB + 50;
     const allowedSize = getMaxVideoUploadSizeBytes(maxVideoSizeMB);

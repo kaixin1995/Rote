@@ -34,7 +34,7 @@ export const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = 300;
 export const MAX_FILES = 9;
 export const MAX_BATCH_SIZE = 100;
 
-export type MediaKind = 'image' | 'video';
+export type MediaKind = 'image' | 'video' | 'livePhoto';
 
 type AttachmentLike = {
   details?: {
@@ -43,6 +43,8 @@ type AttachmentLike = {
     contentType?: string | null;
     compressKey?: string | null;
     posterKey?: string | null;
+    pairedVideoKey?: string | null;
+    livePhotoVideoKey?: string | null;
     key?: string | null;
   } | null;
 };
@@ -54,6 +56,8 @@ type UploadLike = {
   compressedKey?: string | null;
   compressKey?: string | null;
   posterKey?: string | null;
+  pairedVideoKey?: string | null;
+  livePhotoVideoKey?: string | null;
   key?: string | null;
 };
 
@@ -100,8 +104,16 @@ export function inferAttachmentMediaKind(input?: UploadLike | null): MediaKind |
     return null;
   }
 
-  if (input.mediaKind === 'image' || input.mediaKind === 'video') {
+  if (
+    input.mediaKind === 'image' ||
+    input.mediaKind === 'video' ||
+    input.mediaKind === 'livePhoto'
+  ) {
     return input.mediaKind;
+  }
+
+  if (input.pairedVideoKey || input.livePhotoVideoKey) {
+    return 'livePhoto';
   }
 
   const mediaKind = getMediaKindFromContentType(input.mimetype || input.contentType);
@@ -217,7 +229,7 @@ export function mergeUniqueRoteAttachmentDetails<T extends AttachmentLike>(
 export function validateRoteMediaKinds(mediaKinds: MediaKind[]): void {
   if (mediaKinds.length === 0) return;
 
-  const imageCount = mediaKinds.filter((kind) => kind === 'image').length;
+  const imageCount = mediaKinds.filter((kind) => kind === 'image' || kind === 'livePhoto').length;
   const videoCount = mediaKinds.filter((kind) => kind === 'video').length;
 
   if (imageCount > 0 && videoCount > 0) {

@@ -2,14 +2,21 @@ import type { Attachment } from '@/types/main';
 import axios, { type AxiosProgressEvent } from 'axios';
 import { post } from './api';
 
-export type PresignFile = { filename?: string; contentType?: string; size?: number };
-export type MediaKind = 'image' | 'video';
+export type MediaKind = 'image' | 'video' | 'livePhoto';
+export type PresignFile = {
+  filename?: string;
+  contentType?: string;
+  size?: number;
+  mediaKind?: MediaKind;
+  pairedVideo?: { filename?: string; contentType?: string; size?: number };
+};
 
 export type PresignItem = {
   uuid: string;
   original: { key: string; putUrl: string; url: string; contentType?: string };
   compressed?: { key: string; putUrl: string; url: string; contentType: 'image/webp' };
   poster?: { key: string; putUrl: string; url: string; contentType: 'image/jpeg' };
+  pairedVideo?: { key: string; putUrl: string; url: string; contentType?: string };
 };
 
 export interface PresignResponse {
@@ -129,8 +136,13 @@ export type FinalizeAttachment = {
   originalKey: string;
   compressedKey?: string;
   posterKey?: string;
+  pairedVideoKey?: string;
+  pairedVideoSize?: number;
+  pairedVideoMimetype?: string;
+  pairedVideoFilename?: string;
   size?: number;
   mimetype?: string;
+  mediaKind?: MediaKind;
   hash?: string;
 };
 
@@ -143,11 +155,19 @@ export async function finalize(attachments: FinalizeAttachment[], noteId?: strin
 export function getAttachmentMediaKind(attachment: File | Attachment): MediaKind | null {
   const mimetype = attachment instanceof File ? attachment.type : attachment.details?.mimetype;
   const mediaKind = attachment instanceof File ? undefined : attachment.details?.mediaKind;
+  const pairedVideoKey =
+    attachment instanceof File ? undefined : attachment.details?.pairedVideoKey;
 
-  if (mediaKind === 'image' || mediaKind === 'video') {
+  if (mediaKind === 'image' || mediaKind === 'video' || mediaKind === 'livePhoto') {
     return mediaKind;
   }
+  if (pairedVideoKey) return 'livePhoto';
   if (mimetype?.startsWith('image/')) return 'image';
   if (mimetype?.startsWith('video/')) return 'video';
   return null;
+}
+
+export function isImageLikeAttachment(attachment: File | Attachment) {
+  const mediaKind = getAttachmentMediaKind(attachment);
+  return mediaKind === 'image' || mediaKind === 'livePhoto';
 }

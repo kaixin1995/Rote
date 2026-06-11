@@ -7,6 +7,33 @@ import { r2deletehandler } from '../r2';
 import { createRoteChange } from './change';
 import { DatabaseError } from './common';
 
+function collectAttachmentObjectKeys(details: any): string[] {
+  if (!details || typeof details !== 'object') {
+    return [];
+  }
+
+  const candidates = [
+    details.key,
+    details.compressKey,
+    details.posterKey,
+    details.pairedVideoKey,
+    details.livePhotoVideoKey,
+    details.livePhoto?.pairedVideoKey,
+  ];
+
+  return Array.from(
+    new Set(candidates.filter((key): key is string => typeof key === 'string' && key.length > 0))
+  );
+}
+
+function deleteAttachmentObjects(details: any) {
+  for (const key of collectAttachmentObjectKeys(details)) {
+    r2deletehandler(key).catch((err) => {
+      console.error(`Failed to delete attachment object from R2: ${key}`, err);
+    });
+  }
+}
+
 // 附件相关方法
 export async function createAttachments(
   userid: string,
@@ -296,20 +323,7 @@ export async function deleteRoteAttachmentsByRoteId(roteid: string, userid: stri
     }
 
     attachmentsList.forEach(({ details }) => {
-      // @ts-expect-error - details 可能包含动态属性
-      const key = details?.key;
-      // @ts-expect-error - details 可能包含动态属性
-      const compressKey = details?.compressKey;
-      if (key) {
-        r2deletehandler(key).catch((err) => {
-          console.error(`Failed to delete attachment from R2: ${key}`, err);
-        });
-      }
-      if (compressKey) {
-        r2deletehandler(compressKey).catch((err) => {
-          console.error(`Failed to delete compressed attachment from R2: ${compressKey}`, err);
-        });
-      }
+      deleteAttachmentObjects(details);
     });
 
     // 记录变更历史（如果 rote 存在）
@@ -479,20 +493,7 @@ export async function deleteAttachments(
 
     // 优先使用 DB 中的 details 删除，以涵盖压缩文件；兼容传入 key 的旧行为
     dbAttachments.forEach(({ details }) => {
-      // @ts-expect-error - details 可能包含动态属性
-      const key = details?.key;
-      // @ts-expect-error - details 可能包含动态属性
-      const compressKey = details?.compressKey;
-      if (key) {
-        r2deletehandler(key).catch((err) => {
-          console.error(`Failed to delete attachment from R2: ${key}`, err);
-        });
-      }
-      if (compressKey) {
-        r2deletehandler(compressKey).catch((err) => {
-          console.error(`Failed to delete compressed attachment from R2: ${compressKey}`, err);
-        });
-      }
+      deleteAttachmentObjects(details);
     });
 
     // 兼容性：如果请求体传入了 key，但 DB 没有 details（历史数据），也尝试删除
@@ -558,22 +559,7 @@ export async function deleteAttachment(id: string, userid: string): Promise<any>
       }
     }
 
-    if (record?.details) {
-      // @ts-expect-error - details 可能包含动态属性
-      const key = record.details?.key;
-      // @ts-expect-error - details 可能包含动态属性
-      const compressKey = record.details?.compressKey;
-      if (key) {
-        r2deletehandler(key).catch((err) => {
-          console.error(`Failed to delete attachment from R2: ${key}`, err);
-        });
-      }
-      if (compressKey) {
-        r2deletehandler(compressKey).catch((err) => {
-          console.error(`Failed to delete compressed attachment from R2: ${compressKey}`, err);
-        });
-      }
-    }
+    deleteAttachmentObjects(record?.details);
 
     return { count: result.length };
   } catch (error) {

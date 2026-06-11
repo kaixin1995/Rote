@@ -138,6 +138,14 @@ export const AttachmentPresignZod = z.object({
         filename: z.string().max(255, 'Filename cannot exceed 255 characters').optional(),
         contentType: z.string().min(1, 'Content type cannot be empty'),
         size: z.number().int().positive('File size must be greater than 0'),
+        mediaKind: z.enum(['image', 'video', 'livePhoto']).optional(),
+        pairedVideo: z
+          .object({
+            filename: z.string().max(255, 'Filename cannot exceed 255 characters').optional(),
+            contentType: z.string().min(1, 'Content type cannot be empty'),
+            size: z.number().int().positive('File size must be greater than 0'),
+          })
+          .optional(),
       })
     )
     .min(1, 'At least one file is required')

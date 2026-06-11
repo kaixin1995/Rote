@@ -2,7 +2,7 @@ import type { Attachment } from '@/types/main';
 import { VideoAttachmentPreview } from '@/components/rote/VideoAttachmentPreview';
 import { getAttachmentMediaKind } from '@/utils/directUpload';
 import { generateVideoPoster } from '@/utils/generateVideoPoster';
-import { X } from 'lucide-react';
+import { CirclePlay, X } from 'lucide-react';
 import { PhotoView } from 'react-photo-view';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -22,6 +22,7 @@ function AttachmentItem({
   onDelete,
 }: AttachmentItemProps) {
   const mediaKind = getAttachmentMediaKind(attachment);
+  const isLivePhoto = mediaKind === 'livePhoto';
   const [localPosterSrc, setLocalPosterSrc] = useState<string | null>(null);
   const objectUrl = useMemo(
     () => (attachment instanceof File ? URL.createObjectURL(attachment) : null),
@@ -102,13 +103,21 @@ function AttachmentItem({
         </>
       ) : (
         <PhotoView src={previewSrc}>
-          <img
-            className={`h-full w-full object-cover ${isUploading ? 'opacity-80' : ''}`}
-            height={80}
-            width={80}
-            src={thumbSrc}
-            alt="uploaded"
-          />
+          <div className="relative h-full w-full">
+            <img
+              className={`h-full w-full object-cover ${isUploading ? 'opacity-80' : ''}`}
+              height={80}
+              width={80}
+              src={thumbSrc}
+              alt="uploaded"
+            />
+            {isLivePhoto && (
+              <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold tracking-normal text-white">
+                <CirclePlay className="size-3" />
+                LIVE
+              </span>
+            )}
+          </div>
         </PhotoView>
       )}
 

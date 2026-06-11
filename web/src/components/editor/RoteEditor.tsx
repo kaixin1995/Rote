@@ -77,7 +77,9 @@ function RoteEditor({ roteAtom, callback }: { roteAtom: RoteAtomType; callback?:
     [rote.attachments]
   );
   const hasVideoAttachment = attachmentMediaKinds.includes('video');
-  const imageAttachmentCount = attachmentMediaKinds.filter((kind) => kind === 'image').length;
+  const imageAttachmentCount = attachmentMediaKinds.filter(
+    (kind) => kind === 'image' || kind === 'livePhoto'
+  ).length;
   const canAddMoreAttachments = !hasVideoAttachment && imageAttachmentCount < 9;
   const uploadAccept = hasVideoAttachment
     ? VIDEO_ACCEPT

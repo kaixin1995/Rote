@@ -28,3 +28,6 @@ export const extractCompressedUuid = (key?: string) =>
 
 export const extractPosterUuid = (key?: string) =>
   key?.match(/\/posters\/([^/.]+)\.[^.]+$/)?.[1] ?? null;
+
+export const extractPairedVideoUuid = (key?: string) =>
+  key?.match(/\/paired-videos\/([^/.]+)\.[^.]+$/)?.[1] ?? null;

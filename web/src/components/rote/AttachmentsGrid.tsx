@@ -1,5 +1,6 @@
 import type { Attachment } from '@/types/main';
 import { getAttachmentMediaKind } from '@/utils/directUpload';
+import { CirclePlay } from 'lucide-react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import { VideoAttachmentPreview } from './VideoAttachmentPreview';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -34,24 +35,40 @@ export default function AttachmentsGrid({ attachments, withTimeStamp }: Attachme
           ))
         ) : (
           <PhotoProvider>
-            {sortedAttachments.map((file, index) => (
-              <PhotoView key={`files_${index}`} src={file.url}>
-                <img
-                  className={`${
-                    attachments.length % 3 === 0
-                      ? 'aspect-square w-[calc(1/3*100%-4px)]'
-                      : attachments.length % 2 === 0
-                        ? 'aspect-square w-[calc(1/2*100%-3px)]'
-                        : attachments.length === 1
-                          ? 'w-full max-w-[500px] rounded-2xl border-[0.5px]'
-                          : 'aspect-square w-[calc(1/3*100%-3px)]'
-                  } bg-foreground/3 grow object-cover`}
-                  src={`${file.compressUrl || file.url}`}
-                  crossOrigin={withTimeStamp ? 'anonymous' : undefined}
-                  alt=""
-                />
-              </PhotoView>
-            ))}
+            {sortedAttachments.map((file, index) => {
+              const isLivePhoto = getAttachmentMediaKind(file) === 'livePhoto';
+              const imageClassName =
+                attachments.length % 3 === 0
+                  ? 'aspect-square w-[calc(1/3*100%-4px)]'
+                  : attachments.length % 2 === 0
+                    ? 'aspect-square w-[calc(1/2*100%-3px)]'
+                    : attachments.length === 1
+                      ? 'w-full max-w-[500px] rounded-2xl border-[0.5px]'
+                      : 'aspect-square w-[calc(1/3*100%-3px)]';
+              const renderedImageClassName =
+                attachments.length === 1
+                  ? 'bg-foreground/3 block w-full object-cover'
+                  : 'bg-foreground/3 block h-full w-full object-cover';
+
+              return (
+                <PhotoView key={`files_${index}`} src={file.url}>
+                  <div className={`${imageClassName} relative grow overflow-hidden`}>
+                    <img
+                      className={renderedImageClassName}
+                      src={`${file.compressUrl || file.url}`}
+                      crossOrigin={withTimeStamp ? 'anonymous' : undefined}
+                      alt=""
+                    />
+                    {isLivePhoto && (
+                      <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold tracking-normal text-white">
+                        <CirclePlay className="size-3" />
+                        LIVE
+                      </span>
+                    )}
+                  </div>
+                </PhotoView>
+              );
+            })}
           </PhotoProvider>
         )}
       </div>

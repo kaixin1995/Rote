@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import {
   extractCompressedUuid,
   extractOriginalUploadUuid,
+  extractPairedVideoUuid,
   extractPosterUuid,
   getUploadExtension,
 } from '../../attachments/uploadKeys';
@@ -26,6 +27,7 @@ import {
   MAX_FILES,
   getMediaKindFromContentType,
   inferAttachmentMediaKind,
+  isImageContentType,
   isVideoContentType,
   mergeUniqueRoteAttachmentDetails,
   validateContentType,
@@ -39,6 +41,33 @@ import { AttachmentPresignZod } from '../../utils/zod';
 // 附件相关路由
 const attachmentsRouter = new Hono<{ Variables: HonoVariables }>();
 
+type PresignFileInput = {
+  filename?: string;
+  contentType?: string;
+  size?: number;
+  mediaKind?: 'image' | 'video' | 'livePhoto';
+  pairedVideo?: {
+    filename?: string;
+    contentType?: string;
+    size?: number;
+  };
+};
+
+type FinalizeAttachmentInput = {
+  uuid: string;
+  originalKey: string;
+  compressedKey?: string;
+  posterKey?: string;
+  pairedVideoKey?: string;
+  pairedVideoSize?: number;
+  pairedVideoMimetype?: string;
+  pairedVideoFilename?: string;
+  size?: number;
+  mimetype?: string;
+  mediaKind?: 'image' | 'video' | 'livePhoto';
+  hash?: string;
+  noteId?: string;
+};
 // 删除单个附件
 attachmentsRouter.delete('/:id', authenticateJWT, async (c: HonoContext) => {
   const user = c.get('user') as User;
@@ -120,7 +149,7 @@ attachmentsRouter.post(
     }
     const body = await c.req.json();
     const { files } = body as {
-      files: Array<{ filename?: string; contentType?: string; size?: number }>;
+      files: PresignFileInput[];
     };
 
     // 验证输入长度和格式
@@ -131,7 +160,9 @@ attachmentsRouter.post(
       throw new Error(`Maximum ${MAX_FILES} files allowed`);
     }
 
-    const hasVideo = files.some((f) => isVideoContentType(f.contentType));
+    const hasVideo = files.some(
+      (f) => isVideoContentType(f.contentType) || f.mediaKind === 'livePhoto'
+    );
     if (hasVideo && !uploadPolicy.canUploadVideo) {
       return c.json(createResponse(null, 'capability_required:attachment.video.upload'), 403);
     }
@@ -139,6 +170,27 @@ attachmentsRouter.post(
     // 严格验证每个文件的内容类型和大小
     for (const f of files) {
       validateContentType(f.contentType);
+
+      if (f.mediaKind === 'livePhoto') {
+        if (!isImageContentType(f.contentType)) {
+          throw new Error('Live Photo original resource must be an image');
+        }
+        if (!f.pairedVideo) {
+          throw new Error('Live Photo paired video is required');
+        }
+        validateContentType(f.pairedVideo.contentType);
+        if (!isVideoContentType(f.pairedVideo.contentType)) {
+          throw new Error('Live Photo paired video resource must be a video');
+        }
+        validateFileSize(f.size, f.contentType, uploadPolicy.maxVideoUploadSizeMB);
+        validateFileSize(
+          f.pairedVideo.size,
+          f.pairedVideo.contentType,
+          uploadPolicy.maxVideoUploadSizeMB
+        );
+        continue;
+      }
+
       validateFileSize(f.size, f.contentType, uploadPolicy.maxVideoUploadSizeMB);
     }
 
@@ -147,7 +199,8 @@ attachmentsRouter.post(
         const uuid = randomUUID();
         const ext = getUploadExtension(f.filename, f.contentType);
         const originalKey = `users/${user.id}/uploads/${uuid}${ext}`;
-        const mediaKind = getMediaKindFromContentType(f.contentType);
+        const mediaKind =
+          f.mediaKind === 'livePhoto' ? 'livePhoto' : getMediaKindFromContentType(f.contentType);
         const original = await presignPutUrl(originalKey, f.contentType || undefined, 15 * 60);
 
         const result: Record<string, any> = {
@@ -160,7 +213,7 @@ attachmentsRouter.post(
           },
         };
 
-        if (mediaKind === 'image') {
+        if (mediaKind === 'image' || mediaKind === 'livePhoto') {
           const compressedKey = `users/${user.id}/compressed/${uuid}.webp`;
           const compressed = await presignPutUrl(compressedKey, 'image/webp', 15 * 60);
           result.compressed = {
@@ -168,6 +221,26 @@ attachmentsRouter.post(
             putUrl: compressed.putUrl,
             url: compressed.url,
             contentType: 'image/webp',
+          };
+        }
+
+        if (mediaKind === 'livePhoto') {
+          const pairedVideo = f.pairedVideo;
+          if (!pairedVideo) {
+            throw new Error('Live Photo paired video is required');
+          }
+          const pairedVideoExt = getUploadExtension(pairedVideo.filename, pairedVideo.contentType);
+          const pairedVideoKey = `users/${user.id}/paired-videos/${uuid}${pairedVideoExt}`;
+          const pairedVideoUpload = await presignPutUrl(
+            pairedVideoKey,
+            pairedVideo.contentType || undefined,
+            15 * 60
+          );
+          result.pairedVideo = {
+            key: pairedVideoKey,
+            putUrl: pairedVideoUpload.putUrl,
+            url: pairedVideoUpload.url,
+            contentType: pairedVideo.contentType,
           };
         }
 
@@ -203,16 +276,7 @@ attachmentsRouter.post(
     }
     const body = await c.req.json();
     const { attachments, noteId } = body as {
-      attachments: Array<{
-        uuid: string;
-        originalKey: string;
-        compressedKey?: string;
-        posterKey?: string;
-        size?: number;
-        mimetype?: string;
-        hash?: string;
-        noteId?: string;
-      }>;
+      attachments: FinalizeAttachmentInput[];
       noteId?: string;
     };
 
@@ -231,7 +295,8 @@ attachmentsRouter.post(
       (a) =>
         !a.originalKey?.startsWith(prefix) ||
         (a.compressedKey !== undefined && !a.compressedKey.startsWith(prefix)) ||
-        (a.posterKey !== undefined && !a.posterKey.startsWith(prefix))
+        (a.posterKey !== undefined && !a.posterKey.startsWith(prefix)) ||
+        (a.pairedVideoKey !== undefined && !a.pairedVideoKey.startsWith(prefix))
     );
     if (invalid) {
       throw new Error('Invalid object key');
@@ -243,16 +308,35 @@ attachmentsRouter.post(
         validateContentType(a.mimetype);
         validateFileSize(a.size, a.mimetype, uploadPolicy.maxVideoUploadSizeMB);
       }
+
+      if (a.mediaKind === 'livePhoto' || a.pairedVideoKey) {
+        if (!isImageContentType(a.mimetype)) {
+          throw new Error('Live Photo original resource must be an image');
+        }
+        validateContentType(a.pairedVideoMimetype);
+        if (!isVideoContentType(a.pairedVideoMimetype)) {
+          throw new Error('Live Photo paired video resource must be a video');
+        }
+        validateFileSize(
+          a.pairedVideoSize,
+          a.pairedVideoMimetype,
+          uploadPolicy.maxVideoUploadSizeMB
+        );
+      }
     }
 
     const hasVideo = attachments.some(
       (a) =>
         inferAttachmentMediaKind({
+          mediaKind: a.mediaKind,
           mimetype: a.mimetype,
           compressedKey: a.compressedKey,
           posterKey: a.posterKey,
+          pairedVideoKey: a.pairedVideoKey,
           key: a.originalKey,
-        }) === 'video'
+        }) === 'video' ||
+        a.mediaKind === 'livePhoto' ||
+        !!a.pairedVideoKey
     );
     if (hasVideo && !uploadPolicy.canUploadVideo) {
       return c.json(createResponse(null, 'capability_required:attachment.video.upload'), 403);
@@ -264,9 +348,11 @@ attachmentsRouter.post(
 
     for (const a of attachments) {
       const mediaKind = inferAttachmentMediaKind({
+        mediaKind: a.mediaKind,
         mimetype: a.mimetype,
         compressedKey: a.compressedKey,
         posterKey: a.posterKey,
+        pairedVideoKey: a.pairedVideoKey,
         key: a.originalKey,
       });
 
@@ -302,14 +388,17 @@ attachmentsRouter.post(
         continue;
       }
 
-      if (mediaKind === 'image' && normalizedAttachment.posterKey) {
+      if ((mediaKind === 'image' || mediaKind === 'livePhoto') && normalizedAttachment.posterKey) {
         validationErrors.push(
-          `Images cannot include posterKey: ${a.originalKey} (uuid: ${a.uuid})`
+          `Image-like attachments cannot include posterKey: ${a.originalKey} (uuid: ${a.uuid})`
         );
         normalizedAttachment.posterKey = undefined;
       }
 
-      if (mediaKind === 'image' && normalizedAttachment.compressedKey) {
+      if (
+        (mediaKind === 'image' || mediaKind === 'livePhoto') &&
+        normalizedAttachment.compressedKey
+      ) {
         const compressedExists = await checkObjectExists(normalizedAttachment.compressedKey);
         if (!compressedExists) {
           validationErrors.push(
@@ -331,6 +420,43 @@ attachmentsRouter.post(
             normalizedAttachment.compressedKey = undefined;
           }
         }
+      }
+
+      if (mediaKind === 'livePhoto') {
+        if (!normalizedAttachment.pairedVideoKey) {
+          validationErrors.push(
+            `Live Photo paired video missing: ${a.originalKey} (uuid: ${a.uuid})`
+          );
+          continue;
+        }
+
+        const pairedVideoExists = await checkObjectExists(normalizedAttachment.pairedVideoKey);
+        if (!pairedVideoExists) {
+          validationErrors.push(
+            `Live Photo paired video not found: ${normalizedAttachment.pairedVideoKey} (uuid: ${a.uuid})`
+          );
+          continue;
+        }
+
+        const pairedVideoUuid = extractPairedVideoUuid(normalizedAttachment.pairedVideoKey);
+        if (!pairedVideoUuid) {
+          validationErrors.push(
+            `Invalid paired video key format: originalKey=${a.originalKey}, pairedVideoKey=${normalizedAttachment.pairedVideoKey}`
+          );
+          continue;
+        }
+
+        if (originalUuid !== pairedVideoUuid) {
+          validationErrors.push(
+            `UUID mismatch: originalKey contains uuid '${originalUuid}', but pairedVideoKey contains uuid '${pairedVideoUuid}'`
+          );
+          continue;
+        }
+      } else if (normalizedAttachment.pairedVideoKey) {
+        validationErrors.push(
+          `Only Live Photo attachments can include pairedVideoKey: ${a.originalKey} (uuid: ${a.uuid})`
+        );
+        continue;
       }
 
       if (mediaKind === 'video' && normalizedAttachment.posterKey) {
@@ -395,12 +521,15 @@ attachmentsRouter.post(
           key: a.originalKey,
           mimetype: a.mimetype || null,
           mediaKind: inferAttachmentMediaKind({
+            mediaKind: a.mediaKind,
             mimetype: a.mimetype || null,
             compressedKey: a.compressedKey,
             posterKey: a.posterKey,
+            pairedVideoKey: a.pairedVideoKey,
           }),
           compressKey: a.compressedKey,
           posterKey: a.posterKey,
+          pairedVideoKey: a.pairedVideoKey,
         },
       }));
       validateRoteAttachmentDetails(
@@ -413,13 +542,19 @@ attachmentsRouter.post(
       const urlPrefix = storageConfig?.urlPrefix;
       const oUrl = `${urlPrefix}/${a.originalKey}`;
       const mediaKind = inferAttachmentMediaKind({
+        mediaKind: a.mediaKind,
         mimetype: a.mimetype || null,
         compressedKey: a.compressedKey,
         posterKey: a.posterKey,
+        pairedVideoKey: a.pairedVideoKey,
       });
       const cUrl =
-        mediaKind === 'image' && a.compressedKey ? `${urlPrefix}/${a.compressedKey}` : null;
+        (mediaKind === 'image' || mediaKind === 'livePhoto') && a.compressedKey
+          ? `${urlPrefix}/${a.compressedKey}`
+          : null;
       const pUrl = mediaKind === 'video' && a.posterKey ? `${urlPrefix}/${a.posterKey}` : null;
+      const pairedVideoUrl =
+        mediaKind === 'livePhoto' && a.pairedVideoKey ? `${urlPrefix}/${a.pairedVideoKey}` : null;
       const baseDetails: any = {
         size: a.size || 0,
         mimetype: a.mimetype || null,
@@ -429,6 +564,15 @@ attachmentsRouter.post(
       };
       if (a.compressedKey) baseDetails.compressKey = a.compressedKey;
       if (a.posterKey) baseDetails.posterKey = a.posterKey;
+      if (pairedVideoUrl && a.pairedVideoKey) {
+        baseDetails.pairedVideoKey = a.pairedVideoKey;
+        baseDetails.pairedVideoUrl = pairedVideoUrl;
+        baseDetails.pairedVideoMimetype = a.pairedVideoMimetype || null;
+        baseDetails.pairedVideoSize = a.pairedVideoSize || 0;
+        if (a.pairedVideoFilename) {
+          baseDetails.pairedVideoFilename = a.pairedVideoFilename;
+        }
+      }
       if (a.hash) baseDetails.hash = a.hash;
 
       return {
