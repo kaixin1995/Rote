@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import type { Attachment } from '@/types/main';
 import { getAttachmentLivePhotoPlaybackSrc } from '@/utils/directUpload';
 import { SunMedium } from 'lucide-react';
-import { useEffect, useState, type ComponentProps, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PhotoView } from 'react-photo-view';
 import {
@@ -17,6 +17,21 @@ const DEFAULT_PREVIEW_SIZE = {
   width: 1280,
   height: 960,
 };
+const DEFAULT_VIEWPORT_SIZE = {
+  width: 1280,
+  height: 720,
+};
+
+function getViewportSize() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_VIEWPORT_SIZE;
+  }
+
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+}
 
 interface LivePhotoAttachmentPreviewProps {
   attachment: Attachment;
@@ -75,25 +90,41 @@ export function LivePhotoAttachmentPreview({
   crossOrigin,
 }: LivePhotoAttachmentPreviewProps) {
   const { t } = useTranslation('translation', { keyPrefix: 'components.attachments.livePhoto' });
-  const [previewSize, setPreviewSize] = useState(DEFAULT_PREVIEW_SIZE);
+  const [stillSize, setStillSize] = useState(DEFAULT_PREVIEW_SIZE);
+  const [viewportSize, setViewportSize] = useState(getViewportSize);
   const [videoFailed, setVideoFailed] = useState(false);
   const playbackSrc = getAttachmentLivePhotoPlaybackSrc(attachment);
+  const previewSize = useMemo(
+    () => getLivePhotoPreviewSize(stillSize.width, stillSize.height, viewportSize),
+    [stillSize.height, stillSize.width, viewportSize]
+  );
 
   useEffect(() => {
     setVideoFailed(false);
   }, [playbackSrc]);
 
+  useEffect(() => {
+    const handleResize = () => setViewportSize(getViewportSize());
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   const handleStillLoad = (event: SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = event.currentTarget;
     if (!naturalWidth || !naturalHeight) return;
-    const nextSize = getLivePhotoPreviewSize(naturalWidth, naturalHeight);
 
-    setPreviewSize((current) => {
-      if (current.width === nextSize.width && current.height === nextSize.height) {
+    setStillSize((current) => {
+      if (current.width === naturalWidth && current.height === naturalHeight) {
         return current;
       }
 
-      return nextSize;
+      return {
+        width: naturalWidth,
+        height: naturalHeight,
+      };
     });
   };
 

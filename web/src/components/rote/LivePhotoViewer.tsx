@@ -12,13 +12,24 @@ import {
 
 export type LivePhotoRenderAttrs = Partial<HTMLAttributes<HTMLElement>>;
 
-const MAX_PREVIEW_SIDE = 1920;
+const DEFAULT_VIEWPORT_SIZE = {
+  width: 1280,
+  height: 720,
+};
+const VIEWER_HORIZONTAL_PADDING = 32;
+const VIEWER_VERTICAL_PADDING = 64;
 const LIVE_PHOTO_PRESS_DELAY_MS = 180;
 
-export function getLivePhotoPreviewSize(width: number, height: number) {
+export function getLivePhotoPreviewSize(
+  width: number,
+  height: number,
+  viewportSize = DEFAULT_VIEWPORT_SIZE
+) {
   const safeWidth = Math.max(1, Math.round(width));
   const safeHeight = Math.max(1, Math.round(height));
-  const scale = Math.min(1, MAX_PREVIEW_SIDE / Math.max(safeWidth, safeHeight));
+  const maxWidth = Math.max(1, viewportSize.width - VIEWER_HORIZONTAL_PADDING);
+  const maxHeight = Math.max(1, viewportSize.height - VIEWER_VERTICAL_PADDING);
+  const scale = Math.min(1, maxWidth / safeWidth, maxHeight / safeHeight);
 
   return {
     width: Math.max(1, Math.round(safeWidth * scale)),

@@ -109,7 +109,7 @@ describe('LivePhotoAttachmentPreview', () => {
     Object.defineProperty(thumbnail, 'naturalHeight', { value: 3024, configurable: true });
     fireEvent.load(thumbnail as HTMLImageElement);
 
-    expect(screen.getByTestId('photo-view')).toHaveAttribute('data-width', '1920');
-    expect(screen.getByTestId('photo-view')).toHaveAttribute('data-height', '1440');
+    expect(screen.getByTestId('photo-view')).toHaveAttribute('data-width', '939');
+    expect(screen.getByTestId('photo-view')).toHaveAttribute('data-height', '704');
   });
 });
