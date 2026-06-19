@@ -1,29 +1,18 @@
-import {
-  Tabs,
-  TabsContent,
-  TabsContents,
-  TabsList,
-  TabsTrigger,
-} from '@/components/animate-ui/radix/tabs';
-import { TypingText } from '@/components/animate-ui/text/typing';
-import { AppleIcon } from '@/components/icons/Apple';
 import LoadingPlaceholder from '@/components/others/LoadingPlaceholder';
-import Logo from '@/components/others/logo';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useSiteStatus } from '@/hooks/useSiteStatus';
+import { usePasskey } from '@/hooks/usePasskey';
 import { get, getApiUrl, post } from '@/utils/api';
 import { authService } from '@/utils/auth';
 import { useAPIGet } from '@/utils/fetcher';
 import { registerWithPasskey } from '@/utils/passkey';
-import { usePasskey } from '@/hooks/usePasskey';
-import { Fingerprint, Github } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { z } from 'zod';
+import { IosAuthorizePanel } from './components/IosAuthorizePanel';
+import { StandardLoginPanel } from './components/StandardLoginPanel';
+import type { LoginData, RegisterData } from './types';
+import { createLoginDataSchema, createRegisterDataSchema, getZodErrorMessage } from './validation';
 
 function Login() {
   const { t } = useTranslation('translation', {
@@ -56,6 +45,7 @@ function Login() {
   const { authenticateWithPasskey, registerPasskey, isAuthenticating, isRegistering } =
     usePasskey();
   const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+  const isIosLoginFlow = searchParams.get('type') === 'ioslogin';
 
   // 如果注册被禁用，确保 activeTab 是 'login'
   useEffect(() => {
@@ -68,12 +58,12 @@ function Login() {
     }
   }, [backendStatusOk, activeTab]);
 
-  const [loginData, setLoginData] = useState({
+  const [loginData, setLoginData] = useState<LoginData>({
     username: '',
     password: '',
   });
 
-  const [registerData, setRegisterData] = useState({
+  const [registerData, setRegisterData] = useState<RegisterData>({
     username: '',
     password: '',
     email: '',
@@ -90,104 +80,49 @@ function Login() {
     }
   }, []);
 
-  const LoginDataZod = z.object({
-    username: z
-      .string()
-      .min(1, t('usernameOrEmailRequired'))
-      .superRefine((val, ctx) => {
-        // 如果包含 @ 符号，按邮箱格式验证
-        if (val.includes('@')) {
-          const emailResult = z.string().email().safeParse(val);
-          if (!emailResult.success) {
-            ctx.addIssue({
-              code: 'custom',
-              message: t('emailFormat'),
-            });
-          }
-        } else {
-          // 否则按用户名格式验证
-          if (val.length > 20) {
-            ctx.addIssue({
-              code: 'custom',
-              message: t('usernameMaxLength'),
-            });
-          }
-        }
-      }),
-    password: z
-      .string()
-      .refine((val) => val.length > 0, { message: t('passwordRequired') })
-      .refine((val) => val.length >= 6, { message: t('passwordMin') })
-      .max(128, t('passwordMaxLength')),
-  });
-
   const passkeyEnabled = siteStatus?.passkey?.enabled !== false;
-
-  const RegisterDataZod = z.object({
-    username: z
-      .string()
-      .min(1, t('usernameRequired'))
-      .max(20, t('usernameMaxLength'))
-      .regex(/^[A-Za-z0-9_-]+$/, t('usernameFormat'))
-      .refine((value) => !siteStatus?.frontendConfig?.safeRoutes?.includes(value), {
-        message: t('usernameConflict'),
-      }),
-    password: passkeyEnabled
-      ? z
-          .string()
-          .max(128, t('passwordMaxLength'))
-          .optional()
-          .refine((val) => !val || val.length >= 6, { message: t('passwordMin') })
-      : z
-          .string()
-          .min(1, t('passwordRequired'))
-          .refine((val) => val.length >= 6, { message: t('passwordMin') })
-          .max(128, t('passwordMaxLength')),
-    email: z
-      .string()
-      .min(1, t('emailRequired'))
-      .max(30, t('emailMaxLength'))
-      .email(t('emailFormat')),
-    nickname: z.string().min(1, t('nicknameRequired')).max(20, t('nicknameMaxLength')),
+  const LoginDataZod = createLoginDataSchema(t);
+  const RegisterDataZod = createRegisterDataSchema({
+    t,
+    siteStatus,
+    passkeyEnabled,
   });
 
-  // 提取 Zod 验证错误消息的辅助函数
-  function getZodErrorMessage(err: any): string {
-    // 优先从 issues 数组提取（标准 Zod 错误格式）
-    if (Array.isArray(err.issues) && err.issues.length > 0) {
-      const firstIssue = err.issues[0];
-      if (firstIssue?.message && typeof firstIssue.message === 'string') {
-        return firstIssue.message;
-      }
+  function getIosCallbackUrl(accessToken: string, refreshToken: string) {
+    const params = new URLSearchParams({
+      token: accessToken,
+      refreshToken,
+    });
+    return `rote://callback?${params.toString()}`;
+  }
+
+  function redirectToIosLogin(accessToken: string, refreshToken: string) {
+    window.location.href = getIosCallbackUrl(accessToken, refreshToken);
+  }
+
+  function completeAuthenticatedFlow(tokens?: {
+    accessToken?: string | null;
+    refreshToken?: string | null;
+  }) {
+    if (!isIosLoginFlow) {
+      navigate('/home');
+      return;
     }
 
-    // 降级：尝试从 message 中解析 JSON（兼容某些场景）
-    if (err.message && typeof err.message === 'string') {
-      try {
-        const parsed = JSON.parse(err.message);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.message) {
-          return parsed[0].message;
-        }
-      } catch {
-        // 解析失败，继续尝试其他方式
-      }
-
-      // 如果 message 本身就是一个字符串，直接返回
-      if (err.message.length > 0) {
-        return err.message;
-      }
+    const accessToken = tokens?.accessToken ?? authService.getAccessToken();
+    const refreshToken = tokens?.refreshToken ?? authService.getRefreshToken();
+    if (accessToken && refreshToken) {
+      redirectToIosLogin(accessToken, refreshToken);
+    } else {
+      toast.error(t('messages.tokenNotFound'));
     }
-
-    // 最后的降级方案
-    return t('passwordRequired') || 'Validation failed';
   }
 
   function authorizeIosLogin() {
     const accessToken = authService.getAccessToken();
     const refreshToken = authService.getRefreshToken();
     if (accessToken && refreshToken) {
-      const callbackUrl = `rote://callback?token=${accessToken}&refreshToken=${refreshToken}`;
-      window.location.href = callbackUrl;
+      redirectToIosLogin(accessToken, refreshToken);
     } else {
       // 如果 token 丢失，提示用户重新登录
       toast.error(t('messages.tokenNotFound'));
@@ -198,7 +133,7 @@ function Login() {
     try {
       LoginDataZod.parse(loginData);
     } catch (err: any) {
-      toast.error(getZodErrorMessage(err));
+      toast.error(getZodErrorMessage(err, t('passwordRequired')));
       return;
     }
 
@@ -216,13 +151,7 @@ function Login() {
         mutateProfile();
 
         // 检查是否为 iOS web 登录流程
-        if (searchParams.get('type') === 'ioslogin') {
-          const callbackUrl = `rote://callback?token=${accessToken}&refreshToken=${refreshToken}`;
-          window.location.href = callbackUrl;
-          return;
-        }
-
-        navigate('/home');
+        completeAuthenticatedFlow({ accessToken, refreshToken });
       })
       .catch((err: any) => {
         setDisbled(false);
@@ -239,7 +168,7 @@ function Login() {
     try {
       RegisterDataZod.parse(registerData);
     } catch (err: any) {
-      toast.error(getZodErrorMessage(err));
+      toast.error(getZodErrorMessage(err, t('passwordRequired')));
       return;
     }
 
@@ -256,7 +185,10 @@ function Login() {
           toast.success(t('messages.registerSuccess'));
           authService.setTokens(result.accessToken, result.refreshToken);
           mutateProfile();
-          navigate('/home');
+          completeAuthenticatedFlow({
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+          });
         })
         .catch((err: any) => {
           if (err?.name === 'NotAllowedError') {
@@ -286,12 +218,15 @@ function Login() {
         if (accessToken && refreshToken) {
           authService.setTokens(accessToken, refreshToken);
 
-          if (passkeyEnabled) {
+          if (isIosLoginFlow) {
+            mutateProfile();
+            completeAuthenticatedFlow({ accessToken, refreshToken });
+          } else if (passkeyEnabled) {
             // Has password, passkey optional → show passkey prompt with skip
             setShowPasskeyPrompt(true);
           } else {
             mutateProfile();
-            navigate('/home');
+            completeAuthenticatedFlow({ accessToken, refreshToken });
           }
         } else {
           setActiveTab('login');
@@ -304,31 +239,41 @@ function Login() {
       });
   }
 
-  function handleInputChange(e: any, key: string, formType: 'login' | 'register') {
-    if (formType === 'login') {
-      const { value } = e.target;
-      setLoginData((prevState) => ({
-        ...prevState,
-        [key]: value,
-      }));
-    } else {
-      const { value } = e.target;
-      setRegisterData((prevState) => ({
-        ...prevState,
-        [key]: value,
-      }));
+  function handleLoginFieldChange(key: keyof LoginData, value: string) {
+    setLoginData((prevState) => ({
+      ...prevState,
+      [key]: value,
+    }));
+  }
+
+  function handleRegisterFieldChange(key: keyof RegisterData, value: string) {
+    setRegisterData((prevState) => ({
+      ...prevState,
+      [key]: value,
+    }));
+  }
+
+  async function setupPasskeyAfterRegister() {
+    const success = await registerPasskey();
+    if (success) {
+      mutateProfile();
+      completeAuthenticatedFlow();
     }
   }
 
-  function handleLoginKeyDown(e: any) {
-    if (e.key === 'Enter') {
-      login();
-    }
+  function skipPasskeyAfterRegister() {
+    mutateProfile();
+    completeAuthenticatedFlow();
   }
 
-  function handleRegisterKeyDown(e: any) {
-    if (e.key === 'Enter') {
-      register();
+  async function loginWithPasskey() {
+    const result = await authenticateWithPasskey();
+    if (result) {
+      mutateProfile();
+      completeAuthenticatedFlow({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      });
     }
   }
 
@@ -360,9 +305,8 @@ function Login() {
       mutateProfile();
 
       // 检查是否为 iOS web 登录流程
-      if (searchParams.get('type') === 'ioslogin') {
-        const callbackUrl = `rote://callback?token=${token}&refreshToken=${refreshToken}`;
-        window.location.href = callbackUrl;
+      if (isIosLoginFlow) {
+        redirectToIosLogin(token, refreshToken);
         return;
       }
 
@@ -385,308 +329,56 @@ function Login() {
       // 清除 URL 参数
       navigate('/login', { replace: true });
     }
-  }, [searchParams, navigate, mutateProfile, t]);
+  }, [searchParams, navigate, mutateProfile, t, isIosLoginFlow]);
 
   // 通用 OAuth 登录处理函数
   function handleOAuthLogin(provider: string) {
-    const iosLogin = searchParams.get('type') === 'ioslogin';
+    const iosLogin = isIosLoginFlow;
     const redirectUrl = iosLogin ? '/login?type=ioslogin' : '/login';
     // 使用完整的 API URL
     const oauthUrl = `${getApiUrl()}/auth/oauth/${provider}?type=${iosLogin ? 'ioslogin' : 'web'}&redirect=${encodeURIComponent(redirectUrl)}`;
     window.location.href = oauthUrl;
   }
 
-  // 获取 OAuth 提供商的显示信息
-  function getOAuthProviderInfo(provider: string) {
-    const providerInfo: Record<string, { icon: any; labelKey: string }> = {
-      github: {
-        icon: Github,
-        labelKey: 'buttons.loginWithGitHub',
-      },
-      apple: {
-        icon: AppleIcon,
-        labelKey: 'buttons.loginWithApple',
-      },
-    };
-    return (
-      providerInfo[provider] || {
-        icon: null,
-        labelKey: `buttons.loginWith${provider.charAt(0).toUpperCase() + provider.slice(1)}`,
-      }
-    );
-  }
-
-  // 检查是否有启用的 OAuth 提供商
-  const hasEnabledOAuthProviders =
-    backendStatusOk?.oauth?.enabled &&
-    backendStatusOk?.oauth?.providers &&
-    Object.values(backendStatusOk.oauth.providers).some((p: any) => p?.enabled);
-
   return (
     <div className="relative flex h-dvh w-full items-center justify-center">
       <div className="animate-show text-primary z-10 flex w-96 flex-col gap-2 rounded-lg px-2 py-6 pb-10 opacity-0">
         {isCheckingStatus ? (
           <LoadingPlaceholder className="py-8" size={6} />
-        ) : profile && searchParams.get('type') === 'ioslogin' ? (
-          // 已登录且是 iOS 登录流程，显示授权UI
-          <>
-            <div className="mb-4">
-              <Logo className="w-32" color="#07C160" />
-            </div>
-            <div className="bg-muted/50 w-full rounded-lg p-6">
-              <h2 className="mb-4 text-lg"> {t('authorize.title')}</h2>
-              <p className="mb-6 text-sm font-light">
-                {t('authorize.message', {
-                  username: profile.nickname || profile.username,
-                })}
-              </p>
-              <Button onClick={authorizeIosLogin} className="w-full">
-                {t('authorize.button')}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  authService.logout(false);
-                  mutateProfile(undefined, { revalidate: false });
-                }}
-                className="mt-2 w-full"
-              >
-                {t('authorize.switchAccount')}
-              </Button>
-            </div>
-          </>
+        ) : profile && isIosLoginFlow ? (
+          <IosAuthorizePanel
+            profile={profile}
+            onAuthorize={authorizeIosLogin}
+            onSwitchAccount={() => {
+              authService.logout(false);
+              mutateProfile(undefined, { revalidate: false });
+            }}
+          />
         ) : (
-          // 未登录或普通 web 访问，显示标准登录/注册UI
-          <>
-            <div className="mb-4">
-              <Logo className="w-32" color="#07C160" />
-            </div>
-
-            {backendStatusOk ? (
-              showPasskeyPrompt ? (
-                // Passkey setup prompt after registration
-                <div className="bg-muted w-full rounded-lg p-6 text-center">
-                  <Fingerprint className="mx-auto mb-4 size-12" />
-                  <h2 className="mb-2 text-lg font-semibold">{t('passkey.promptTitle')}</h2>
-                  <p className="text-muted-foreground mb-6 text-sm">
-                    {t('passkey.promptDescription')}
-                  </p>
-                  <div className="space-y-2">
-                    <Button
-                      onClick={async () => {
-                        const success = await registerPasskey();
-                        if (success) {
-                          mutateProfile();
-                          navigate('/home');
-                        }
-                      }}
-                      disabled={isRegistering}
-                      className="w-full"
-                    >
-                      {isRegistering ? t('passkey.settingUp') : t('passkey.setup')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        mutateProfile();
-                        navigate('/home');
-                      }}
-                      className="w-full"
-                    >
-                      {t('passkey.skip')}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Tabs
-                  value={activeTab}
-                  onValueChange={setActiveTab}
-                  className="bg-muted w-full rounded-lg"
-                >
-                  <TabsList
-                    className={`grid w-full ${backendStatusOk.ui?.allowRegistration !== false ? 'grid-cols-2' : 'grid-cols-1'}`}
-                  >
-                    <TabsTrigger value="login">{t('buttons.login')}</TabsTrigger>
-                    {backendStatusOk.ui?.allowRegistration !== false && (
-                      <TabsTrigger value="register">{t('buttons.register')}</TabsTrigger>
-                    )}
-                  </TabsList>
-
-                  <TabsContents className="bg-background mx-1 -mt-2 mb-1 h-full rounded-sm">
-                    <div className="space-y-4 p-4">
-                      <TabsContent value="login" className="space-y-4 py-4">
-                        <div className="space-y-5">
-                          <div className="space-y-2">
-                            <Label htmlFor="login-username">{t('fields.usernameOrEmail')}</Label>
-                            <Input
-                              id="login-username"
-                              placeholder={t('fields.usernameOrEmailPlaceholder')}
-                              className="text-md rounded-md font-mono"
-                              maxLength={255}
-                              value={loginData.username}
-                              onInput={(e) => handleInputChange(e, 'username', 'login')}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="login-password">{t('fields.password')}</Label>
-                            <Input
-                              id="login-password"
-                              placeholder="password"
-                              type="password"
-                              className="text-md rounded-md font-mono"
-                              maxLength={30}
-                              value={loginData.password}
-                              onInput={(e) => handleInputChange(e, 'password', 'login')}
-                              onKeyDown={handleLoginKeyDown}
-                            />
-                          </div>
-                        </div>
-                        <Button disabled={disbled} onClick={login} className="w-full">
-                          {disbled ? t('messages.loggingIn') : t('buttons.login')}
-                        </Button>
-                        {siteStatus?.passkey?.enabled !== false && (
-                          <Button
-                            variant="outline"
-                            disabled={disbled || isAuthenticating}
-                            onClick={async () => {
-                              const result = await authenticateWithPasskey();
-                              if (result) {
-                                mutateProfile();
-                                if (searchParams.get('type') === 'ioslogin') {
-                                  const callbackUrl = `rote://callback?token=${result.accessToken}&refreshToken=${result.refreshToken}`;
-                                  window.location.href = callbackUrl;
-                                  return;
-                                }
-                                navigate('/home');
-                              }
-                            }}
-                            className="w-full"
-                          >
-                            <Fingerprint className="mr-2 size-4" />
-                            {isAuthenticating
-                              ? t('messages.loggingIn')
-                              : t('passkey.loginWithPasskey')}
-                          </Button>
-                        )}
-                        {hasEnabledOAuthProviders && (
-                          <>
-                            <div className="relative my-4">
-                              <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t" />
-                              </div>
-                              <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-background text-muted-foreground px-2">
-                                  {t('oauth.or')}
-                                </span>
-                              </div>
-                            </div>
-                            {backendStatusOk?.oauth?.providers &&
-                              Object.entries(backendStatusOk.oauth.providers).map(
-                                ([provider, config]: [string, any]) => {
-                                  if (!config?.enabled) return null;
-                                  const providerInfo = getOAuthProviderInfo(provider);
-                                  const IconComponent = providerInfo.icon;
-                                  return (
-                                    <Button
-                                      key={provider}
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() => handleOAuthLogin(provider)}
-                                      className="w-full"
-                                      disabled={disbled}
-                                    >
-                                      {IconComponent && <IconComponent className="mr-2 size-4" />}
-                                      {t(providerInfo.labelKey)}
-                                    </Button>
-                                  );
-                                }
-                              )}
-                          </>
-                        )}
-                      </TabsContent>
-
-                      {backendStatusOk.ui?.allowRegistration !== false && (
-                        <TabsContent value="register" className="space-y-4 py-4">
-                          <div className="space-y-5">
-                            <div className="space-y-2">
-                              <Label htmlFor="register-username">{t('fields.username')}</Label>
-                              <Input
-                                id="register-username"
-                                placeholder={t('fields.usernamePlaceholder')}
-                                className="text-md rounded-md font-mono"
-                                maxLength={20}
-                                value={registerData.username}
-                                onInput={(e) => handleInputChange(e, 'username', 'register')}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="register-email">{t('fields.email')}</Label>
-                              <Input
-                                id="register-email"
-                                placeholder={t('fields.emailPlaceholder')}
-                                className="text-md rounded-md font-mono"
-                                maxLength={30}
-                                value={registerData.email}
-                                onInput={(e) => handleInputChange(e, 'email', 'register')}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="register-nickname">{t('fields.nickname')}</Label>
-                              <Input
-                                id="register-nickname"
-                                placeholder={t('fields.nicknamePlaceholder')}
-                                className="text-md rounded-md font-mono"
-                                maxLength={20}
-                                value={registerData.nickname}
-                                onInput={(e) => handleInputChange(e, 'nickname', 'register')}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="register-password">{t('fields.password')}</Label>
-                              <Input
-                                id="register-password"
-                                placeholder={t('fields.passwordOptional')}
-                                type="password"
-                                className="text-md rounded-md font-mono"
-                                maxLength={30}
-                                value={registerData.password}
-                                onInput={(e) => handleInputChange(e, 'password', 'register')}
-                                onKeyDown={handleRegisterKeyDown}
-                              />
-                              {siteStatus?.passkey?.enabled !== false && (
-                                <p className="text-muted-foreground text-xs">
-                                  {t('passkey.passwordOptionalHint')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <Button disabled={disbled} onClick={register} className="w-full">
-                            {disbled ? t('messages.registering') : t('buttons.register')}
-                          </Button>
-                        </TabsContent>
-                      )}
-
-                      <div className="my-4 flex cursor-pointer items-center justify-center gap-1 text-sm duration-300 active:scale-95">
-                        <Link to="/explore">
-                          <div className="duration-300 hover:opacity-60">{t('nav.explore')}</div>
-                        </Link>
-                        <span className="px-2">/</span>
-                        <Link to="/landing">
-                          <div className="duration-300 hover:opacity-60">{t('nav.home')}</div>
-                        </Link>
-                      </div>
-                    </div>
-                  </TabsContents>
-                </Tabs>
-              )
-            ) : (
-              <div>
-                <div className=" ">{t('error.backendIssue')}</div>
-                <div>{JSON.stringify(backendStatusOk)}</div>
-                <TypingText className="text-sm opacity-60" text={t('error.dockerDeployment')} />
-              </div>
-            )}
-          </>
+          <StandardLoginPanel
+            activeTab={activeTab}
+            allowRegistration={backendStatusOk?.ui?.allowRegistration !== false}
+            backendStatusOk={backendStatusOk}
+            disabled={disbled}
+            isAuthenticating={isAuthenticating}
+            isRegistering={isRegistering}
+            loginData={loginData}
+            oauthProviders={
+              backendStatusOk?.oauth?.enabled ? backendStatusOk.oauth.providers : undefined
+            }
+            passkeyEnabled={passkeyEnabled}
+            registerData={registerData}
+            showPasskeyPrompt={showPasskeyPrompt}
+            onActiveTabChange={setActiveTab}
+            onLogin={login}
+            onLoginFieldChange={handleLoginFieldChange}
+            onOAuthLogin={handleOAuthLogin}
+            onPasskeyLogin={loginWithPasskey}
+            onRegister={register}
+            onRegisterFieldChange={handleRegisterFieldChange}
+            onSetupPasskey={setupPasskeyAfterRegister}
+            onSkipPasskey={skipPasskeyAfterRegister}
+          />
         )}
       </div>
     </div>
