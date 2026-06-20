@@ -51,6 +51,11 @@ describe(`personal AI provider test`, () => {
 
     expect(result.data.success).toBe(true);
     expect(result.data.toolCalling?.supported).toBe(true);
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual(
+      expect.objectContaining({
+        tool_choice: 'auto',
+      })
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.example.com/v1/chat/completions',
       expect.objectContaining({

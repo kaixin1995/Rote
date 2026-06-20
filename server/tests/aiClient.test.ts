@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import {
   createChatCompletionWithToolsStreaming,
+  probeChatProviderToolCalling,
   type ChatToolDefinition,
 } from '../utils/ai/client';
 import type { AiProviderConfig } from '../types/config';
@@ -93,5 +94,38 @@ describe('ai client streaming', () => {
         arguments: '{"query":"work"}',
       },
     });
+  });
+
+  it('uses auto tool choice for tool calling probes', async () => {
+    let requestBody: any;
+    globalThis.fetch = (async (_url, init) => {
+      requestBody = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                tool_calls: [
+                  {
+                    id: 'call_probe',
+                    type: 'function',
+                    function: {
+                      name: 'rote_tool_calling_probe',
+                      arguments: '{"token":"rote-tool-probe"}',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }) as typeof fetch;
+
+    const result = await probeChatProviderToolCalling(config);
+
+    expect(result.supported).toBe(true);
+    expect(requestBody.tool_choice).toBe('auto');
   });
 });

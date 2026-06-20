@@ -139,10 +139,7 @@ async function probeBrowserAiToolCalling(
           },
         },
       ],
-      tool_choice: {
-        type: 'function',
-        function: { name: toolName },
-      },
+      tool_choice: 'auto',
     });
 
     const body = await response.json();
