@@ -20,6 +20,8 @@ yarn.lock
 pnpm-lock.yaml
 bun.lockb
 bun.lock
+!server/bun.lock
+!web/bun.lock
 .idea
 .vscode
 .cursor
