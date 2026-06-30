@@ -191,10 +191,7 @@ export async function probeChatProviderToolCalling(
       ],
       {
         temperature: 0,
-        toolChoice: {
-          type: 'function',
-          function: { name: toolName },
-        },
+        toolChoice: 'auto',
       }
     );
 
