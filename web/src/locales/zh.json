@@ -261,6 +261,54 @@
         "passwordOptionalHint": "可以跳过密码设置，使用通行密钥注册。"
       }
     },
+    "oauthAuthorize": {
+      "title": "授权 Rote MCP",
+      "subtitle": "{{client}} 想访问你的 Rote 账号。",
+      "client": "客户端",
+      "permissions": "权限",
+      "permissionsDescription": "将授予 {{count}} 项能力，按功能分组展示。",
+      "permissionCount": "{{count}} 项",
+      "resource": "MCP 资源",
+      "approve": "允许",
+      "approving": "授权中...",
+      "deny": "拒绝",
+      "denying": "拒绝中...",
+      "errorTitle": "授权不可用",
+      "backHome": "返回首页",
+      "errors": {
+        "missingRequest": "缺少授权请求。",
+        "loadFailed": "无法加载授权请求。",
+        "submitFailed": "提交授权决定失败。"
+      },
+      "permissionGroups": {
+        "notes": "笔记",
+        "articles": "文章",
+        "reactions": "反应",
+        "profile": "个人资料",
+        "data": "标签与统计",
+        "settings": "用户设置",
+        "attachments": "附件与视频",
+        "other": "其他能力"
+      },
+      "scopes": {
+        "notes_read": "读取你的笔记",
+        "notes_write": "创建和编辑你的笔记",
+        "notes_delete": "删除你的笔记",
+        "articles_read": "读取你的文章",
+        "articles_write": "创建和编辑你的文章",
+        "articles_delete": "删除你的文章",
+        "reactions_write": "添加反应",
+        "reactions_delete": "移除反应",
+        "profile_read": "读取你的个人资料",
+        "profile_write": "编辑你的个人资料",
+        "stats_read": "读取标签和统计数据",
+        "settings_read": "读取你的设置",
+        "settings_write": "编辑你的设置",
+        "attachments_write": "上传和排列附件",
+        "attachments_delete": "删除附件",
+        "video_upload": "上传视频"
+      }
+    },
     "home": {
       "statistics": "统计 / Static"
     },

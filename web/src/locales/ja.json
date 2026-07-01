@@ -275,6 +275,54 @@
         "passwordOptionalHint": "パスワードをスキップして、パスキーで登録できます。"
       }
     },
+    "oauthAuthorize": {
+      "title": "Rote MCP を認可",
+      "subtitle": "{{client}} があなたの Rote アカウントへのアクセスを求めています。",
+      "client": "クライアント",
+      "permissions": "権限",
+      "permissionsDescription": "{{count}} 件の機能を、機能別にグループ化して許可します。",
+      "permissionCount": "{{count}} 件",
+      "resource": "MCP リソース",
+      "approve": "許可",
+      "approving": "許可中...",
+      "deny": "拒否",
+      "denying": "拒否中...",
+      "errorTitle": "認可を利用できません",
+      "backHome": "ホームへ戻る",
+      "errors": {
+        "missingRequest": "認可リクエストがありません。",
+        "loadFailed": "認可リクエストを読み込めませんでした。",
+        "submitFailed": "認可の選択を送信できませんでした。"
+      },
+      "permissionGroups": {
+        "notes": "ノート",
+        "articles": "記事",
+        "reactions": "リアクション",
+        "profile": "プロフィール",
+        "data": "タグと統計",
+        "settings": "ユーザー設定",
+        "attachments": "添付ファイルと動画",
+        "other": "その他の機能"
+      },
+      "scopes": {
+        "notes_read": "ノートを読み取る",
+        "notes_write": "ノートを作成・編集する",
+        "notes_delete": "ノートを削除する",
+        "articles_read": "記事を読み取る",
+        "articles_write": "記事を作成・編集する",
+        "articles_delete": "記事を削除する",
+        "reactions_write": "リアクションを追加する",
+        "reactions_delete": "リアクションを削除する",
+        "profile_read": "プロフィールを読み取る",
+        "profile_write": "プロフィールを編集する",
+        "stats_read": "タグと統計を読み取る",
+        "settings_read": "設定を読み取る",
+        "settings_write": "設定を編集する",
+        "attachments_write": "添付ファイルをアップロード・並べ替える",
+        "attachments_delete": "添付ファイルを削除する",
+        "video_upload": "動画をアップロードする"
+      }
+    },
     "home": {
       "statistics": "統計"
     },

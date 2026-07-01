@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { rateLimiterMiddleware } from './middleware/limiter';
 import { recorderIpAndTime } from './middleware/recorder';
+import oauthMetadataRouter from './route/oauthMetadata';
 import routerV2 from './route/v2'; // RESTful API routes
 import type { SiteConfig } from './types/config';
 import { HonoVariables } from './types/hono';
@@ -81,6 +82,7 @@ app.use(
 );
 
 // RESTful API routes
+app.route('/.well-known', oauthMetadataRouter);
 app.route('/v2/api', routerV2);
 
 // 404 handler

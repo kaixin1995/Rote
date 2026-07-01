@@ -46,6 +46,11 @@ function Login() {
     usePasskey();
   const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
   const isIosLoginFlow = searchParams.get('type') === 'ioslogin';
+  const redirectTarget = searchParams.get('redirect');
+  const postLoginRedirect =
+    redirectTarget && redirectTarget.startsWith('/') && !redirectTarget.startsWith('//')
+      ? redirectTarget
+      : '/home';
 
   // 如果注册被禁用，确保 activeTab 是 'login'
   useEffect(() => {
@@ -105,7 +110,7 @@ function Login() {
     refreshToken?: string | null;
   }) {
     if (!isIosLoginFlow) {
-      navigate('/home');
+      navigate(postLoginRedirect);
       return;
     }
 
@@ -311,7 +316,7 @@ function Login() {
       }
 
       // 清除 URL 参数并重定向
-      navigate('/home', { replace: true });
+      navigate(postLoginRedirect, { replace: true });
     } else if (oauthStatus === 'error' && errorMessage) {
       // OAuth 登录失败
       toast.error(decodeURIComponent(errorMessage));
@@ -329,12 +334,14 @@ function Login() {
       // 清除 URL 参数
       navigate('/login', { replace: true });
     }
-  }, [searchParams, navigate, mutateProfile, t, isIosLoginFlow]);
+  }, [searchParams, navigate, mutateProfile, t, isIosLoginFlow, postLoginRedirect]);
 
   // 通用 OAuth 登录处理函数
   function handleOAuthLogin(provider: string) {
     const iosLogin = isIosLoginFlow;
-    const redirectUrl = iosLogin ? '/login?type=ioslogin' : '/login';
+    const redirectUrl = iosLogin
+      ? '/login?type=ioslogin'
+      : `/login${redirectTarget ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`;
     // 使用完整的 API URL
     const oauthUrl = `${getApiUrl()}/auth/oauth/${provider}?type=${iosLogin ? 'ioslogin' : 'web'}&redirect=${encodeURIComponent(redirectUrl)}`;
     window.location.href = oauthUrl;

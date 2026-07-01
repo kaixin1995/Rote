@@ -20,6 +20,13 @@ export interface HonoVariables {
   user?: SafeUser;
   dynamicApiUrl?: string;
   dynamicFrontendUrl?: string;
+  mcpAuth?: {
+    token: string;
+    userId: string;
+    clientId: string;
+    scopes: string[];
+    resource: string;
+  };
   openKey?: {
     id: string;
     userid: string;

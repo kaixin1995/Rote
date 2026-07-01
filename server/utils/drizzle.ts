@@ -2,7 +2,10 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import postgres from 'postgres';
-import * as schema from '../drizzle/schema';
+import * as oauthMcpSchema from '../drizzle/oauthMcpSchema';
+import * as baseSchema from '../drizzle/schema';
+
+const schema = { ...baseSchema, ...oauthMcpSchema };
 
 // 创建 postgres 连接
 const connectionString = process.env.POSTGRESQL_URL || '';

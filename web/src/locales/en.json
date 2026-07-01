@@ -271,6 +271,54 @@
         "passwordOptionalHint": "You can skip the password and register with a passkey."
       }
     },
+    "oauthAuthorize": {
+      "title": "Authorize Rote MCP",
+      "subtitle": "{{client}} wants to access your Rote account.",
+      "client": "Client",
+      "permissions": "Permissions",
+      "permissionsDescription": "{{count}} capabilities will be granted, grouped by feature.",
+      "permissionCount": "{{count}} item(s)",
+      "resource": "MCP resource",
+      "approve": "Allow",
+      "approving": "Allowing...",
+      "deny": "Deny",
+      "denying": "Denying...",
+      "errorTitle": "Authorization unavailable",
+      "backHome": "Back home",
+      "errors": {
+        "missingRequest": "Authorization request is missing.",
+        "loadFailed": "Failed to load authorization request.",
+        "submitFailed": "Failed to submit authorization decision."
+      },
+      "permissionGroups": {
+        "notes": "Notes",
+        "articles": "Articles",
+        "reactions": "Reactions",
+        "profile": "Profile",
+        "data": "Tags and statistics",
+        "settings": "User settings",
+        "attachments": "Attachments and video",
+        "other": "Other capabilities"
+      },
+      "scopes": {
+        "notes_read": "Read your notes",
+        "notes_write": "Create and edit your notes",
+        "notes_delete": "Delete your notes",
+        "articles_read": "Read your articles",
+        "articles_write": "Create and edit your articles",
+        "articles_delete": "Delete your articles",
+        "reactions_write": "Add reactions",
+        "reactions_delete": "Remove reactions",
+        "profile_read": "Read your profile",
+        "profile_write": "Edit your profile",
+        "stats_read": "Read tags and statistics",
+        "settings_read": "Read your settings",
+        "settings_write": "Edit your settings",
+        "attachments_write": "Upload and arrange attachments",
+        "attachments_delete": "Delete attachments",
+        "video_upload": "Upload videos"
+      }
+    },
     "home": {
       "statistics": "Statistics"
     },
