@@ -75,7 +75,7 @@ export default function AdminDashboard() {
       );
       setSecurityConfig(
         configs.security || {
-          requireVerifiedEmailForExplore: false,
+          requireCertifiedUserForExplore: false,
         }
       );
       setAiConfig(configs.ai);

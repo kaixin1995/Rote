@@ -47,7 +47,8 @@ export type Rote = {
     username: string;
     nickname: string;
     avatar: string;
-    emailVerified: boolean;
+    certified?: boolean;
+    emailVerified?: boolean;
   };
   attachments: (Attachment | File)[];
   reactions: Reaction[];
@@ -113,7 +114,8 @@ export type Article = {
     username: string;
     nickname: string | null;
     avatar: string | null;
-    emailVerified: boolean;
+    certified?: boolean;
+    emailVerified?: boolean;
   };
 };
 
@@ -154,7 +156,7 @@ export type Profile =
       role?: 'user' | 'admin' | 'moderator' | 'super_admin';
       createdAt: string;
       updatedAt: string;
-      emailVerified?: boolean;
+      certified?: boolean;
       allowExplore?: boolean;
       hasPassword?: boolean;
       // 注意：authProvider 已移除，主登录方式可以通过 passwordhash 和 oauthBindings 推断

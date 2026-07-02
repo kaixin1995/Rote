@@ -88,7 +88,7 @@ function SingleRotePage() {
   }
 
   const isOwner = Boolean(profile?.username && rote?.author?.username === profile.username);
-  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.emailVerified === true;
+  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.certified === true;
 
   const SideBar = () =>
     isLoading ? (
@@ -106,7 +106,7 @@ function SingleRotePage() {
                 <div className="min-w-0 flex-1">
                   <div className="text-primary inline-flex items-center gap-1 truncate font-semibold">
                     {rote.author.nickname}
-                    {rote.author.emailVerified && (
+                    {rote.author.certified && (
                       <VerifiedIcon className="text-theme size-4 shrink-0" />
                     )}
                   </div>

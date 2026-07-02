@@ -1,35 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Divider from '@/components/ui/divider';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { get, post, put } from '@/utils/api';
-import {
-  Activity,
-  Brain,
-  ChevronDown,
-  Copy,
-  Database,
-  Pause,
-  Play,
-  RefreshCw,
-  SlidersHorizontal,
-  Terminal,
-  Trash2,
-} from 'lucide-react';
+import { get, put } from '@/utils/api';
+import { Activity } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import useSWR, { useSWRConfig } from 'swr';
 import type { AiProviderConfig, AiProviderPreset, SystemConfig } from '../types';
+import AIConfigAdvancedSettings from './AIConfigAdvancedSettings';
+import AIConfigProviderForm from './AIConfigProviderForm';
 
 const DEFAULT_AI_CONFIG: NonNullable<SystemConfig['ai']> = {
   enabled: false,
@@ -107,9 +89,6 @@ function MetricBlock({ label, value }: { label: string; value: string | number }
   );
 }
 
-const LOCAL_LLAMA_COMMAND =
-  'llama-server --hf-repo google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0 --host 127.0.0.1 --port 8080 --alias gemma-4-12b-it --ctx-size 4096';
-
 export default function AIConfigTab({
   aiConfig,
   setAiConfig,
@@ -172,15 +151,6 @@ export default function AIConfigTab({
     });
   };
 
-  const copyLocalCommand = async () => {
-    try {
-      await navigator.clipboard.writeText(LOCAL_LLAMA_COMMAND);
-      toast.success(t('ai.localGuide.copySuccess'));
-    } catch {
-      toast.error(t('ai.localGuide.copyFailed'));
-    }
-  };
-
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -236,127 +206,6 @@ export default function AIConfigTab({
       />
     </div>
   );
-
-  const renderProviderForm = (target: 'chat' | 'embedding') => {
-    const provider = target === 'chat' ? config.chat : config.embedding;
-    const capability = target === 'chat' ? 'chat' : 'embedding';
-    const availableProviders = providers.filter((item) => item.capabilities.includes(capability));
-    const showLlamaCppTip = target === 'chat' && provider?.providerId === 'llama-cpp';
-
-    return (
-      <section className="rounded-md border p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {target === 'chat' ? <Brain className="size-4" /> : <Database className="size-4" />}
-            <h3 className="font-medium">
-              {target === 'chat' ? t('ai.chatTitle') : t('ai.embeddingTitle')}
-            </h3>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busyAction === `test-${target}`}
-            onClick={() =>
-              runAction(
-                `test-${target}`,
-                () => post('/ai/test', { target, config }),
-                t('ai.testSuccess')
-              )
-            }
-          >
-            {busyAction === `test-${target}` ? t('ai.testing') : t('ai.test')}
-          </Button>
-        </div>
-
-        <div className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="min-w-0 space-y-2">
-              <Label>{t(`ai.${target}Provider`)}</Label>
-              <Select
-                value={provider?.providerId || 'custom'}
-                onValueChange={(value) => applyPreset(target, value)}
-              >
-                <SelectTrigger className="w-full min-w-0 [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProviders.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="min-w-0 space-y-2">
-              <Label>{t('ai.model')}</Label>
-              <Input
-                className="min-w-0"
-                value={provider?.model || ''}
-                onChange={(event) => updateProvider(target, { model: event.target.value })}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>{t('ai.baseUrl')}</Label>
-            <Input
-              value={provider?.baseUrl || ''}
-              onChange={(event) => updateProvider(target, { baseUrl: event.target.value })}
-            />
-          </div>
-          {showLlamaCppTip && (
-            <div className="bg-muted/20 rounded-md border p-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Terminal className="size-4" />
-                {t('ai.localGuide.title')}
-              </div>
-              <p className="text-muted-foreground mt-1 text-xs">{t('ai.localGuide.description')}</p>
-              <div className="mt-3 flex min-w-0 items-center gap-2">
-                <code className="bg-background min-w-0 flex-1 overflow-x-auto rounded-md border px-3 py-2 text-xs">
-                  {LOCAL_LLAMA_COMMAND}
-                </code>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={copyLocalCommand}
-                  aria-label={t('ai.localGuide.copy')}
-                  title={t('ai.localGuide.copy')}
-                >
-                  <Copy className="size-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{t('ai.apiKey')}</Label>
-              <Input
-                type="password"
-                value={provider?.apiKey || ''}
-                onChange={(event) => updateProvider(target, { apiKey: event.target.value })}
-              />
-            </div>
-            {target === 'embedding' && (
-              <div className="space-y-2">
-                <Label>{t('ai.dimensions')}</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="4000"
-                  value={config.embedding?.dimensions || 1536}
-                  onChange={(event) =>
-                    updateProvider('embedding', { dimensions: Number(event.target.value) || 1536 })
-                  }
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-    );
-  };
 
   return (
     <Card className="rounded-none border-none shadow-none">
@@ -415,186 +264,35 @@ export default function AIConfigTab({
         <section className="space-y-3">
           <h3 className="font-medium">{t('ai.modelProviders')}</h3>
           <div className="grid gap-4 xl:grid-cols-2">
-            {renderProviderForm('chat')}
-            {renderProviderForm('embedding')}
+            <AIConfigProviderForm
+              target="chat"
+              config={config}
+              providers={providers}
+              busyAction={busyAction}
+              updateProvider={updateProvider}
+              applyPreset={applyPreset}
+              runAction={runAction}
+            />
+            <AIConfigProviderForm
+              target="embedding"
+              config={config}
+              providers={providers}
+              busyAction={busyAction}
+              updateProvider={updateProvider}
+              applyPreset={applyPreset}
+              runAction={runAction}
+            />
           </div>
         </section>
 
-        <details className="group rounded-md border">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="size-4" />
-              <span className="font-medium">{t('ai.advancedSettings')}</span>
-            </div>
-            <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-          </summary>
-          <Divider />
-          <div className="space-y-5 p-4">
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="space-y-2">
-                <Label>{t('ai.chunkSize')}</Label>
-                <Input
-                  type="number"
-                  min="500"
-                  value={config.indexing?.chunkSize || 1800}
-                  onChange={(event) =>
-                    updateConfig({
-                      indexing: {
-                        ...config.indexing,
-                        chunkSize: Number(event.target.value) || 1800,
-                      },
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('ai.chunkOverlap')}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={config.indexing?.chunkOverlap || 200}
-                  onChange={(event) =>
-                    updateConfig({
-                      indexing: {
-                        ...config.indexing,
-                        chunkOverlap: Number(event.target.value) || 0,
-                      },
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('ai.batchSize')}</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={config.indexing?.batchSize || 5}
-                  onChange={(event) =>
-                    updateConfig({
-                      indexing: {
-                        ...config.indexing,
-                        batchSize: Number(event.target.value) || 5,
-                      },
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('ai.maxRetries')}</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={config.indexing?.maxRetries || 3}
-                  onChange={(event) =>
-                    updateConfig({
-                      indexing: {
-                        ...config.indexing,
-                        maxRetries: Number(event.target.value) || 3,
-                      },
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <p className="text-muted-foreground">
-                {t('ai.pgvectorStatus', {
-                  available: vectorStatus?.available ? t('ai.yes') : t('ai.no'),
-                  installed: vectorStatus?.installed ? t('ai.yes') : t('ai.no'),
-                  index: vectorStatus?.indexName || t('ai.none'),
-                })}
-              </p>
-              <p className="text-muted-foreground">
-                {t('ai.jobStats', {
-                  pending: jobStats?.pending || 0,
-                  running: jobStats?.running || 0,
-                  succeeded: jobStats?.succeeded || 0,
-                  failed: jobStats?.failed || 0,
-                })}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  runAction('enable-vector', () => post('/ai/vector/enable'), t('ai.pgvectorReady'))
-                }
-                disabled={busyAction === 'enable-vector'}
-              >
-                <Database className="size-4" />
-                {t('ai.enablePgvector')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  runAction('backfill', () => post('/ai/index/backfill'), t('ai.backfillQueued'))
-                }
-                disabled={busyAction === 'backfill'}
-              >
-                <RefreshCw className="size-4" />
-                {t('ai.backfill')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  runAction('process', () => post('/ai/index/process'), t('ai.processed'))
-                }
-                disabled={busyAction === 'process'}
-              >
-                <Play className="size-4" />
-                {t('ai.process')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  runAction(
-                    config.indexing?.paused ? 'resume' : 'pause',
-                    () => post(config.indexing?.paused ? '/ai/index/resume' : '/ai/index/pause'),
-                    config.indexing?.paused ? t('ai.resumed') : t('ai.paused')
-                  )
-                }
-              >
-                {config.indexing?.paused ? (
-                  <Play className="size-4" />
-                ) : (
-                  <Pause className="size-4" />
-                )}
-                {config.indexing?.paused ? t('ai.resume') : t('ai.pause')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  runAction(
-                    'retry',
-                    () => post('/ai/index/retry-failed'),
-                    t('ai.failedJobsRequeued')
-                  )
-                }
-              >
-                <RefreshCw className="size-4" />
-                {t('ai.retryFailed')}
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() =>
-                  runAction('clear', () => post('/ai/index/clear'), t('ai.indexCleared'))
-                }
-              >
-                <Trash2 className="size-4" />
-                {t('ai.clearIndex')}
-              </Button>
-            </div>
-          </div>
-        </details>
+        <AIConfigAdvancedSettings
+          config={config}
+          vectorStatus={vectorStatus}
+          jobStats={jobStats}
+          busyAction={busyAction}
+          updateConfig={updateConfig}
+          runAction={runAction}
+        />
 
         <Button onClick={handleSave} disabled={isSaving} className="w-full">
           {isSaving ? t('saving') : t('save')}

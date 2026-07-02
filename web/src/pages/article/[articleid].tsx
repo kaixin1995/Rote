@@ -109,7 +109,7 @@ function ArticleDetailPage() {
                 <div className="min-w-0 flex-1">
                   <div className="text-primary inline-flex items-center gap-1 truncate font-semibold">
                     {article.author.nickname}
-                    {article.author.emailVerified && (
+                    {article.author.certified && (
                       <VerifiedIcon className="text-theme size-4 shrink-0" />
                     )}
                   </div>

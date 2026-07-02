@@ -58,18 +58,46 @@ export function isValidUUID(id: string): boolean {
 }
 
 export function sanitizeUserData(user: User) {
-  delete (user as { passwordhash?: Uint8Array }).passwordhash;
-  delete (user as { salt?: Uint8Array }).salt;
-  return user;
+  const sanitizedUser = user as User & { certified?: boolean };
+  delete (sanitizedUser as { passwordhash?: Uint8Array }).passwordhash;
+  delete (sanitizedUser as { salt?: Uint8Array }).salt;
+  // TODO: 下下次更新移除 emailVerified 公开字段兼容，统一只返回 certified。
+  if ('emailVerified' in sanitizedUser) {
+    sanitizedUser.certified = sanitizedUser.emailVerified;
+    delete (sanitizedUser as { emailVerified?: boolean }).emailVerified;
+  }
+  return sanitizedUser;
 }
 
 export function sanitizeOtherUserData(user: User) {
-  delete (user as { passwordhash?: Uint8Array }).passwordhash;
-  delete (user as { salt?: Uint8Array }).salt;
-  delete (user as { email?: string }).email;
-  delete (user as { createdAt?: any }).createdAt;
-  delete (user as { updatedAt?: any }).updatedAt;
-  return user;
+  const sanitizedUser = sanitizeUserData(user);
+  delete (sanitizedUser as { email?: string }).email;
+  delete (sanitizedUser as { createdAt?: any }).createdAt;
+  delete (sanitizedUser as { updatedAt?: any }).updatedAt;
+  return sanitizedUser;
+}
+
+function normalizeCertificationFields(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeCertificationFields(item));
+  }
+
+  if (!value || typeof value !== 'object' || value instanceof Date || value instanceof Uint8Array) {
+    return value;
+  }
+
+  const normalized = { ...value };
+  // TODO: 下下次更新移除 emailVerified 公开字段兼容，统一只返回 certified。
+  if ('emailVerified' in normalized) {
+    normalized.certified = normalized.certified ?? normalized.emailVerified;
+    delete normalized.emailVerified;
+  }
+
+  Object.keys(normalized).forEach((key) => {
+    normalized[key] = normalizeCertificationFields(normalized[key]);
+  });
+
+  return normalized;
 }
 
 // Request body data validation
@@ -145,5 +173,5 @@ export const createResponse = (
 ) => ({
   code,
   message,
-  data,
+  data: normalizeCertificationFields(data),
 });

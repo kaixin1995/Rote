@@ -85,7 +85,7 @@ export default function ProfileHeader({
         <Link className="w-fit" to={`/${profile?.username}`}>
           <h1 className="inline-flex w-fit items-center gap-1 text-2xl font-semibold hover:underline">
             {profile?.nickname}
-            {profile?.emailVerified && <VerifiedIcon className="text-theme size-5 shrink-0" />}
+            {profile?.certified && <VerifiedIcon className="text-theme size-5 shrink-0" />}
           </h1>
           <h2 className="text-info w-fit text-base hover:underline">@{profile?.username}</h2>
         </Link>

@@ -94,7 +94,7 @@ function RoteItem({
             to={`/${rote.author.username}`}
           >
             {isOwner ? profile?.nickname : rote.author.nickname}
-            {rote.author.emailVerified && <VerifiedIcon className="text-theme size-4 shrink-0" />}
+            {rote.author.certified && <VerifiedIcon className="text-theme size-4 shrink-0" />}
           </Link>
 
           <span className="noScrollBar text-info overflow-scroll font-normal text-nowrap">

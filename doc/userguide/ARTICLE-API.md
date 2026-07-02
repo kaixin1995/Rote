@@ -15,7 +15,7 @@
 - **authorId**: 作者 ID（UUID 格式）
 - **createdAt**: 创建时间（ISO 8601 格式）
 - **updatedAt**: 更新时间（ISO 8601 格式）
-- **author**: 作者信息对象（包含 `username`、`nickname`、`avatar`、`emailVerified`）
+- **author**: 作者信息对象（包含 `username`、`nickname`、`avatar`、`certified`）
 - **title**: 从 Markdown 内容解析的标题（计算字段，取第一个 `#` 标题）
 - **summary**: 从 Markdown 内容解析的摘要（计算字段）
 
@@ -156,7 +156,7 @@ curl -X GET 'https://your-domain.com/v2/api/articles/<ARTICLE_ID>' \
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     }
   }
 }
@@ -295,7 +295,7 @@ curl -X GET 'https://your-domain.com/v2/api/articles/by-note/<NOTE_ID>'
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     }
   }
 }
@@ -380,7 +380,7 @@ curl -X POST 'https://your-domain.com/v2/api/articles/refs/<NOTE_ID>' \
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     }
   }
 }

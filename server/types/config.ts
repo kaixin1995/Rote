@@ -58,7 +58,9 @@ export interface SecurityConfig {
   jwtAccessExpiry: string;
   jwtRefreshExpiry: string;
   sessionSecret: string;
-  // 是否要求邮箱已验证的用户才允许出现在探索页
+  // 是否要求已认证用户才允许出现在探索页
+  requireCertifiedUserForExplore?: boolean;
+  // TODO: 下下次更新移除 requireVerifiedEmailForExplore 旧配置键兼容。
   requireVerifiedEmailForExplore?: boolean;
   // OAuth 配置
   oauth?: OAuthConfig;

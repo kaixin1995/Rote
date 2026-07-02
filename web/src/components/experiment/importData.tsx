@@ -157,7 +157,7 @@ export default function ImportData() {
           username: profile?.username || '',
           nickname: profile?.nickname || '',
           avatar: profile?.avatar || '',
-          emailVerified: profile?.emailVerified ?? false,
+          certified: profile?.certified ?? false,
         },
         reactions: [],
       })) as Rotes,

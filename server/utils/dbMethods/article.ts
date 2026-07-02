@@ -17,12 +17,21 @@ export type ArticleAuthor = {
   username: string;
   nickname: string | null;
   avatar: string | null;
-  emailVerified: boolean;
+  certified: boolean;
 };
 
 export type ArticleWithAuthor = ArticleWithMeta & {
   author: ArticleAuthor;
 };
+
+function normalizeArticleAuthor<T extends { author?: any }>(article: T): any {
+  // TODO: 下下次更新移除 emailVerified 作者字段兼容，统一只返回 certified。
+  if (article.author && 'emailVerified' in article.author) {
+    article.author.certified = article.author.emailVerified;
+    delete article.author.emailVerified;
+  }
+  return article;
+}
 
 // 设置笔记的文章绑定（一对一关系）
 export async function setNoteArticleId(
@@ -207,7 +216,7 @@ export async function findArticleById(id: string): Promise<ArticleWithAuthor | n
     });
     if (!article) return null;
     const meta = parseMarkdownMeta(article.content);
-    return { ...article, ...meta };
+    return normalizeArticleAuthor({ ...article, ...meta });
   } catch (error: any) {
     throw new DatabaseError(`Failed to find article by id: ${id}`, error);
   }
@@ -300,7 +309,7 @@ export async function getNoteArticleCard(noteId: string): Promise<ArticleWithAut
     if (!article) return null;
 
     const meta = parseMarkdownMeta(article.content);
-    return { ...article, ...meta };
+    return normalizeArticleAuthor({ ...article, ...meta });
   } catch (error: any) {
     throw new DatabaseError('Failed to get note article', error);
   }
@@ -334,7 +343,7 @@ export async function getArticleInNoteContext(
     });
     if (!article) return null;
     const meta = parseMarkdownMeta(article.content);
-    return { ...article, ...meta };
+    return normalizeArticleAuthor({ ...article, ...meta });
   } catch (error: any) {
     throw new DatabaseError('Failed to get article in note context', error);
   }

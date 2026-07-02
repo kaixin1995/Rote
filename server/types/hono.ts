@@ -3,7 +3,10 @@ import { Context } from 'hono';
 // 安全用户类型（不包含敏感信息）
 export type SafeUser = {
   id: string;
+  certified: boolean;
   emailVerified: boolean;
+  passwordhash: Buffer | null;
+  salt: Buffer | null;
   email: string;
   username: string;
   nickname: string | null;
@@ -20,6 +23,13 @@ export interface HonoVariables {
   user?: SafeUser;
   dynamicApiUrl?: string;
   dynamicFrontendUrl?: string;
+  mcpAuth?: {
+    token: string;
+    userId: string;
+    clientId: string;
+    scopes: string[];
+    resource: string;
+  };
   openKey?: {
     id: string;
     userid: string;

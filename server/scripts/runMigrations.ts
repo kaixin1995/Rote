@@ -5,7 +5,10 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
-import * as schema from '../drizzle/schema';
+import * as oauthMcpSchema from '../drizzle/oauthMcpSchema';
+import * as baseSchema from '../drizzle/schema';
+
+const schema = { ...baseSchema, ...oauthMcpSchema };
 
 const connectionString = process.env.POSTGRESQL_URL || '';
 

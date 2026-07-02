@@ -162,7 +162,7 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
   const config = await getStoredAiConfig();
   const vectorStatus = await getPgvectorStatus();
   const access = await getUserAiAccess(user);
-  const eligible = access.verified;
+  const eligible = access.certified;
   const memoryStats = await getOwnerAiMemoryStats(user.id);
   const chatBaseUrl = config.chat?.baseUrl || '';
   const isLocalChat =
@@ -200,7 +200,7 @@ aiRouter.post('/site/test', authenticateJWT, async (c: HonoContext) => {
   const config = await getStoredAiConfig();
   const vectorStatus = await getPgvectorStatus();
   const access = await getUserAiAccess(user);
-  const eligible = access.verified;
+  const eligible = access.certified;
   const chatAvailable =
     config.enabled === true &&
     Boolean(config.chat?.baseUrl?.trim()) &&

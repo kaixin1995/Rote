@@ -7,6 +7,22 @@ import { KeyGenerator } from './keyGenerator';
 // 配置变更监听器类型
 type ConfigChangeListener = (group: ConfigGroup, newConfig: any, oldConfig: any) => void;
 
+function normalizeConfigForCompatibility(group: ConfigGroup, config: any) {
+  if (group !== 'security' || !config || typeof config !== 'object' || Array.isArray(config)) {
+    return config;
+  }
+
+  const normalized = { ...config };
+  // TODO: 下下次更新移除 requireVerifiedEmailForExplore 旧配置键兼容。
+  if (
+    normalized.requireVerifiedEmailForExplore === undefined &&
+    normalized.requireCertifiedUserForExplore !== undefined
+  ) {
+    normalized.requireVerifiedEmailForExplore = normalized.requireCertifiedUserForExplore;
+  }
+  return normalized;
+}
+
 // 配置管理类
 export class ConfigManager {
   private static instance: ConfigManager;
@@ -136,7 +152,7 @@ export class ConfigManager {
    * 获取全局配置（同步，从内存读取）
    */
   public getGlobalConfig<T extends ConfigData>(group: ConfigGroup): T | null {
-    return (this.globalConfig[group] as T) || null;
+    return (normalizeConfigForCompatibility(group, this.globalConfig[group]) as T) || null;
   }
 
   /**
@@ -202,7 +218,7 @@ export class ConfigManager {
         return null;
       }
 
-      const config = setting.config as unknown as T;
+      const config = normalizeConfigForCompatibility(group, setting.config) as unknown as T;
 
       // 更新缓存
       this.cache.set(cacheKey, config);
@@ -259,7 +275,7 @@ export class ConfigManager {
       }
 
       // 更新全局配置
-      this.globalConfig[group] = config;
+      this.globalConfig[group] = normalizeConfigForCompatibility(group, config);
 
       // 清除缓存
       this.clearCache(group);
@@ -285,7 +301,10 @@ export class ConfigManager {
 
       const result: Record<string, any> = {};
       settingsList.forEach((setting) => {
-        result[setting.group] = setting.config;
+        result[setting.group] = normalizeConfigForCompatibility(
+          setting.group as ConfigGroup,
+          setting.config
+        );
       });
 
       return result as Record<ConfigGroup, any>;

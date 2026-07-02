@@ -38,14 +38,14 @@ curl -X GET 'https://your-domain.com/v2/api/users/demo'
     "cover": "https://example.com/cover.jpg",
     "description": "用户简介",
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "emailVerified": true
+    "certified": true
   }
 }
 ```
 
 字段说明：
 
-- `emailVerified`: boolean - 用户邮箱是否已完成验证（供前端显示认证状态使用）
+- `certified`: boolean - 用户是否已认证（供前端显示认证状态使用）
 
 可能的错误：
 
@@ -74,7 +74,7 @@ curl -X GET 'https://your-domain.com/v2/api/users/me/profile' \
   "message": "success",
   "data": {
     "id": "uuid",
-    "emailVerified": true,
+    "certified": true,
     "email": "demo@example.com",
     "username": "demo",
     "nickname": "Demo",
@@ -93,7 +93,7 @@ curl -X GET 'https://your-domain.com/v2/api/users/me/profile' \
 
 字段补充说明：
 
-- `emailVerified`: boolean - 当前用户邮箱是否已完成验证（供前端提示与安全策略使用）
+- `certified`: boolean - 当前用户是否已认证（供前端提示与安全策略使用）
 - `allowExplore`: boolean - 是否允许该用户的公开笔记出现在「探索」页（见下文用户设置接口）
 - `authProvider`: string - 认证提供商，可能的值：
   - `'local'`: 本地账户（通过用户名密码注册/登录）
@@ -430,7 +430,7 @@ Content-Disposition: attachment; filename=demo-2024-01-01-12-00-00.json
         "username": "demo",
         "nickname": "Demo",
         "avatar": "https://example.com/avatar.jpg",
-        "emailVerified": true
+        "certified": true
       },
       "attachments": [],
       "reactions": []

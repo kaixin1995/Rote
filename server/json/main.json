@@ -51,6 +51,7 @@
     "experiment",
     "admin",
     "app",
+    "oauth",
     "unknown",
     "doc",
     "article"

@@ -261,6 +261,54 @@
         "passwordOptionalHint": "可以跳过密码设置，使用通行密钥注册。"
       }
     },
+    "oauthAuthorize": {
+      "title": "授权 Rote MCP",
+      "subtitle": "{{client}} 想访问你的 Rote 账号。",
+      "client": "客户端",
+      "permissions": "权限",
+      "permissionsDescription": "将授予 {{count}} 项能力，按功能分组展示。",
+      "permissionCount": "{{count}} 项",
+      "resource": "MCP 资源",
+      "approve": "允许",
+      "approving": "授权中...",
+      "deny": "拒绝",
+      "denying": "拒绝中...",
+      "errorTitle": "授权不可用",
+      "backHome": "返回首页",
+      "errors": {
+        "missingRequest": "缺少授权请求。",
+        "loadFailed": "无法加载授权请求。",
+        "submitFailed": "提交授权决定失败。"
+      },
+      "permissionGroups": {
+        "notes": "笔记",
+        "articles": "文章",
+        "reactions": "反应",
+        "profile": "个人资料",
+        "data": "标签与统计",
+        "settings": "用户设置",
+        "attachments": "附件与视频",
+        "other": "其他能力"
+      },
+      "scopes": {
+        "notes_read": "读取你的笔记",
+        "notes_write": "创建和编辑你的笔记",
+        "notes_delete": "删除你的笔记",
+        "articles_read": "读取你的文章",
+        "articles_write": "创建和编辑你的文章",
+        "articles_delete": "删除你的文章",
+        "reactions_write": "添加反应",
+        "reactions_delete": "移除反应",
+        "profile_read": "读取你的个人资料",
+        "profile_write": "编辑你的个人资料",
+        "stats_read": "读取标签和统计数据",
+        "settings_read": "读取你的设置",
+        "settings_write": "编辑你的设置",
+        "attachments_write": "上传和排列附件",
+        "attachments_delete": "删除附件",
+        "video_upload": "上传视频"
+      }
+    },
     "home": {
       "statistics": "统计 / Static"
     },
@@ -500,7 +548,7 @@
         "checking": "检测中...",
         "ready": "配置已就绪",
         "chatReady": "对话模型已配置",
-        "unverified": "验证邮箱后可使用 AI",
+        "unverified": "完成认证后可使用 AI",
         "permissionDenied": "当前账号没有站内云端 AI 对话权限",
         "unavailable": "AI 或向量索引暂不可用",
         "memoryUnavailable": "对话模型已配置，AI 记忆还需要启用向量索引"
@@ -573,7 +621,7 @@
         "siteCapability": "站内 Agent 为了自动规划检索，推荐使用支持 tool calling 的模型；深度思考不是必需能力，没有 reasoning 输出也能工作。",
         "personalCapability": "个人模型/API 使用同一套 Rote Agent。模型需要支持 OpenAI-compatible tool calling 才能完整使用记忆工具；深度思考/reasoning 仍是可选展示。",
         "startGuideTitle": "llama.cpp 启动示例",
-        "startGuideCommand": "llama-server --hf-repo google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0 --host 127.0.0.1 --port 8080 --alias gemma-4-12b-it --ctx-size 4096",
+        "startGuideCommand": "llama-server --hf-repo google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0 --host 127.0.0.1 --port 8080 --alias gemma-4-12b-it",
         "startGuideDesc": "启动后确认本地服务支持 OpenAI-compatible /v1/chat/completions，并允许浏览器访问。"
       },
       "memoryStats": {
@@ -1078,9 +1126,9 @@
       },
       "security": {
         "title": "安全配置",
-        "description": "配置与安全相关的策略，例如邮箱验证要求等。",
-        "requireVerifiedEmailForExplore": "仅允许已验证邮箱的用户出现在探索页",
-        "requireVerifiedEmailForExploreDesc": "开启后，只有邮箱已验证的用户，其公开笔记才会被推荐到「探索」页面；已公开的笔记仍可通过链接访问。"
+        "description": "配置与安全相关的策略，例如账号认证要求等。",
+        "requireCertifiedUserForExplore": "仅允许已认证用户出现在探索页",
+        "requireCertifiedUserForExploreDesc": "开启后，只有已认证用户的公开笔记才会被推荐到「探索」页面；已公开的笔记仍可通过链接访问。"
       },
       "oauth": {
         "title": "OAuth 登录配置",
@@ -1198,10 +1246,10 @@
         "searchPlaceholder": "搜索用户名、邮箱或昵称",
         "noUsers": "暂无用户",
         "noUsersFound": "未找到匹配的用户",
-        "verifyEmailSuccess": "邮箱验证成功",
-        "verifyEmailFailed": "邮箱验证失败: {{error}}",
-        "unverifyEmailSuccess": "取消邮箱验证成功",
-        "unverifyEmailFailed": "取消邮箱验证失败: {{error}}",
+        "certifyUserSuccess": "认证成功",
+        "certifyUserFailed": "认证失败: {{error}}",
+        "uncertifyUserSuccess": "取消认证成功",
+        "uncertifyUserFailed": "取消认证失败: {{error}}",
         "deleteSuccess": "用户删除成功",
         "deleteFailed": "用户删除失败: {{error}}",
         "table": {
@@ -1210,17 +1258,17 @@
           "email": "邮箱",
           "nickname": "昵称",
           "role": "角色",
-          "emailVerified": "邮箱验证",
+          "certification": "认证",
           "roteCount": "笔记数",
           "attachmentCount": "附件数",
           "createdAt": "创建时间",
           "actions": "操作",
-          "verified": "已验证",
-          "unverified": "未验证",
+          "certified": "已认证",
+          "uncertified": "未认证",
           "homepage": "主页",
           "permissions": "配置权限",
-          "verifyEmail": "验证邮箱",
-          "unverifyEmail": "取消验证",
+          "certify": "认证",
+          "uncertify": "取消认证",
           "delete": "删除"
         },
         "pagination": {
@@ -1480,7 +1528,7 @@
       "votePrompt": "来一票吧，球球啦 🥺！"
     },
     "verifiedIcon": {
-      "tooltip": "已验证邮箱"
+      "tooltip": "已认证"
     },
     "attachments": {
       "livePhoto": {

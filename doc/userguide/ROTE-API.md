@@ -23,7 +23,7 @@
 - **createdAt**: 创建时间（ISO 8601 格式）
 - **updatedAt**: 更新时间（ISO 8601 格式）
 - **attachmentIds**: 附件 ID 数组（可选，创建/更新时使用）
-- **author**: 作者信息对象（包含 `username`、`nickname`、`avatar`、`emailVerified`）
+- **author**: 作者信息对象（包含 `username`、`nickname`、`avatar`、`certified`）
 - **attachments**: 附件数组，每个附件包含：
   - `id`: 附件 ID（UUID 格式）
   - `url`: 附件原始 URL
@@ -144,7 +144,7 @@ curl -X POST 'https://your-domain.com/v2/api/notes/' \
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     },
     "attachments": [],
     "reactions": [],
@@ -269,7 +269,7 @@ curl -X GET 'https://your-domain.com/v2/api/notes/<NOTE_ID>' \
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     },
     "attachments": [
       {
@@ -487,7 +487,7 @@ curl -X PUT 'https://your-domain.com/v2/api/notes/<NOTE_ID>' \
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     },
     "attachments": [],
     "reactions": [],
@@ -579,7 +579,7 @@ curl -X GET 'https://your-domain.com/v2/api/notes/random' \
       "username": "demo",
       "nickname": "演示用户",
       "avatar": "https://example.com/avatar.jpg",
-      "emailVerified": true
+      "certified": true
     },
     "attachments": [],
     "reactions": [],

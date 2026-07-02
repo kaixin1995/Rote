@@ -32,11 +32,27 @@ export default function OAuthConfigTab({
   const { mutate: globalMutate } = useSWRConfig();
   // 使用 securityConfig?.oauth?.enabled 来控制开关状态，但不影响配置区域的显示
   const oauthEnabled = securityConfig?.oauth?.enabled ?? false;
+  const getSecurityConfigForSave = (): SystemConfig['security'] => {
+    const config = {
+      ...(securityConfig || {
+        requireCertifiedUserForExplore: false,
+        oauth: {
+          enabled: false,
+          providers: {},
+        },
+      }),
+    };
+    // TODO: 下下次更新移除 requireVerifiedEmailForExplore 旧配置键兼容。
+    config.requireCertifiedUserForExplore =
+      config.requireCertifiedUserForExplore ?? config.requireVerifiedEmailForExplore ?? false;
+    delete config.requireVerifiedEmailForExplore;
+    return config;
+  };
 
   const handleSave = async () => {
     if (!securityConfig) {
       setSecurityConfig({
-        requireVerifiedEmailForExplore: false,
+        requireCertifiedUserForExplore: false,
         oauth: {
           enabled: false,
           providers: {},
@@ -48,13 +64,7 @@ export default function OAuthConfigTab({
     try {
       await put('/admin/settings', {
         group: 'security',
-        config: securityConfig || {
-          requireVerifiedEmailForExplore: false,
-          oauth: {
-            enabled: false,
-            providers: {},
-          },
-        },
+        config: getSecurityConfigForSave(),
       });
       toast.success(t('saveSuccess'));
       onMutate();

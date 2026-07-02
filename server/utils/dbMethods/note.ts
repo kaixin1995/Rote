@@ -17,6 +17,16 @@ const ARTICLE_QUERY = {
   },
 };
 
+const AUTHOR_QUERY = {
+  columns: {
+    username: true,
+    nickname: true,
+    description: true,
+    avatar: true,
+    emailVerified: true,
+  },
+};
+
 // 笔记相关方法
 export async function createRote(data: any): Promise<any> {
   try {
@@ -90,14 +100,7 @@ export async function createRote(data: any): Promise<any> {
       roteWithRelations = await db.query.rotes.findFirst({
         where: (rotes, { eq }) => eq(rotes.id, rote.id),
         with: {
-          author: {
-            columns: {
-              username: true,
-              nickname: true,
-              avatar: true,
-              emailVerified: true,
-            },
-          },
+          author: AUTHOR_QUERY,
           attachments: {
             orderBy: (attachments, { asc }) => [
               asc(attachments.sortIndex),
@@ -148,14 +151,7 @@ export async function findRoteById(id: string): Promise<any> {
     const rote = await db.query.rotes.findFirst({
       where: (rotes, { eq }) => eq(rotes.id, id),
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: {
           orderBy: (attachments, { asc }) => [
             asc(attachments.sortIndex),
@@ -194,14 +190,7 @@ export async function findRotesByIds(ids: string[]): Promise<any[]> {
     const rotesList = await db.query.rotes.findMany({
       where: (rotes, { inArray }) => inArray(rotes.id, ids),
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: {
           orderBy: (attachments, { asc }) => [
             asc(attachments.sortIndex),
@@ -257,14 +246,7 @@ export async function editRote(data: any): Promise<any> {
     const roteWithRelations = await db.query.rotes.findFirst({
       where: (rotes, { eq }) => eq(rotes.id, rote.id),
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: {
           orderBy: (attachments, { asc }) => [
             asc(attachments.sortIndex),
@@ -411,14 +393,7 @@ export async function findMyRote(
       limit: limit || 20,
       orderBy: (rotes: any, { desc }: any) => [desc(rotes.pin), desc(rotes.createdAt)],
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
         linkPreviews: {
           orderBy: (linkPreviews: any, { asc }: any) => [asc(linkPreviews.createdAt)],
@@ -461,14 +436,7 @@ export async function findUserPublicRote(
       limit: limit || 20,
       orderBy: (rotes, { desc }) => [desc(rotes.pin), desc(rotes.createdAt)],
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
         linkPreviews: {
           orderBy: (linkPreviews, { asc }) => [asc(linkPreviews.createdAt)],
@@ -603,14 +571,7 @@ export async function findMyRandomRote(authorid: string): Promise<any> {
       offset: random,
       limit: 1,
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
         linkPreviews: {
           orderBy: (linkPreviews, { asc }) => [asc(linkPreviews.createdAt)],
@@ -775,14 +736,7 @@ export async function searchMyRotes(
       limit: limit || 20,
       orderBy: (rotes, { desc }) => [desc(rotes.pin), desc(rotes.createdAt)],
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
         linkPreviews: {
           orderBy: (linkPreviews, { asc }) => [asc(linkPreviews.createdAt)],
@@ -822,14 +776,7 @@ export async function searchPublicRotes(
       limit: limit || 20,
       orderBy: (rotes, { desc }) => [desc(rotes.createdAt)],
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
         linkPreviews: {
           orderBy: (linkPreviews, { asc }) => [asc(linkPreviews.createdAt)],
@@ -871,14 +818,7 @@ export async function searchUserPublicRotes(
       limit: limit || 20,
       orderBy: (rotes, { desc }) => [desc(rotes.pin), desc(rotes.createdAt)],
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
         linkPreviews: {
           orderBy: (linkPreviews, { asc }) => [asc(linkPreviews.createdAt)],
@@ -933,14 +873,7 @@ export async function getRssData(
       orderBy: (rotes, { desc }) => [desc(rotes.updatedAt)],
       limit: limit,
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
       },
     });
@@ -959,14 +892,7 @@ export async function getAllPublicRssData(limit = 20): Promise<{ notes: any[] }>
       orderBy: (rotes, { desc }) => [desc(rotes.updatedAt)],
       limit: limit,
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: true,
       },
     });
@@ -989,14 +915,7 @@ export async function getNoteByArticleId(articleId: string): Promise<any> {
         desc(sql`CASE WHEN ${rotes.state} = 'public' THEN 1 ELSE 0 END`),
       ],
       with: {
-        author: {
-          columns: {
-            username: true,
-            nickname: true,
-            avatar: true,
-            emailVerified: true,
-          },
-        },
+        author: AUTHOR_QUERY,
         attachments: {
           orderBy: (attachments, { asc }) => [
             asc(attachments.sortIndex),

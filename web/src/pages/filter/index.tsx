@@ -67,7 +67,7 @@ function MineFilter() {
   const profile = useAtomValue(profileAtom);
   const loadTags = useSetAtom(loadTagsAtom);
   const { data: siteStatus } = useSiteStatus();
-  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.emailVerified === true;
+  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.certified === true;
 
   useEffect(() => {
     if (tags === null) loadTags();
@@ -315,7 +315,7 @@ function MineFilter() {
     () => (
       <StarsBackground
         pointerEvents={false}
-        starColor="#07C160"
+        starColor="#3ECF4A"
         className="relative h-auto max-h-[25vh] overflow-hidden bg-none"
       >
         <div className="noScrollBar relative max-h-[25vh] space-y-4 overflow-y-scroll bg-none mask-[linear-gradient(180deg,#000000_calc(100%-20%),transparent)] p-4 font-semibold">

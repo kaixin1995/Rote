@@ -29,6 +29,7 @@ export async function getSafeUser(id: string) {
     const [user] = await db
       .select({
         id: users.id,
+        certified: users.emailVerified,
         emailVerified: users.emailVerified,
         email: users.email,
         username: users.username,
@@ -43,7 +44,7 @@ export async function getSafeUser(id: string) {
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
-    return user || null;
+    return user ? { ...user, passwordhash: null, salt: null } : null;
   } catch (error) {
     throw new DatabaseError(`Failed to get safe user by id: ${id}`, error);
   }

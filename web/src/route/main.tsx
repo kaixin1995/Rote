@@ -21,6 +21,7 @@ import MineFilter from '@/pages/filter';
 import HomePage from '@/pages/home';
 import Landing from '@/pages/landing';
 import Login from '@/pages/login';
+import OAuthAuthorizePage from '@/pages/oauth/authorize';
 import ProfilePage from '@/pages/profile';
 import SettingsPage from '@/pages/profile/setting';
 import SingleRotePage from '@/pages/rote/[roteid]';
@@ -39,6 +40,13 @@ function RootLayout() {
   );
 }
 
+function getSafeLoginRedirect(search: string) {
+  const redirectTarget = new URLSearchParams(search).get('redirect');
+  return redirectTarget && redirectTarget.startsWith('/') && !redirectTarget.startsWith('//')
+    ? redirectTarget
+    : '/home';
+}
+
 function LoginRouteEntry() {
   const { tokenValid, isAuthPending } = useAuthState();
   const isIosLogin = new URLSearchParams(window.location.search).get('type') === 'ioslogin';
@@ -47,7 +55,11 @@ function LoginRouteEntry() {
     return <LoadingPlaceholder className="h-dvh w-full" size={6} />;
   }
 
-  return tokenValid && !isIosLogin ? <Navigate to="/home" /> : <Login />;
+  return tokenValid && !isIosLogin ? (
+    <Navigate replace to={getSafeLoginRedirect(window.location.search)} />
+  ) : (
+    <Login />
+  );
 }
 
 function RootRedirectEntry() {
@@ -73,6 +85,15 @@ export default function GlobalRouterProvider() {
         {
           path: 'login',
           element: <LoginRouteEntry />,
+        },
+        {
+          path: 'oauth',
+          children: [
+            {
+              path: 'authorize',
+              element: <OAuthAuthorizePage />,
+            },
+          ],
         },
         {
           path: '404',
