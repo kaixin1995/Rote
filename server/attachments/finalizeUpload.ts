@@ -1,0 +1,251 @@
+import type { UploadResult } from '../types/main';
+import {
+  extractCompressedUuid,
+  extractOriginalUploadUuid,
+  extractPairedVideoUuid,
+  extractPosterUuid,
+} from './uploadKeys';
+import { getAttachmentUploadPolicy } from './uploadPolicy';
+import { getAttachmentDetailsByRoteId, upsertAttachmentsByOriginalKey } from '../utils/dbMethods';
+import {
+  MAX_BATCH_SIZE,
+  inferAttachmentMediaKind,
+  isImageContentType,
+  isVideoContentType,
+  mergeUniqueRoteAttachmentDetails,
+  validateContentType,
+  validateFileSize,
+  validateRoteAttachmentDetails,
+} from '../utils/fileValidation';
+import { checkObjectExists } from '../utils/r2';
+import type { FinalizeAttachmentInput } from './types';
+import { requireStorageAvailable } from './types';
+import attachmentErrors from './errorCodes.json';
+
+function assertFinalizeInput(
+  attachments: FinalizeAttachmentInput[] | undefined
+): asserts attachments is FinalizeAttachmentInput[] {
+  if (!attachments || !Array.isArray(attachments) || attachments.length === 0) {
+    throw new Error(attachmentErrors.attachmentsRequired);
+  }
+  if (attachments.length > MAX_BATCH_SIZE) {
+    throw new Error(attachmentErrors.attachmentBatchLimitExceeded);
+  }
+}
+
+function validateAttachmentPayload(item: FinalizeAttachmentInput, maxVideoUploadSizeMB: number) {
+  if (item.mimetype) {
+    validateContentType(item.mimetype);
+    validateFileSize(item.size, item.mimetype, maxVideoUploadSizeMB);
+  }
+  if (item.mediaKind === 'livePhoto' || item.pairedVideoKey) {
+    if (!isImageContentType(item.mimetype))
+      throw new Error(attachmentErrors.livePhotoOriginalNotImage);
+    validateContentType(item.pairedVideoMimetype);
+    if (!isVideoContentType(item.pairedVideoMimetype))
+      throw new Error(attachmentErrors.livePhotoPairedVideoNotVideo);
+    validateFileSize(item.pairedVideoSize, item.pairedVideoMimetype, maxVideoUploadSizeMB);
+  }
+}
+
+async function collectValidAttachments(attachments: FinalizeAttachmentInput[]) {
+  const validationErrors: string[] = [];
+  const validAttachments: FinalizeAttachmentInput[] = [];
+  for (const item of attachments) {
+    const mediaKind = inferAttachmentMediaKind({
+      mediaKind: item.mediaKind,
+      mimetype: item.mimetype,
+      compressedKey: item.compressedKey,
+      posterKey: item.posterKey,
+      pairedVideoKey: item.pairedVideoKey,
+      key: item.originalKey,
+    });
+    const normalizedAttachment = { ...item };
+    const originalExists = await checkObjectExists(item.originalKey);
+    if (!originalExists) {
+      validationErrors.push(
+        attachmentErrors.originalFileNotFoundPrefix + item.originalKey + ':' + item.uuid
+      );
+      continue;
+    }
+
+    const originalUuid = extractOriginalUploadUuid(item.originalKey);
+    if (!originalUuid || originalUuid !== item.uuid) {
+      validationErrors.push(attachmentErrors.uuidMismatchPrefix + item.originalKey);
+      continue;
+    }
+    if (mediaKind === 'video' && normalizedAttachment.compressedKey) {
+      validationErrors.push(attachmentErrors.videoCompressedKeyForbiddenPrefix + item.originalKey);
+      continue;
+    }
+    if ((mediaKind === 'image' || mediaKind === 'livePhoto') && normalizedAttachment.posterKey) {
+      normalizedAttachment.posterKey = undefined;
+    }
+    if (
+      (mediaKind === 'image' || mediaKind === 'livePhoto') &&
+      normalizedAttachment.compressedKey
+    ) {
+      const compressedExists = await checkObjectExists(normalizedAttachment.compressedKey);
+      const compressedUuid = extractCompressedUuid(normalizedAttachment.compressedKey);
+      if (!compressedExists || !compressedUuid || originalUuid !== compressedUuid) {
+        validationErrors.push(
+          attachmentErrors.compressedFileInvalidPrefix + normalizedAttachment.compressedKey
+        );
+        normalizedAttachment.compressedKey = undefined;
+      }
+    }
+    if (mediaKind === 'livePhoto') {
+      if (!normalizedAttachment.pairedVideoKey) {
+        validationErrors.push(
+          attachmentErrors.livePhotoPairedVideoMissingPrefix + item.originalKey
+        );
+        continue;
+      }
+      const pairedVideoExists = await checkObjectExists(normalizedAttachment.pairedVideoKey);
+      const pairedVideoUuid = extractPairedVideoUuid(normalizedAttachment.pairedVideoKey);
+      if (!pairedVideoExists || !pairedVideoUuid || originalUuid !== pairedVideoUuid) {
+        validationErrors.push(
+          attachmentErrors.livePhotoPairedVideoInvalidPrefix + normalizedAttachment.pairedVideoKey
+        );
+        continue;
+      }
+    } else if (normalizedAttachment.pairedVideoKey) {
+      validationErrors.push(attachmentErrors.pairedVideoLivePhotoOnlyPrefix + item.originalKey);
+      continue;
+    }
+    if (mediaKind === 'video' && normalizedAttachment.posterKey) {
+      const posterExists = await checkObjectExists(normalizedAttachment.posterKey);
+      const posterUuid = extractPosterUuid(normalizedAttachment.posterKey);
+      if (!posterExists || !posterUuid || originalUuid !== posterUuid) {
+        validationErrors.push(
+          attachmentErrors.posterFileInvalidPrefix + normalizedAttachment.posterKey
+        );
+        normalizedAttachment.posterKey = undefined;
+      }
+    }
+    if (!mediaKind) {
+      validationErrors.push(attachmentErrors.attachmentMediaUnsupportedPrefix + item.originalKey);
+      continue;
+    }
+    validAttachments.push(normalizedAttachment);
+  }
+
+  if (validAttachments.length === 0) {
+    const message =
+      validationErrors.length === 1
+        ? validationErrors[0]
+        : attachmentErrors.attachmentValidationErrorsPrefix + validationErrors.join(';');
+    throw new Error(message || attachmentErrors.attachmentValidationFailed);
+  }
+  return validAttachments;
+}
+
+function toUploadResult(urlPrefix: string, item: FinalizeAttachmentInput): UploadResult {
+  const mediaKind = inferAttachmentMediaKind({
+    mediaKind: item.mediaKind,
+    mimetype: item.mimetype || null,
+    compressedKey: item.compressedKey,
+    posterKey: item.posterKey,
+    pairedVideoKey: item.pairedVideoKey,
+  });
+  const pairedVideoUrl =
+    mediaKind === 'livePhoto' && item.pairedVideoKey ? urlPrefix + '/' + item.pairedVideoKey : null;
+  const details: any = {
+    size: item.size || 0,
+    mimetype: item.mimetype || null,
+    mediaKind,
+    mtime: new Date().toISOString(),
+    key: item.originalKey,
+  };
+  if (item.compressedKey) details.compressKey = item.compressedKey;
+  if (item.posterKey) details.posterKey = item.posterKey;
+  if (pairedVideoUrl && item.pairedVideoKey) {
+    details.pairedVideoKey = item.pairedVideoKey;
+    details.pairedVideoUrl = pairedVideoUrl;
+    details.pairedVideoMimetype = item.pairedVideoMimetype || null;
+    details.pairedVideoSize = item.pairedVideoSize || 0;
+    if (item.pairedVideoFilename) details.pairedVideoFilename = item.pairedVideoFilename;
+  }
+  if (item.hash) details.hash = item.hash;
+
+  return {
+    url: urlPrefix + '/' + item.originalKey,
+    compressUrl:
+      (mediaKind === 'image' || mediaKind === 'livePhoto') && item.compressedKey
+        ? urlPrefix + '/' + item.compressedKey
+        : null,
+    posterUrl: mediaKind === 'video' && item.posterKey ? urlPrefix + '/' + item.posterKey : null,
+    details,
+  };
+}
+
+export async function finalizeAttachmentUploads(input: {
+  userId: string;
+  scopes: string[];
+  noteId?: string;
+  attachments?: FinalizeAttachmentInput[];
+}) {
+  const storageConfig = requireStorageAvailable();
+  const uploadPolicy = await getAttachmentUploadPolicy(input.userId);
+  if (!uploadPolicy.canUploadAttachments)
+    throw new Error(attachmentErrors.capabilityAttachmentUpload);
+
+  assertFinalizeInput(input.attachments);
+  const prefix = 'users/' + input.userId + '/';
+  const invalid = input.attachments.find(
+    (item) =>
+      !item.originalKey?.startsWith(prefix) ||
+      (item.compressedKey !== undefined && !item.compressedKey.startsWith(prefix)) ||
+      (item.posterKey !== undefined && !item.posterKey.startsWith(prefix)) ||
+      (item.pairedVideoKey !== undefined && !item.pairedVideoKey.startsWith(prefix))
+  );
+  if (invalid) throw new Error(attachmentErrors.objectKeyInvalid);
+  input.attachments.forEach((item) =>
+    validateAttachmentPayload(item, uploadPolicy.maxVideoUploadSizeMB)
+  );
+
+  const hasVideo = input.attachments.some(
+    (item) =>
+      inferAttachmentMediaKind({
+        mediaKind: item.mediaKind,
+        mimetype: item.mimetype,
+        compressedKey: item.compressedKey,
+        posterKey: item.posterKey,
+        pairedVideoKey: item.pairedVideoKey,
+        key: item.originalKey,
+      }) === 'video' ||
+      item.mediaKind === 'livePhoto' ||
+      !!item.pairedVideoKey
+  );
+  if (hasVideo && !input.scopes.includes('video:upload'))
+    throw new Error(attachmentErrors.insufficientVideoUpload);
+  if (hasVideo && !uploadPolicy.canUploadVideo)
+    throw new Error(attachmentErrors.capabilityVideoUpload);
+
+  const validAttachments = await collectValidAttachments(input.attachments);
+  if (input.noteId) {
+    const currentAttachments = await getAttachmentDetailsByRoteId(input.noteId);
+    const pendingAttachments = validAttachments.map((item) => ({
+      details: {
+        key: item.originalKey,
+        mimetype: item.mimetype || null,
+        mediaKind: inferAttachmentMediaKind({
+          mediaKind: item.mediaKind,
+          mimetype: item.mimetype || null,
+          compressedKey: item.compressedKey,
+          posterKey: item.posterKey,
+          pairedVideoKey: item.pairedVideoKey,
+        }),
+        compressKey: item.compressedKey,
+        posterKey: item.posterKey,
+        pairedVideoKey: item.pairedVideoKey,
+      },
+    }));
+    validateRoteAttachmentDetails(
+      mergeUniqueRoteAttachmentDetails(currentAttachments, pendingAttachments)
+    );
+  }
+
+  const uploads = validAttachments.map((item) => toUploadResult(storageConfig.urlPrefix, item));
+  return await upsertAttachmentsByOriginalKey(input.userId, input.noteId, uploads);
+}

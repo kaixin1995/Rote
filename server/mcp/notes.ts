@@ -1,20 +1,7 @@
 import type { HonoContext } from '../types/hono';
-import {
-  createRote,
-  deleteEmbeddingsForSource,
-  deleteRote,
-  deleteRoteAttachmentsByRoteId,
-  deleteRoteLinkPreviewsByRoteId,
-  editRote,
-  enqueueEmbeddingJob,
-  findMyRote,
-  findRoteById,
-  findRotesByIds,
-  searchMyRotes,
-  setNoteArticleId,
-} from '../utils/dbMethods';
+import { createUserNote, deleteUserNote, updateUserNote } from '../notes/actions';
+import { findMyRote, findRoteById, findRotesByIds, searchMyRotes } from '../utils/dbMethods';
 import { MAX_BATCH_SIZE } from '../utils/fileValidation';
-import { extractUrlsFromContent, parseAndStoreRoteLinkPreviews } from '../utils/linkPreview';
 import { NoteCreateZod, NoteUpdateZod, SearchKeywordZod } from '../utils/zod';
 import mcpErrors from './errorCodes.json';
 import { defineMcpTool } from './registry';
@@ -32,7 +19,7 @@ import type { McpTool } from './types';
 async function createNote(c: HonoContext, args: Record<string, any>) {
   const auth = requireAuth(c);
   NoteCreateZod.parse(args);
-  const result = await createRote({
+  return await createUserNote(auth.userId, {
     content: args.content,
     title: args.title || '',
     state: args.state || 'private',
@@ -41,73 +28,16 @@ async function createNote(c: HonoContext, args: Record<string, any>) {
     pin: !!args.pin,
     archived: !!args.archived,
     editor: args.editor,
-    authorid: auth.userId,
+    articleId: args.articleId,
+    articleIds: args.articleIds,
   });
-
-  void enqueueEmbeddingJob('rote', result.id, auth.userId).catch((error) => {
-    console.error('mcp_rote_embedding_enqueue_failed', error);
-  });
-
-  const articleIdToSet =
-    typeof args.articleId === 'string'
-      ? args.articleId
-      : Array.isArray(args.articleIds) && args.articleIds.length > 0
-        ? args.articleIds[0]
-        : null;
-  if (articleIdToSet) {
-    await setNoteArticleId(result.id, articleIdToSet, auth.userId);
-    return result;
-  }
-
-  void parseAndStoreRoteLinkPreviews(result.id, result.content).catch((error) => {
-    console.error('mcp_link_preview_create_failed', error);
-  });
-
-  return result;
 }
 
 async function updateNote(c: HonoContext, args: Record<string, any>) {
   const auth = requireAuth(c);
   const id = assertUuid(args.id, 'note_id');
   NoteUpdateZod.parse(args);
-  await editRote({ ...args, id, authorid: auth.userId });
-
-  void enqueueEmbeddingJob('rote', id, auth.userId).catch((error) => {
-    console.error('mcp_rote_embedding_enqueue_failed', error);
-  });
-
-  let articleIdToSet: string | null | undefined;
-  if ('articleId' in args) {
-    articleIdToSet = typeof args.articleId === 'string' ? args.articleId : (args.articleId ?? null);
-  } else if (Array.isArray(args.articleIds)) {
-    articleIdToSet = args.articleIds.length > 0 ? args.articleIds[0] : null;
-  }
-
-  if (articleIdToSet !== undefined) {
-    await setNoteArticleId(id, articleIdToSet, auth.userId);
-  }
-
-  const data = await findRoteById(id);
-  const hasArticle = Boolean(data?.articleId || data?.article);
-  const contentProvided = Object.prototype.hasOwnProperty.call(args, 'content');
-  const contentForPreview = contentProvided ? args.content : data?.content;
-
-  if (hasArticle && articleIdToSet !== undefined) {
-    await deleteRoteLinkPreviewsByRoteId(id);
-  } else if (
-    (contentProvided || articleIdToSet !== undefined) &&
-    typeof contentForPreview === 'string'
-  ) {
-    const urls = extractUrlsFromContent(contentForPreview);
-    await deleteRoteLinkPreviewsByRoteId(id);
-    if (urls.length > 0 && !hasArticle) {
-      void parseAndStoreRoteLinkPreviews(id, contentForPreview).catch((error) => {
-        console.error('mcp_link_preview_update_failed', error);
-      });
-    }
-  }
-
-  return data;
+  return await updateUserNote(auth.userId, id, args);
 }
 
 export const noteTools: McpTool[] = [
@@ -155,11 +85,6 @@ export const noteTools: McpTool[] = [
   defineMcpTool('notes_delete', async (c, args) => {
     const auth = requireAuth(c);
     const id = assertUuid(args.id, 'note_id');
-    const data = await deleteRote({ id, authorid: auth.userId });
-    await deleteRoteAttachmentsByRoteId(id, auth.userId);
-    void deleteEmbeddingsForSource('rote', id).catch((error) => {
-      console.error('mcp_rote_embedding_delete_failed', error);
-    });
-    return data;
+    return await deleteUserNote(auth.userId, id);
   }),
 ];

@@ -1,6 +1,6 @@
 import type { StorageConfig } from '../types/config';
 import { getGlobalConfig } from '../utils/config';
-import mcpErrors from './errorCodes.json';
+import attachmentErrors from './errorCodes.json';
 
 export type PresignFileInput = {
   filename?: string;
@@ -39,7 +39,7 @@ export function requireStorageAvailable() {
     !storageConfig.secretAccessKey ||
     !storageConfig.bucket
   ) {
-    throw new Error(mcpErrors.storageNotConfigured);
+    throw new Error(attachmentErrors.storageNotConfigured);
   }
   return storageConfig;
 }
