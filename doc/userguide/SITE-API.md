@@ -268,7 +268,7 @@ curl -X GET 'https://your-domain.com/v2/api/site/config-status'
 
 ---
 
-### 探索页可见性与邮箱验证策略说明
+### 探索页可见性与用户认证策略说明
 
 探索页中公开笔记的展示，除了依赖笔记本身为 `public` 状态外，还受到以下两个配置的共同影响：
 
@@ -277,8 +277,8 @@ curl -X GET 'https://your-domain.com/v2/api/site/config-status'
     - 当为 `false` 时，用户的公开笔记不会出现在「探索」页推荐中，但仍可以通过直接链接访问。
 
 - **系统级安全配置**（仅管理员可在管理后台 / Admin API 中配置）
-  - `security.requireVerifiedEmailForExplore`: boolean
-    - 当为 `true` 时，只有**邮箱已验证** (`emailVerified = true`) 且 `allowExplore !== false` 的用户，其公开笔记才会被纳入探索页候选集合。
+  - `security.requireCertifiedUserForExplore`: boolean
+    - 当为 `true` 时，只有**已认证** (`certified = true`) 且 `allowExplore !== false` 的用户，其公开笔记才会被纳入探索页候选集合。
     - 当为 `false` 时，只要 `allowExplore !== false`，公开笔记即可参与探索页展示。
 
 实现层面，探索页相关接口在数据库查询阶段就会同时考虑上述两个条件进行过滤，从而保证：

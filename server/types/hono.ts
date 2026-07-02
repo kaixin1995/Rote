@@ -3,7 +3,10 @@ import { Context } from 'hono';
 // 安全用户类型（不包含敏感信息）
 export type SafeUser = {
   id: string;
+  certified: boolean;
   emailVerified: boolean;
+  passwordhash: Buffer | null;
+  salt: Buffer | null;
   email: string;
   username: string;
   nickname: string | null;

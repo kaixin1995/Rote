@@ -127,7 +127,7 @@ function UserPage() {
               />
               <span className="inline-flex items-center gap-1">
                 {userInfo?.nickname || userInfo?.username}
-                {userInfo?.emailVerified && <VerifiedIcon className="text-theme size-4 shrink-0" />}
+                {userInfo?.certified && <VerifiedIcon className="text-theme size-4 shrink-0" />}
               </span>
             </>
           }
@@ -157,7 +157,7 @@ function UserPage() {
           <div className="mx-4 flex flex-col gap-1">
             <div className="inline-flex items-center gap-1 text-2xl font-semibold">
               {userInfo?.nickname}
-              {userInfo?.emailVerified && <VerifiedIcon className="text-theme size-5 shrink-0" />}
+              {userInfo?.certified && <VerifiedIcon className="text-theme size-5 shrink-0" />}
             </div>
             <div className="text-info text-base">@{userInfo?.username}</div>
             <div className="text-base">

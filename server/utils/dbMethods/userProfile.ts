@@ -90,7 +90,7 @@ export async function getUserInfoByUsername(username: string): Promise<{
   username: string;
   createdAt: Date;
   description: string | null;
-  emailVerified: boolean;
+  certified: boolean;
 }> {
   try {
     const [user] = await db
@@ -102,7 +102,7 @@ export async function getUserInfoByUsername(username: string): Promise<{
         username: users.username,
         createdAt: users.createdAt,
         description: users.description,
-        emailVerified: users.emailVerified,
+        certified: users.emailVerified,
       })
       .from(users)
       .where(eq(users.username, username))
@@ -123,7 +123,7 @@ export async function getUserInfoByUsername(username: string): Promise<{
 
 export async function getMyProfile(userId: string): Promise<{
   id: string;
-  emailVerified: boolean;
+  certified: boolean;
   email: string;
   username: string;
   nickname: string | null;
@@ -156,7 +156,7 @@ export async function getMyProfile(userId: string): Promise<{
 
     return {
       id: user.id,
-      emailVerified: user.emailVerified,
+      certified: user.emailVerified,
       email: user.email,
       username: user.username,
       nickname: user.nickname,

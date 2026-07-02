@@ -386,7 +386,7 @@ When generating or updating an API Key, you can specify which permissions it sho
   "data": {
     "id": "user_id",
     "email": "user@example.com",
-    "emailVerified": true,
+    "certified": true,
     "username": "username",
     "nickname": "User Nickname",
     "description": "User description",

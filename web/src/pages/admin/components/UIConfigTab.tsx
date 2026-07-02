@@ -38,6 +38,26 @@ export default function UIConfigTab({
 }: UIConfigTabProps) {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.admin' });
   const { mutate: globalMutate } = useSWRConfig();
+  // TODO: 下下次更新移除 requireVerifiedEmailForExplore 旧配置键兼容。
+  const requireCertifiedUserForExplore =
+    securityConfig?.requireCertifiedUserForExplore ??
+    securityConfig?.requireVerifiedEmailForExplore ??
+    false;
+  const withRequireCertifiedUserForExplore = (checked: boolean): SystemConfig['security'] => {
+    const rest = { ...(securityConfig || {}) };
+    delete rest.requireVerifiedEmailForExplore;
+    return {
+      ...rest,
+      requireCertifiedUserForExplore: checked,
+    };
+  };
+  const getSecurityConfigForSave = (): SystemConfig['security'] => {
+    const config = { ...(securityConfig || { requireCertifiedUserForExplore: false }) };
+    config.requireCertifiedUserForExplore =
+      config.requireCertifiedUserForExplore ?? config.requireVerifiedEmailForExplore ?? false;
+    delete config.requireVerifiedEmailForExplore;
+    return config;
+  };
 
   const handleSave = async () => {
     // 验证必填字段
@@ -79,7 +99,7 @@ export default function UIConfigTab({
         }),
         put('/admin/settings', {
           group: 'security',
-          config: securityConfig || { requireVerifiedEmailForExplore: false },
+          config: getSecurityConfigForSave(),
         }),
       ]);
       toast.success(t('saveSuccess'));
@@ -137,18 +157,15 @@ export default function UIConfigTab({
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label>{t('security.requireVerifiedEmailForExplore')}</Label>
+            <Label>{t('security.requireCertifiedUserForExplore')}</Label>
             <p className="text-muted-foreground text-sm">
-              {t('security.requireVerifiedEmailForExploreDesc')}
+              {t('security.requireCertifiedUserForExploreDesc')}
             </p>
           </div>
           <Switch
-            checked={securityConfig?.requireVerifiedEmailForExplore ?? false}
+            checked={requireCertifiedUserForExplore}
             onCheckedChange={(checked) =>
-              setSecurityConfig({
-                ...(securityConfig || {}),
-                requireVerifiedEmailForExplore: checked,
-              })
+              setSecurityConfig(withRequireCertifiedUserForExplore(checked))
             }
           />
         </div>

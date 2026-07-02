@@ -67,7 +67,7 @@ function MineFilter() {
   const profile = useAtomValue(profileAtom);
   const loadTags = useSetAtom(loadTagsAtom);
   const { data: siteStatus } = useSiteStatus();
-  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.emailVerified === true;
+  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.certified === true;
 
   useEffect(() => {
     if (tags === null) loadTags();

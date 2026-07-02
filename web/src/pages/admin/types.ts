@@ -21,6 +21,8 @@ export interface SystemConfig {
     region?: string;
   };
   security?: {
+    requireCertifiedUserForExplore?: boolean;
+    // TODO: 下下次更新移除 requireVerifiedEmailForExplore 旧配置键兼容。
     requireVerifiedEmailForExplore?: boolean;
     oauth?: {
       enabled?: boolean;

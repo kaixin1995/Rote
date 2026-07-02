@@ -3,18 +3,42 @@ import { authenticateJWT, requireAdmin, requireSuperAdmin } from '../../middlewa
 import type { HonoContext, HonoVariables } from '../../types/hono';
 import { UserRole } from '../../types/main';
 import {
+  certifyUser,
   deleteUserById,
   getDashboardStats,
   getRoleStats,
   getUserByIdForAdmin,
   listUsers,
-  unverifyUserEmail,
+  uncertifyUser,
   updateUserRole,
-  verifyUserEmail,
 } from '../../utils/dbMethods';
 import { createResponse } from '../../utils/main';
 
 const adminUsersRouter = new Hono<{ Variables: HonoVariables }>();
+
+async function handleCertifyUser(c: HonoContext) {
+  const userId = c.req.param('userId');
+
+  const user = await certifyUser(userId);
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return c.json(createResponse(user, 'User certified successfully'), 200);
+}
+
+async function handleUncertifyUser(c: HonoContext) {
+  const userId = c.req.param('userId');
+
+  const user = await uncertifyUser(userId);
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return c.json(createResponse(user, 'User certification removed successfully'), 200);
+}
 
 // 获取数据看板统计（管理员）
 adminUsersRouter.get('/stats/dashboard', authenticateJWT, requireAdmin, async (c: HonoContext) => {
@@ -98,40 +122,20 @@ adminUsersRouter.delete(
   }
 );
 
-// 验证用户邮箱（管理员）
+// 用户认证（管理员）
 adminUsersRouter.put(
-  '/users/:userId/verify-email',
+  '/users/:userId/certification',
   authenticateJWT,
   requireAdmin,
-  async (c: HonoContext) => {
-    const userId = c.req.param('userId');
-
-    const user = await verifyUserEmail(userId);
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    return c.json(createResponse(user, 'User email verified successfully'), 200);
-  }
+  handleCertifyUser
 );
 
-// 取消验证用户邮箱（管理员）
-adminUsersRouter.put(
-  '/users/:userId/unverify-email',
+// 取消用户认证（管理员）
+adminUsersRouter.delete(
+  '/users/:userId/certification',
   authenticateJWT,
   requireAdmin,
-  async (c: HonoContext) => {
-    const userId = c.req.param('userId');
-
-    const user = await unverifyUserEmail(userId);
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    return c.json(createResponse(user, 'User email unverified successfully'), 200);
-  }
+  handleUncertifyUser
 );
 
 // 获取角色统计信息（管理员）

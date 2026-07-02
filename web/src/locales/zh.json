@@ -548,7 +548,7 @@
         "checking": "检测中...",
         "ready": "配置已就绪",
         "chatReady": "对话模型已配置",
-        "unverified": "验证邮箱后可使用 AI",
+        "unverified": "完成认证后可使用 AI",
         "permissionDenied": "当前账号没有站内云端 AI 对话权限",
         "unavailable": "AI 或向量索引暂不可用",
         "memoryUnavailable": "对话模型已配置，AI 记忆还需要启用向量索引"
@@ -1126,9 +1126,9 @@
       },
       "security": {
         "title": "安全配置",
-        "description": "配置与安全相关的策略，例如邮箱验证要求等。",
-        "requireVerifiedEmailForExplore": "仅允许已验证邮箱的用户出现在探索页",
-        "requireVerifiedEmailForExploreDesc": "开启后，只有邮箱已验证的用户，其公开笔记才会被推荐到「探索」页面；已公开的笔记仍可通过链接访问。"
+        "description": "配置与安全相关的策略，例如账号认证要求等。",
+        "requireCertifiedUserForExplore": "仅允许已认证用户出现在探索页",
+        "requireCertifiedUserForExploreDesc": "开启后，只有已认证用户的公开笔记才会被推荐到「探索」页面；已公开的笔记仍可通过链接访问。"
       },
       "oauth": {
         "title": "OAuth 登录配置",
@@ -1246,10 +1246,10 @@
         "searchPlaceholder": "搜索用户名、邮箱或昵称",
         "noUsers": "暂无用户",
         "noUsersFound": "未找到匹配的用户",
-        "verifyEmailSuccess": "邮箱验证成功",
-        "verifyEmailFailed": "邮箱验证失败: {{error}}",
-        "unverifyEmailSuccess": "取消邮箱验证成功",
-        "unverifyEmailFailed": "取消邮箱验证失败: {{error}}",
+        "certifyUserSuccess": "认证成功",
+        "certifyUserFailed": "认证失败: {{error}}",
+        "uncertifyUserSuccess": "取消认证成功",
+        "uncertifyUserFailed": "取消认证失败: {{error}}",
         "deleteSuccess": "用户删除成功",
         "deleteFailed": "用户删除失败: {{error}}",
         "table": {
@@ -1258,17 +1258,17 @@
           "email": "邮箱",
           "nickname": "昵称",
           "role": "角色",
-          "emailVerified": "邮箱验证",
+          "certification": "认证",
           "roteCount": "笔记数",
           "attachmentCount": "附件数",
           "createdAt": "创建时间",
           "actions": "操作",
-          "verified": "已验证",
-          "unverified": "未验证",
+          "certified": "已认证",
+          "uncertified": "未认证",
           "homepage": "主页",
           "permissions": "配置权限",
-          "verifyEmail": "验证邮箱",
-          "unverifyEmail": "取消验证",
+          "certify": "认证",
+          "uncertify": "取消认证",
           "delete": "删除"
         },
         "pagination": {
@@ -1528,7 +1528,7 @@
       "votePrompt": "来一票吧，球球啦 🥺！"
     },
     "verifiedIcon": {
-      "tooltip": "已验证邮箱"
+      "tooltip": "已认证"
     },
     "attachments": {
       "livePhoto": {

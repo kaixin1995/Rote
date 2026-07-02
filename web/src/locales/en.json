@@ -558,7 +558,7 @@
         "checking": "Checking...",
         "ready": "Configuration ready",
         "chatReady": "Chat model configured",
-        "unverified": "Verify your email to use AI",
+        "unverified": "Complete certification to use AI",
         "permissionDenied": "This account does not have permission to use site cloud AI chat",
         "unavailable": "AI or vector index is not available",
         "memoryUnavailable": "The chat model is configured, but AI memory still needs vector indexing"
@@ -1136,9 +1136,9 @@
       },
       "security": {
         "title": "Security Configuration",
-        "description": "Configure security-related policies, such as email verification requirements.",
-        "requireVerifiedEmailForExplore": "Only allow users with verified email to appear in Explore",
-        "requireVerifiedEmailForExploreDesc": "When enabled, only users with verified email will have their public notes recommended in the Explore page; existing public notes remain accessible via direct links."
+        "description": "Configure security-related policies, such as account certification requirements.",
+        "requireCertifiedUserForExplore": "Only allow certified users to appear in Explore",
+        "requireCertifiedUserForExploreDesc": "When enabled, only certified users will have their public notes recommended in the Explore page; existing public notes remain accessible via direct links."
       },
       "oauth": {
         "title": "OAuth Login Configuration",
@@ -1256,10 +1256,10 @@
         "searchPlaceholder": "Search by username, email, or nickname",
         "noUsers": "No users yet",
         "noUsersFound": "No matching users found",
-        "verifyEmailSuccess": "Email verified successfully",
-        "verifyEmailFailed": "Email verification failed: {{error}}",
-        "unverifyEmailSuccess": "Email verification cancelled successfully",
-        "unverifyEmailFailed": "Failed to cancel email verification: {{error}}",
+        "certifyUserSuccess": "User certified successfully",
+        "certifyUserFailed": "Certification failed: {{error}}",
+        "uncertifyUserSuccess": "Certification removed successfully",
+        "uncertifyUserFailed": "Failed to remove certification: {{error}}",
         "deleteSuccess": "User deleted successfully",
         "deleteFailed": "User deletion failed: {{error}}",
         "table": {
@@ -1268,17 +1268,17 @@
           "email": "Email",
           "nickname": "Nickname",
           "role": "Role",
-          "emailVerified": "Email Verified",
+          "certification": "Certification",
           "roteCount": "Notes",
           "attachmentCount": "Attachments",
           "createdAt": "Created At",
           "actions": "Actions",
-          "verified": "Verified",
-          "unverified": "Unverified",
+          "certified": "Certified",
+          "uncertified": "Uncertified",
           "homepage": "Homepage",
           "permissions": "Configure Permissions",
-          "verifyEmail": "Verify Email",
-          "unverifyEmail": "Cancel Verification",
+          "certify": "Certify",
+          "uncertify": "Remove Certification",
           "delete": "Delete"
         },
         "pagination": {
@@ -1538,7 +1538,7 @@
       "votePrompt": "Support us by voting on Product Hunt! 🥺 "
     },
     "verifiedIcon": {
-      "tooltip": "Verified Email"
+      "tooltip": "Certified"
     },
     "attachments": {
       "livePhoto": {

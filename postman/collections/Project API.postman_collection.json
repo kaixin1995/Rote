@@ -2446,7 +2446,7 @@
           "response": []
         },
         {
-          "name": "Verify User Email",
+          "name": "Certify User",
           "id": "2102556f-ca2b-4c8c-8790-71ccf8434302",
           "request": {
             "method": "PUT",
@@ -2457,7 +2457,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/v2/api/admin/users/:userId/verify-email",
+              "raw": "{{base_url}}/v2/api/admin/users/:userId/certification",
               "host": ["{{base_url}}"],
               "path": [
                 "v2",
@@ -2465,7 +2465,7 @@
                 "admin",
                 "users",
                 ":userId",
-                "verify-email"
+                "certification"
               ],
               "variable": [
                 {
@@ -2474,7 +2474,7 @@
                 }
               ]
             },
-            "description": "Manually verify a user's email. Requires admin role."
+            "description": "Manually certify a user. Requires admin role."
           },
           "response": []
         },

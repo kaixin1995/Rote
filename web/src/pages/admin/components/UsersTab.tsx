@@ -54,7 +54,7 @@ interface User {
   nickname: string | null;
   avatar: string | null;
   role: string;
-  emailVerified: boolean;
+  certified: boolean;
   roteCount: number;
   attachmentCount: number;
   createdAt: string;
@@ -83,7 +83,7 @@ export default function UsersTab() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
+  const [certificationUserId, setCertificationUserId] = useState<string | null>(null);
   const [permissionUser, setPermissionUser] = useState<User | null>(null);
 
   const isSuperAdmin = profile?.role === 'super_admin';
@@ -115,11 +115,11 @@ export default function UsersTab() {
     setCurrentPage(1); // 排序改变时重置到第一页
   };
 
-  const handleVerifyEmail = async (userId: string) => {
-    setVerifyingUserId(userId);
+  const handleCertifyUser = async (userId: string) => {
+    setCertificationUserId(userId);
     try {
-      await put(`/admin/users/${userId}/verify-email`);
-      toast.success(t('verifyEmailSuccess'));
+      await put(`/admin/users/${userId}/certification`);
+      toast.success(t('certifyUserSuccess'));
       mutate();
     } catch (error: any) {
       const errorMessage =
@@ -127,17 +127,17 @@ export default function UsersTab() {
         error?.message ||
         error?.response?.data?.error ||
         'Unknown error';
-      toast.error(t('verifyEmailFailed', { error: errorMessage }));
+      toast.error(t('certifyUserFailed', { error: errorMessage }));
     } finally {
-      setVerifyingUserId(null);
+      setCertificationUserId(null);
     }
   };
 
-  const handleUnverifyEmail = async (userId: string) => {
-    setVerifyingUserId(userId);
+  const handleUncertifyUser = async (userId: string) => {
+    setCertificationUserId(userId);
     try {
-      await put(`/admin/users/${userId}/unverify-email`);
-      toast.success(t('unverifyEmailSuccess'));
+      await del(`/admin/users/${userId}/certification`);
+      toast.success(t('uncertifyUserSuccess'));
       mutate();
     } catch (error: any) {
       const errorMessage =
@@ -145,9 +145,9 @@ export default function UsersTab() {
         error?.message ||
         error?.response?.data?.error ||
         'Unknown error';
-      toast.error(t('unverifyEmailFailed', { error: errorMessage }));
+      toast.error(t('uncertifyUserFailed', { error: errorMessage }));
     } finally {
-      setVerifyingUserId(null);
+      setCertificationUserId(null);
     }
   };
 
@@ -244,7 +244,7 @@ export default function UsersTab() {
                     <TableHead>{t('table.email')}</TableHead>
                     <TableHead>{t('table.nickname')}</TableHead>
                     <TableHead>{t('table.role')}</TableHead>
-                    <TableHead>{t('table.emailVerified')}</TableHead>
+                    <TableHead>{t('table.certification')}</TableHead>
                     <TableHead className="whitespace-nowrap">{t('table.roteCount')}</TableHead>
                     <TableHead className="whitespace-nowrap">
                       {t('table.attachmentCount')}
@@ -284,15 +284,15 @@ export default function UsersTab() {
                         <Badge variant="outline">{user.role}</Badge>
                       </TableCell>
                       <TableCell>
-                        {user.emailVerified ? (
+                        {user.certified ? (
                           <Badge variant="default" className="gap-1">
                             <CheckCircle2 className="size-3" />
-                            {t('table.verified')}
+                            {t('table.certified')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="gap-1">
                             <X className="size-3" />
-                            {t('table.unverified')}
+                            {t('table.uncertified')}
                           </Badge>
                         )}
                       </TableCell>
@@ -321,29 +321,29 @@ export default function UsersTab() {
                               <KeyRound className="mr-2 size-4" />
                               {t('table.permissions')}
                             </DropdownMenuItem>
-                            {!user.emailVerified ? (
+                            {!user.certified ? (
                               <DropdownMenuItem
-                                onClick={() => handleVerifyEmail(user.id)}
-                                disabled={verifyingUserId === user.id}
+                                onClick={() => handleCertifyUser(user.id)}
+                                disabled={certificationUserId === user.id}
                               >
-                                {verifyingUserId === user.id ? (
+                                {certificationUserId === user.id ? (
                                   <Loader className="mr-2 size-4 animate-spin" />
                                 ) : (
                                   <CheckCircle2 className="mr-2 size-4" />
                                 )}
-                                {t('table.verifyEmail')}
+                                {t('table.certify')}
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
-                                onClick={() => handleUnverifyEmail(user.id)}
-                                disabled={verifyingUserId === user.id}
+                                onClick={() => handleUncertifyUser(user.id)}
+                                disabled={certificationUserId === user.id}
                               >
-                                {verifyingUserId === user.id ? (
+                                {certificationUserId === user.id ? (
                                   <Loader className="mr-2 size-4 animate-spin" />
                                 ) : (
                                   <Ban className="mr-2 size-4" />
                                 )}
-                                {t('table.unverifyEmail')}
+                                {t('table.uncertify')}
                               </DropdownMenuItem>
                             )}
                             {isSuperAdmin && (

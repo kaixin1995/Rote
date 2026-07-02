@@ -22,8 +22,16 @@ export default function OAuthProviderConfig({
   const { t } = useTranslation('translation', { keyPrefix: 'pages.admin' });
 
   const updateProviderConfig = (updates: any) => {
+    const baseConfig = { ...(securityConfig || {}) };
+    // TODO: 下下次更新移除 requireVerifiedEmailForExplore 旧配置键兼容。
+    baseConfig.requireCertifiedUserForExplore =
+      baseConfig.requireCertifiedUserForExplore ??
+      baseConfig.requireVerifiedEmailForExplore ??
+      false;
+    delete baseConfig.requireVerifiedEmailForExplore;
+
     setSecurityConfig({
-      ...(securityConfig || {}),
+      ...baseConfig,
       oauth: {
         ...(securityConfig?.oauth || { enabled: true }),
         providers: {

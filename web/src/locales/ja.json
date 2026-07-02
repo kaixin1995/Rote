@@ -562,7 +562,7 @@
         "checking": "確認中...",
         "ready": "設定準備完了",
         "chatReady": "チャットモデル設定済み",
-        "unverified": "メール確認後に AI を利用できます",
+        "unverified": "認証後に AI を利用できます",
         "permissionDenied": "このアカウントにはサイトのクラウド AI チャット権限がありません",
         "unavailable": "AI またはベクトル索引を利用できません",
         "memoryUnavailable": "チャットモデルは設定済みですが、AI メモリーにはベクトル索引が必要です"
@@ -1140,9 +1140,9 @@
       },
       "security": {
         "title": "セキュリティ設定",
-        "description": "メール確認要件などのセキュリティ関連ポリシーを設定",
-        "requireVerifiedEmailForExplore": "確認済みメールアドレスを持つユーザーのみ探索ページに表示",
-        "requireVerifiedEmailForExploreDesc": "有効にすると、確認済みメールアドレスを持つユーザーのみ、公開ノートが探索ページで推奨されます。既存の公開ノートは直接リンクで引き続きアクセス可能です。"
+        "description": "アカウント認証要件などのセキュリティ関連ポリシーを設定",
+        "requireCertifiedUserForExplore": "認証済みユーザーのみ探索ページに表示",
+        "requireCertifiedUserForExploreDesc": "有効にすると、認証済みユーザーのみ、公開ノートが探索ページで推奨されます。既存の公開ノートは直接リンクで引き続きアクセス可能です。"
       },
       "oauth": {
         "title": "OAuth ログイン設定",
@@ -1260,10 +1260,10 @@
         "searchPlaceholder": "ユーザー名、メールアドレス、またはニックネームで検索",
         "noUsers": "まだユーザーがいません",
         "noUsersFound": "一致するユーザーが見つかりません",
-        "verifyEmailSuccess": "メールアドレスの確認に成功しました",
-        "verifyEmailFailed": "メールアドレスの確認に失敗しました：{{error}}",
-        "unverifyEmailSuccess": "メール認証を解除しました",
-        "unverifyEmailFailed": "メール認証の解除に失敗しました: {{error}}",
+        "certifyUserSuccess": "認証しました",
+        "certifyUserFailed": "認証に失敗しました：{{error}}",
+        "uncertifyUserSuccess": "認証を解除しました",
+        "uncertifyUserFailed": "認証解除に失敗しました: {{error}}",
         "deleteSuccess": "ユーザーを削除しました",
         "deleteFailed": "ユーザーの削除に失敗しました：{{error}}",
         "table": {
@@ -1272,17 +1272,17 @@
           "email": "メールアドレス",
           "nickname": "ニックネーム",
           "role": "ロール",
-          "emailVerified": "メール確認済み",
+          "certification": "認証",
           "roteCount": "ノート数",
           "attachmentCount": "添付数",
           "createdAt": "作成日時",
           "actions": "操作",
-          "verified": "確認済み",
-          "unverified": "未確認",
+          "certified": "認証済み",
+          "uncertified": "未認証",
           "homepage": "ホームページ",
           "permissions": "権限を設定",
-          "verifyEmail": "メールを確認",
-          "unverifyEmail": "認証解除",
+          "certify": "認証",
+          "uncertify": "認証解除",
           "delete": "削除"
         },
         "pagination": {
@@ -1542,7 +1542,7 @@
       "votePrompt": "Product Huntで投票して応援してください！ 🥺"
     },
     "verifiedIcon": {
-      "tooltip": "確認済みメールアドレス"
+      "tooltip": "認証済み"
     },
     "attachments": {
       "livePhoto": {

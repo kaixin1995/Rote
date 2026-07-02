@@ -223,7 +223,7 @@ export async function mergeUserAccounts(
         updateData.cover = sourceUser.cover;
       }
 
-      // 邮箱验证状态（邮箱本身因唯一约束保留目标用户的）
+      // 用户认证状态（邮箱本身因唯一约束保留目标用户的）
       if (!targetUser.emailVerified && sourceUser.emailVerified) {
         updateData.emailVerified = true;
         shouldBackfillTargetEmbeddings = true;

@@ -53,7 +53,7 @@ export async function createAdminUser(data: {
     passwordhash,
     salt,
     nickname: data.nickname || data.username,
-    // 管理员账号默认视为邮箱已验证
+    // 管理员账号默认视为已认证
     emailVerified: true,
     role: 'super_admin',
     createdAt: sql`now()`,
@@ -120,7 +120,7 @@ export async function listUsers(params: {
         nickname: users.nickname,
         avatar: users.avatar,
         role: users.role,
-        emailVerified: users.emailVerified,
+        certified: users.emailVerified,
         roteCount:
           sql<number>`(SELECT COUNT(*)::int FROM rotes WHERE rotes.authorid = users.id)`.as(
             'roteCount'
@@ -215,7 +215,7 @@ export async function deleteUserById(userId: string) {
   return true;
 }
 
-export async function verifyUserEmail(userId: string) {
+export async function certifyUser(userId: string) {
   const [existingUser] = await db
     .select({ emailVerified: users.emailVerified })
     .from(users)
@@ -230,18 +230,18 @@ export async function verifyUserEmail(userId: string) {
       id: users.id,
       username: users.username,
       email: users.email,
-      emailVerified: users.emailVerified,
+      certified: users.emailVerified,
       updatedAt: users.updatedAt,
     });
   if (user && existingUser?.emailVerified === false) {
     void enqueueBackfillEmbeddingJobsForOwner(user.id).catch((error) => {
-      console.error('Failed to enqueue verified user embedding backfill:', error);
+      console.error('Failed to enqueue certified user embedding backfill:', error);
     });
   }
   return user;
 }
 
-export async function unverifyUserEmail(userId: string) {
+export async function uncertifyUser(userId: string) {
   const [user] = await db
     .update(users)
     .set({ emailVerified: false, updatedAt: new Date() })
@@ -250,7 +250,7 @@ export async function unverifyUserEmail(userId: string) {
       id: users.id,
       username: users.username,
       email: users.email,
-      emailVerified: users.emailVerified,
+      certified: users.emailVerified,
       updatedAt: users.updatedAt,
     });
   if (user) {
