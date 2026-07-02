@@ -57,7 +57,7 @@ export function StandardLoginPanel({
   return (
     <>
       <div className="mb-4">
-        <Logo className="w-32" color="#07C160" />
+        <Logo className="w-32" color="#3ECF4A" />
       </div>
 
       {backendStatusOk ? (

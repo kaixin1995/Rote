@@ -46,7 +46,7 @@ function MarkdownDocPage({ buildPath, loadingText = 'Loading document...' }: Mar
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/">
-              <Logo className="h-6 w-auto opacity-90" color="#07C160" />
+              <Logo className="h-6 w-auto opacity-90" color="#3ECF4A" />
             </Link>
           </div>
           <LanguageSwitcher />

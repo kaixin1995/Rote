@@ -21,7 +21,7 @@ export function IosAuthorizePanel({
   return (
     <>
       <div className="mb-4">
-        <Logo className="w-32" color="#07C160" />
+        <Logo className="w-32" color="#3ECF4A" />
       </div>
       <div className="bg-muted/50 w-full rounded-lg p-6">
         <h2 className="mb-4 text-lg"> {t('authorize.title')}</h2>

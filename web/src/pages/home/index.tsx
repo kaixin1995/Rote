@@ -29,7 +29,7 @@ function MainPageHeader({
   return (
     <div className="bg-background sticky top-0 z-10 flex items-center justify-between p-4 font-light text-gray-600">
       <div className="group flex cursor-pointer items-center gap-2" onClick={refreshData}>
-        <Logo className="h-5 w-auto" color="#07C160" />
+        <Logo className="h-5 w-auto" color="#3ECF4A" />
         <img
           className="text-theme mb-[2px] ml-2 h-3 opacity-0 duration-300 group-hover:opacity-100"
           src={slogenImg}

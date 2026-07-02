@@ -41,7 +41,7 @@ export default function Logo({ className, color }: { className?: string; color?:
           y2="-60.6534"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#07C160" />
+          <stop stopColor="#3ECF4A" />
           <stop offset="0.328125" stopColor="#3ECF4A" stopOpacity="0.96" />
           <stop offset="0.666667" stopColor="#99E626" stopOpacity="0.400734" />
           <stop offset="1" stopColor="#FAFF00" stopOpacity="0" />

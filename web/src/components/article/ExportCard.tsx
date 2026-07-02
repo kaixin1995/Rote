@@ -81,7 +81,7 @@ export default function ExportCard({ content, author, onReady }: ExportCardProps
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <img src="/ico.svg" alt="Rote" style={{ width: 16, height: 16 }} />
-          <span style={{ fontWeight: 600, color: '#07C160' }}>Rote</span>
+          <span style={{ fontWeight: 600, color: '#3ECF4A' }}>Rote</span>
         </div>
       </div>
     </div>

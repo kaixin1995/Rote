@@ -37,7 +37,7 @@ const Heatmap: React.FC = () => {
     }
   );
 
-  const colors = ['#cccccc20', '#07C16030', '#07C16050', '#07C16070', '#07C16090', '#07C160'];
+  const colors = ['#cccccc20', '#3ECF4A30', '#3ECF4A50', '#3ECF4A70', '#3ECF4A90', '#3ECF4A'];
 
   const daysOfWeek = [
     t('daysOfWeek.Sun'),
