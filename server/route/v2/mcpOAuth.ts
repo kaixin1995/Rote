@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Hono } from 'hono';
 import mainJson from '../../json/main.json';
+import { resolveClientInitiatedOAuthClient } from '../../oauth/clientMetadata';
 import messages from '../../oauth/messages.json';
 import {
   consumeOAuthAuthorizationCode,
@@ -108,7 +109,7 @@ oauthRouter.get('/authorize', (c: HonoContext) =>
     if (codeChallengeMethod !== 'S256')
       oauthError(messages.errors.invalidRequest, messages.onlyPkceS256);
 
-    const client = await findOAuthClient(clientId);
+    const client = await resolveClientInitiatedOAuthClient(clientId, { redirectUri });
     if (!client) oauthError(messages.errors.invalidClient, messages.clientNotFound);
     if (!client.redirectUris.includes(redirectUri))
       oauthError(messages.errors.invalidRequest, messages.redirectUriMismatch);
