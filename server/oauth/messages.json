@@ -40,6 +40,7 @@
   "codes": {
     "decisionRequired": "oauth_decision_required",
     "jwtNotConfigured": "jwt_not_configured",
+    "clientMetadataInvalidPrefix": "client_metadata_invalid:",
     "requestIdRequired": "request_id_required",
     "redirectUriFragmentForbidden": "redirect_uri_fragment_forbidden",
     "redirectUriInvalid": "redirect_uri_invalid",

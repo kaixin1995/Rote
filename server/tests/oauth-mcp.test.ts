@@ -9,10 +9,12 @@ import {
 } from './oauthMcp/common.test';
 import { authorizeAndExchange } from './oauthMcp/flow.test';
 import {
+  testClientInitiatedNativeClientFlow,
   testAuthorizeValidation,
   testDenyFlow,
   testMetadata,
 } from './oauthMcp/metadataAuthorization.test';
+import { testClientMetadataDocumentSupport } from './oauthMcp/clientMetadata.test';
 import { testInsufficientScope, testMcpTools, testProtocol } from './oauthMcp/protocolTools.test';
 import {
   testPkceReuseAndAudience,
@@ -25,6 +27,8 @@ async function main() {
   await ensureInitialized();
   const appAccessToken = await loginOrRegister();
   await testMetadata();
+  await testClientMetadataDocumentSupport();
+  await testClientInitiatedNativeClientFlow(appAccessToken);
   const client = await registerClient();
   const codeChallenge = await sha256Base64Url(randomToken(48));
   await testAuthorizeValidation(client.client_id, codeChallenge);

@@ -79,7 +79,38 @@ export function assertValidRedirectUri(value: string): void {
     return;
   }
 
+  if (isPrivateUseRedirectUri(value)) {
+    return;
+  }
+
   throw new Error(messages.codes.redirectUriSchemeForbidden);
+}
+
+export function isPrivateUseRedirectUri(value: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+
+  if (parsed.hash) return false;
+  const scheme = parsed.protocol.slice(0, -1).toLowerCase();
+  const blockedSchemes = new Set([
+    'about',
+    'blob',
+    'data',
+    'file',
+    'ftp',
+    'http',
+    'https',
+    'javascript',
+    'mailto',
+  ]);
+  if (blockedSchemes.has(scheme)) return false;
+  if (!/^[a-z][a-z0-9+.-]{2,63}$/.test(scheme)) return false;
+
+  return Boolean(parsed.hostname || parsed.pathname);
 }
 
 export async function parseFormBody(c: HonoContext): Promise<Record<string, string>> {
