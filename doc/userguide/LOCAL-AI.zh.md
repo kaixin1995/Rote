@@ -54,7 +54,7 @@ bun run scripts/local-ai-bridge.ts
 
 ## 3. 在 Rote 中连接
 
-1. 登录 Rote 并进入 `AI 记忆`。
+1. 登录 Rote 并进入 `记忆`。
 2. 选择 `本地模型`。
 3. 填写：
    - 桥接器地址：`http://127.0.0.1:11435`

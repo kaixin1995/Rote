@@ -1,5 +1,5 @@
 /**
- * AI Memory Integration Tests
+ * Memory Integration Tests
  *
  * 直接调用 prepareRoteChatContext + createChatCompletionStream，
  * 验证完整的 LLM Planner → pgvector 检索 → Chat 补全 pipeline。

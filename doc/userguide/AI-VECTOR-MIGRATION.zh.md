@@ -1,6 +1,6 @@
 # 旧版线上数据库迁移到 AI Vector 特性指南
 
-本文档面向已经在线上运行 Rote 的自托管实例，说明如何从旧版普通 PostgreSQL 数据库升级到支持 AI 记忆、语义搜索和 pgvector 的新版。
+本文档面向已经在线上运行 Rote 的自托管实例，说明如何从旧版普通 PostgreSQL 数据库升级到支持记忆、语义搜索和 pgvector 的新版。
 
 新版会新增 `document_embeddings` 和 `embedding_jobs` 两张表。原有笔记、文章、用户、配置等业务数据不会被重写。AI、向量存储和公开 Explore 语义检索默认关闭，必须由管理员在后台显式开启。
 
@@ -10,7 +10,7 @@
 
 - 旧版使用 `docker-compose.yml` 或 `docker-compose.build.yml` 部署。
 - 数据库容器原来使用 `postgres:17` 或旧版 compose 默认 PostgreSQL 镜像。
-- 希望升级到新版 AI 记忆、相关笔记、语义搜索、RAG 对话能力。
+- 希望升级到新版记忆、相关笔记、语义搜索、RAG 对话能力。
 
 不适用于 PostgreSQL 大版本迁移。本文默认旧库和新库都保持 PostgreSQL 17。不要在同一个数据卷上跨 PostgreSQL 大版本直接换镜像。
 

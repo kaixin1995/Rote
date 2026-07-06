@@ -3,7 +3,7 @@ import { getPgvectorStatus, getStoredAiConfig } from '../utils/dbMethods/ai';
 import { getEffectiveCapabilitiesForUser } from './capabilityService';
 
 export const AI_CERTIFICATION_REQUIRED_MESSAGE = 'AI features require a certified account';
-export const AI_MEMORY_UNAVAILABLE_MESSAGE = 'AI memory tools are not available';
+export const AI_MEMORY_UNAVAILABLE_MESSAGE = 'Memory tools are not available';
 
 type AiAccessUser = {
   id: string;

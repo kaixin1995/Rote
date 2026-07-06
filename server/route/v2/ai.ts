@@ -258,7 +258,7 @@ aiRouter.post('/site/test', authenticateJWT, async (c: HonoContext) => {
         ? 'Site chat model works, but tool calling was not detected'
         : vectorAvailable
           ? 'Site AI test successful'
-          : 'Site chat model works, but AI memory vector index is not ready'
+          : 'Site chat model works, but memory vector index is not ready'
     ),
     200
   );
