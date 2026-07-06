@@ -35,7 +35,7 @@
         }
       },
       "aiMemory": {
-        "tagline": "AI MEMORY",
+        "tagline": "MEMORY",
         "title": "ノートを会話できる AGENT に",
         "subtitle": "記録した内容をベクトル化し、エージェント設計で自分の記憶を扱えるようにします。",
         "features": {
@@ -45,7 +45,7 @@
           },
           "sources": {
             "title": "自己探索",
-            "description": "AI メモリーで自分のノートを探索し、自分でも気づかなかった小さな発見に出会えます"
+            "description": "メモリーで自分のノートを探索し、自分でも気づかなかった小さな発見に出会えます"
           },
           "agent": {
             "title": "関連ノート",
@@ -88,7 +88,7 @@
           },
           "sourceTitle": "引用元",
           "sources": [
-            "AI メモリーはほぼ使えるようになったけれど、残念なお知らせがひとつ。AI は私を ENFP だと思っていて、それがとても不満 😡",
+            "メモリーはほぼ使えるようになったけれど、残念なお知らせがひとつ。AI は私を ENFP だと思っていて、それがとても不満 😡",
             "この数日 iOS 17 対応をしていて、それが良い判断なのか考えている。作業量はかなり大きいし、奇妙なバグも多い。システム側の問題かもしれないし、iOS 17 の実機がなくてシミュレーターのバグかもしれない。さらにコードの負担も増えていくかもしれない。",
             "MBTI 16 タイプ、結婚適齢期、INFJ が見たら一瞬で固まる",
             "Tags: 生活, 自己調整",
@@ -160,7 +160,7 @@
       "leftNavBar": {
         "home": "ホーム",
         "explore": "探索",
-        "aiMemory": "AI メモリー",
+        "aiMemory": "メモリー",
         "archived": "アーカイブ",
         "profile": "プロフィール",
         "experiment": "実験",
@@ -499,7 +499,7 @@
       }
     },
     "aiMemory": {
-      "title": "AI メモリー",
+      "title": "メモリー",
       "sideBarTitle": "アシスタントパネル",
       "send": "送信",
       "clear": "チャットをクリア",
@@ -522,8 +522,8 @@
       },
       "saveAsArticle": "記事として保存",
       "saved": "保存済み",
-      "savedArticleTitle": "AI メモリー回答",
-      "savedArticleNoteContent": "AI メモリー回答",
+      "savedArticleTitle": "メモリー回答",
+      "savedArticleNoteContent": "メモリー回答",
       "savedSourceTitle": "ソース",
       "actions": {
         "copy": "コピー",
@@ -565,7 +565,7 @@
         "unverified": "認証後に AI を利用できます",
         "permissionDenied": "このアカウントにはサイトのクラウド AI チャット権限がありません",
         "unavailable": "AI またはベクトル索引を利用できません",
-        "memoryUnavailable": "チャットモデルは設定済みですが、AI メモリーにはベクトル索引が必要です"
+        "memoryUnavailable": "チャットモデルは設定済みですが、メモリーにはベクトル索引が必要です"
       },
       "model": {
         "source": "モデルソース",
@@ -580,7 +580,7 @@
       },
       "personal": {
         "title": "個人 AI 設定",
-        "description": "AI メモリーの回答に、サイトモデルまたは自分の OpenAI 互換モデル/API を選択します。",
+        "description": "メモリーの回答に、サイトモデルまたは自分の OpenAI 互換モデル/API を選択します。",
         "openSettings": "個人 AI 設定",
         "siteMode": "サイト AI",
         "siteModeDesc": "管理者が設定したモデルとベクトル索引を使います。",
@@ -602,7 +602,7 @@
         "probeConfigured": "設定済み",
         "probeMissing": "未準備",
         "siteProbeChecking": "サイト AI の状態を読み取っています。",
-        "siteProbeReady": "サイト AI チャットは利用できます。AI メモリーの可用性はベクトル索引の状態に依存します。",
+        "siteProbeReady": "サイト AI チャットは利用できます。メモリーの可用性はベクトル索引の状態に依存します。",
         "siteProbePartial": "サイトのチャットモデルと権限は設定済みですが、アカウント資格が未準備です。",
         "siteProbeMissing": "サイト AI はまだ利用できません。個人モデルを使うか管理者に連絡してください。",
         "personalProbeReady": "モデル/API は有効です。API をテストできます。回答時はこの設定を使用します。",
@@ -1251,7 +1251,7 @@
           "copy": "コマンドをコピー",
           "copySuccess": "コマンドをコピーしました",
           "copyFailed": "コピーに失敗しました",
-          "embeddingNote": "AI メモリーには埋め込みモデルも必要です。pgvector HNSW インデックスは 2000 次元以下が必要です。ローカル埋め込みがそれ以上の次元を返す場合は、ベクトルメモリーをオフにするか、低次元の埋め込みモデルを使用してください。"
+          "embeddingNote": "メモリーには埋め込みモデルも必要です。pgvector HNSW インデックスは 2000 次元以下が必要です。ローカル埋め込みがそれ以上の次元を返す場合は、ベクトルメモリーをオフにするか、低次元の埋め込みモデルを使用してください。"
         }
       },
       "users": {

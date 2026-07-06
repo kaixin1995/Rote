@@ -35,7 +35,7 @@
         }
       },
       "aiMemory": {
-        "tagline": "AI MEMORY",
+        "tagline": "MEMORY",
         "title": "让笔记成为可对话的 AGENT",
         "subtitle": "所有记录的内容向量化保存，加上智能体架构设计",
         "features": {
@@ -45,7 +45,7 @@
           },
           "sources": {
             "title": "自我探索",
-            "description": "使用 AI 记忆探索你的笔记，发现你自己都没意识到的小惊喜"
+            "description": "使用记忆探索你的笔记，发现你自己都没意识到的小惊喜"
           },
           "agent": {
             "title": "相关笔记",
@@ -80,7 +80,7 @@
           },
           "sourceTitle": "引用来源",
           "sources": [
-            "AI 记忆已经基本用了，但是有一个不幸的消息，他认为我是 ENFP，这个让我很不满意 😡",
+            "记忆已经基本用了，但是有一个不幸的消息，他认为我是 ENFP，这个让我很不满意 😡",
             "这两天在适配iOS17，在思考是否是个好主意，因为工程量确实挺大的，还有很多奇怪bug，目前怀疑可能是系统层面的问题，也可能是因为我没有iOS17的真机测试，模拟器的bug？以及还会导致代码包袱越来越重。",
             "mbti 16型人格，适婚年龄，INFJ 看完嘎巴一下就 4 了",
             "Tags: 生活, 自我调节",
@@ -146,7 +146,7 @@
       "leftNavBar": {
         "home": "首页",
         "explore": "探索",
-        "aiMemory": "AI 记忆",
+        "aiMemory": "记忆",
         "archived": "归档",
         "profile": "我的",
         "experiment": "实验",
@@ -485,7 +485,7 @@
       }
     },
     "aiMemory": {
-      "title": "AI 记忆",
+      "title": "记忆",
       "sideBarTitle": "助手面板",
       "send": "发送",
       "clear": "清空对话",
@@ -508,8 +508,8 @@
       },
       "saveAsArticle": "保存为文章",
       "saved": "已保存",
-      "savedArticleTitle": "AI 记忆回答",
-      "savedArticleNoteContent": "AI 记忆回答",
+      "savedArticleTitle": "记忆回答",
+      "savedArticleNoteContent": "记忆回答",
       "savedSourceTitle": "来源",
       "actions": {
         "copy": "复制",
@@ -551,7 +551,7 @@
         "unverified": "完成认证后可使用 AI",
         "permissionDenied": "当前账号没有站内云端 AI 对话权限",
         "unavailable": "AI 或向量索引暂不可用",
-        "memoryUnavailable": "对话模型已配置，AI 记忆还需要启用向量索引"
+        "memoryUnavailable": "对话模型已配置，记忆还需要启用向量索引"
       },
       "model": {
         "source": "模型来源",
@@ -566,7 +566,7 @@
       },
       "personal": {
         "title": "个人 AI 设置",
-        "description": "选择这次 AI 记忆问答使用站点模型，或使用你自己的 OpenAI-compatible 模型/API。",
+        "description": "选择这次记忆问答使用站点模型，或使用你自己的 OpenAI-compatible 模型/API。",
         "openSettings": "个人 AI 设置",
         "siteMode": "站点 AI",
         "siteModeDesc": "使用管理员在后台配置的模型和向量索引。",
@@ -588,7 +588,7 @@
         "probeConfigured": "已配置",
         "probeMissing": "未就绪",
         "siteProbeChecking": "正在读取站内 AI 状态。",
-        "siteProbeReady": "站内 AI 对话已就绪；AI 记忆是否可用取决于向量索引状态。",
+        "siteProbeReady": "站内 AI 对话已就绪；记忆是否可用取决于向量索引状态。",
         "siteProbePartial": "站内对话模型和权限已配置，但账号资格还未就绪。",
         "siteProbeMissing": "站内 AI 还不可用，请使用个人模型或联系管理员。",
         "personalProbeReady": "模型/API 已启用；可测试接口，回答时会使用该配置。",
@@ -1165,7 +1165,7 @@
       },
       "ai": {
         "title": "AI 相关",
-        "description": "配置模型供应商、语义索引和 Rote 记忆检索。",
+        "description": "配置模型供应商、语义索引和 Rote记忆检索。",
         "enabled": "启用 AI",
         "enabledDesc": "允许 AI 接口使用已配置的对话模型。",
         "vectorEnabled": "启用向量存储",
@@ -1237,7 +1237,7 @@
           "copy": "复制命令",
           "copySuccess": "命令已复制",
           "copyFailed": "复制失败",
-          "embeddingNote": "AI 记忆还需要 embedding 模型。pgvector HNSW 索引要求维度不超过 2000；如果本地 embedding 返回更高维度，请先关闭向量记忆或换用较低维度的 embedding 模型。"
+          "embeddingNote": "记忆还需要 embedding 模型。pgvector HNSW 索引要求维度不超过 2000；如果本地 embedding 返回更高维度，请先关闭向量记忆或换用较低维度的 embedding 模型。"
         }
       },
       "users": {

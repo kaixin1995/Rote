@@ -35,7 +35,7 @@
 - **Self-Hosted Deployment**: One-click deployment using Docker or Dokploy
 - **Separated Architecture**: Frontend and backend use separated architecture design, deploy only the services you need
 - **Markdown Articles**: Standalone Article support, can be referenced by notes, offering a pure writing and reading experience
-- **AI Memory**: Optional AI chat over your own notes and articles, with semantic search, related notes, streamed responses, and source references
+- **Memory**: Optional AI chat over your own notes and articles, with semantic search, related notes, streamed responses, and source references
 - **Admin-Controlled AI**: AI, vector storage, automatic indexing, and public semantic discovery are disabled by default and must be explicitly enabled by an administrator
 - **iOS Client**: More elegant App client
 
@@ -49,7 +49,7 @@ Copy [docker-compose.yml](docker-compose.yml) to your server with Docker and Doc
 >
 > Rote now uses `pgvector/pgvector:pg17-trixie` by default. It behaves like PostgreSQL 17 and additionally supports the optional AI vector extension. Plain `postgres:17` is only a temporary compatibility path and may not be supported by future Rote versions.
 >
-> `latest` is the stable image. If you are reading the develop branch documentation or testing unreleased AI Memory features, use `IMAGE_TAG=develop`.
+> `latest` is the stable image. If you are reading the develop branch documentation or testing unreleased Memory features, use `IMAGE_TAG=develop`.
 
 ```bash
 # 1. Create a .env file beside docker-compose.yml
@@ -85,7 +85,7 @@ After the containers are running:
 1. Open `http://<your-ip-address>:18001`.
 2. Complete the setup page and create the first administrator account.
 3. Sign in and configure site settings from the Admin dashboard.
-4. Optional: if your image tag includes AI Memory support, open `Admin -> AI Settings` to configure chat and embedding providers, enable pgvector, and backfill existing notes/articles.
+4. Optional: if your image tag includes Memory support, open `Admin -> AI Settings` to configure chat and embedding providers, enable pgvector, and backfill existing notes/articles.
 
 #### Method 2: Using Dokploy (Recommended)
 
@@ -104,9 +104,9 @@ The iOS app can connect to your self-hosted backend.
 2. Set `API Base` to your public backend URL (or reverse-proxy URL).
 3. Continue with the normal login flow.
 
-### AI Memory
+### Memory
 
-AI Memory is optional and disabled by default. It is available in the `develop` image and will be available in stable images after the next release that includes AI Memory. Administrators can enable it from `Admin -> AI Settings` after configuring chat and embedding providers. Rote supports OpenAI-compatible providers, including OpenAI, OpenRouter, Ollama / LM Studio, DeepSeek, SiliconFlow, DashScope / Qwen, Zhipu GLM, Moonshot / Kimi, Volcengine Ark, Tencent Hunyuan, Baidu Qianfan, and custom OpenAI-compatible endpoints.
+Memory is optional and disabled by default. It is available in the `develop` image and will be available in stable images after the next release that includes Memory. Administrators can enable it from `Admin -> AI Settings` after configuring chat and embedding providers. Rote supports OpenAI-compatible providers, including OpenAI, OpenRouter, Ollama / LM Studio, DeepSeek, SiliconFlow, DashScope / Qwen, Zhipu GLM, Moonshot / Kimi, Volcengine Ark, Tencent Hunyuan, Baidu Qianfan, and custom OpenAI-compatible endpoints.
 
 Only authenticated, email-verified users can use AI features. AI conversations stay in the current browser session and are not persisted to the database. Notes and articles are indexed only when AI vector storage and automatic indexing are enabled by an administrator.
 
@@ -117,7 +117,7 @@ For more deployment options and configuration instructions, please check the doc
 - [Self-Hosted Deployment Guide](https://rote.ink/doc/selfhosted) - Complete deployment and configuration guide
 - [API Documentation](doc/userguide/API-ENDPOINTS.md) - API interface usage guide
 - [API Key Guide](doc/userguide/API-KEY-GUIDE.md) - How to use API Key
-- [AI Vector Migration Guide](doc/userguide/AI-VECTOR-MIGRATION.zh.md) - Upgrade an existing self-hosted database to AI Memory and pgvector support (Chinese)
+- [AI Vector Migration Guide](doc/userguide/AI-VECTOR-MIGRATION.zh.md) - Upgrade an existing self-hosted database to Memory and pgvector support (Chinese)
 - [User-local AI Guide](doc/userguide/LOCAL-AI.zh.md) - Run Gemma on the user's own computer without sending model requests through the Rote server (Chinese)
 
 ### Video Tutorials (Bilibili)

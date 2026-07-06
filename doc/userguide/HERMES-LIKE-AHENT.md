@@ -827,7 +827,7 @@ Timeline 应该尽早出现，不等第一段回答文本。推荐规则：
 
 ```txt
 Sources
-- note_123: AI Memory Plan
+- note_123: Memory Plan
 - note_456: Rote 检索设计
 - article_789: Agent Runtime 草案
 ```

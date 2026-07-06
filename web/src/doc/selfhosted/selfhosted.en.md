@@ -106,7 +106,7 @@ Rote is configured via environment variables.
 More options (OAuth, file storage, mail service, etc.) can be configured in the admin UI after deployment.  
 On first launch, Rote will show an initialization wizard where you can complete the detailed setup.
 
-AI Memory and vector search are disabled by default. After deployment, an administrator can configure
+Memory and vector search are disabled by default. After deployment, an administrator can configure
 model providers and enable vector storage in the Admin dashboard. Before enabling vector storage on an
 existing instance, back up the database and make sure the database image supports pgvector.
 

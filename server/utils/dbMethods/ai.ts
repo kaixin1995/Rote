@@ -118,7 +118,7 @@ export async function getOwnerAiMemoryStats(ownerId: string): Promise<{
       indexedRoteCount: Number(indexedRoteRows[0]?.count) || 0,
     };
   } catch (error: any) {
-    throw new DatabaseError('Failed to get AI memory stats', error);
+    throw new DatabaseError('Failed to get memory stats', error);
   }
 }
 
