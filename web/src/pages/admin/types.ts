@@ -38,6 +38,11 @@ export interface SystemConfig {
     allowUploadFile?: boolean;
     maxVideoUploadSizeMB?: number;
   };
+  notification?: {
+    vapidPublicKey?: string;
+    vapidPrivateKey?: string;
+    adminHooks?: AdminHooksConfig;
+  };
   ai?: {
     enabled?: boolean;
     vectorEnabled?: boolean;
@@ -55,6 +60,43 @@ export interface SystemConfig {
       paused?: boolean;
     };
   };
+}
+
+export type AdminHookEvent = 'user.registered' | 'note.public.created';
+
+export type AdminHookChannel =
+  | {
+      enabled: boolean;
+      events: AdminHookEvent[];
+      group?: string;
+      icon?: string;
+      id: string;
+      key: string;
+      name: string;
+      serverUrl?: string;
+      sound?: string;
+      type: 'bark';
+    }
+  | {
+      enabled: boolean;
+      events: AdminHookEvent[];
+      headers?: Record<string, string>;
+      id: string;
+      name: string;
+      type: 'http';
+      url: string;
+    }
+  | {
+      enabled: boolean;
+      events: AdminHookEvent[];
+      id: string;
+      name: string;
+      type: 'admin_pwa';
+    };
+
+export interface AdminHooksConfig {
+  enabled: boolean;
+  channels: AdminHookChannel[];
 }
 
 export interface AiProviderConfig {

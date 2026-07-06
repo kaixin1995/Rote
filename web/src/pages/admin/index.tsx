@@ -4,7 +4,17 @@ import { Button } from '@/components/ui/button';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
 import { useAuthState } from '@/state/profile';
 import { get } from '@/utils/api';
-import { Activity, Brain, Database, Globe, KeyRound, Settings, Shield, Users } from 'lucide-react';
+import {
+  Activity,
+  BellRing,
+  Brain,
+  Database,
+  Globe,
+  KeyRound,
+  Settings,
+  Shield,
+  Users,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
@@ -16,6 +26,7 @@ import StorageConfigTab from './components/StorageConfigTab';
 import UIConfigTab from './components/UIConfigTab';
 import UsersTab from './components/UsersTab';
 import DashboardTab from './components/DashboardTab';
+import HooksConfigTab from './components/HooksConfigTab';
 import type { SystemConfig } from './types';
 
 export default function AdminDashboard() {
@@ -24,7 +35,7 @@ export default function AdminDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'site' | 'storage' | 'ui' | 'oauth' | 'users' | 'ai' | 'permissions'
+    'ai' | 'dashboard' | 'hooks' | 'oauth' | 'permissions' | 'site' | 'storage' | 'ui' | 'users'
   >('dashboard');
 
   const {
@@ -49,6 +60,9 @@ export default function AdminDashboard() {
     undefined
   );
   const [aiConfig, setAiConfig] = useState<SystemConfig['ai'] | undefined>(undefined);
+  const [notificationConfig, setNotificationConfig] = useState<
+    SystemConfig['notification'] | undefined
+  >(undefined);
 
   useEffect(() => {
     if (configs) {
@@ -79,6 +93,16 @@ export default function AdminDashboard() {
         }
       );
       setAiConfig(configs.ai);
+      setNotificationConfig(
+        configs.notification || {
+          adminHooks: {
+            enabled: false,
+            channels: [],
+          },
+          vapidPrivateKey: '',
+          vapidPublicKey: '',
+        }
+      );
     }
   }, [configs]);
 
@@ -166,6 +190,14 @@ export default function AdminDashboard() {
             {t('tabs.ai')}
           </Button>
           <Button
+            variant={activeTab === 'hooks' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('hooks')}
+            className="flex items-center gap-2 rounded-none"
+          >
+            <BellRing className="size-4" />
+            {t('tabs.hooks')}
+          </Button>
+          <Button
             variant={activeTab === 'oauth' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('oauth')}
             className="flex items-center gap-2 rounded-none"
@@ -231,6 +263,17 @@ export default function AdminDashboard() {
           <AIConfigTab
             aiConfig={aiConfig}
             setAiConfig={setAiConfig}
+            isSaving={isSaving}
+            setIsSaving={setIsSaving}
+            onMutate={mutate}
+          />
+        )}
+
+        {/* Hook 配置 */}
+        {activeTab === 'hooks' && (
+          <HooksConfigTab
+            notificationConfig={notificationConfig}
+            setNotificationConfig={setNotificationConfig}
             isSaving={isSaving}
             setIsSaving={setIsSaving}
             onMutate={mutate}

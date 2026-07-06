@@ -5,7 +5,7 @@ import {
   requireAdmin,
   requireSuperAdmin,
 } from '../../middleware/jwtAuth';
-import type { AiConfig, ConfigTestResult } from '../../types/config';
+import type { AiConfig, ConfigTestResult, NotificationConfig } from '../../types/config';
 import type { HonoContext, HonoVariables } from '../../types/hono';
 import {
   generateSecurityKeys,
@@ -16,6 +16,13 @@ import {
   setConfig,
 } from '../../utils/config';
 import { resolveIncomingAiConfig, sanitizeAiConfig } from '../../utils/ai/providers';
+import {
+  buildUserRegisteredEnvelope,
+  findAdminHookChannel,
+  sendAdminHookEnvelope,
+  validateAdminHookChannel,
+  validateNotificationConfig,
+} from '../../utils/adminHooks';
 import { ConfigTester } from '../../utils/configTester';
 import { createResponse, getApiUrl } from '../../utils/main';
 import {
@@ -29,6 +36,49 @@ import adminUsersRouter from './adminUsers';
 const adminRouter = new Hono<{ Variables: HonoVariables }>();
 
 adminRouter.route('/', adminSetupRouter);
+
+adminRouter.post('/hooks/test', authenticateJWT, requireAdmin, async (c: HonoContext) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const channel = body.channel
+      ? validateAdminHookChannel(body.channel)
+      : typeof body.channelId === 'string'
+        ? await findAdminHookChannel(body.channelId)
+        : null;
+
+    if (!channel) {
+      return c.json(createResponse(null, ''), 404);
+    }
+
+    const testChannel = {
+      ...channel,
+      enabled: true,
+      events: ['user.registered' as const],
+    };
+    const result = await sendAdminHookEnvelope(
+      buildUserRegisteredEnvelope({
+        createdAt: new Date(),
+        id: '00000000-0000-0000-0000-000000000000',
+        nickname: 'Hook Test',
+        role: 'user',
+        username: 'hook-test',
+      }),
+      [testChannel]
+    );
+
+    const failedResult = result.results.find((item) => item.status === 'failed');
+    if (failedResult) {
+      return c.json(createResponse(result, failedResult.error || 'Hook test failed'), 502);
+    }
+
+    return c.json(createResponse(result), 200);
+  } catch (error: any) {
+    return c.json(
+      createResponse(null, error instanceof Error ? error.message : String(error ?? '')),
+      400
+    );
+  }
+});
 
 const sanitizeSettingsForAdmin = (configs: Record<string, any>) => {
   if (!configs.ai) return configs;
@@ -190,6 +240,17 @@ adminRouter.put('/settings', authenticateJWT, requireAdmin, async (c: HonoContex
           config.embedding.dimensions > 4000)
       ) {
         return c.json(createResponse(null, 'Embedding dimensions must be between 1 and 4000'), 400);
+      }
+    }
+
+    if (group === 'notification') {
+      try {
+        config = validateNotificationConfig(config as NotificationConfig);
+      } catch (error: any) {
+        return c.json(
+          createResponse(null, error instanceof Error ? error.message : String(error ?? '')),
+          400
+        );
       }
     }
 

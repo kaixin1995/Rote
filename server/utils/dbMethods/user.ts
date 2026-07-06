@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { eq, sql } from 'drizzle-orm';
 import { users } from '../../drizzle/schema';
+import { notifyUserRegistered } from '../adminHooks';
+import { trackBackgroundTask } from '../backgroundTask';
 import db from '../drizzle';
 import { DatabaseError } from './common';
 
@@ -83,6 +85,7 @@ export async function createUser(data: {
     }
 
     const [user] = await db.insert(users).values(insertData).returning();
+    trackBackgroundTask(notifyUserRegistered(user), 'admin_hook_user_registered_failed');
     return user;
   } catch (error: any) {
     // 处理唯一约束冲突

@@ -68,9 +68,45 @@ export interface SecurityConfig {
   passkey?: PasskeyConfig;
 }
 
+export type AdminHookEvent = 'user.registered' | 'note.public.created';
+
+export interface AdminHookChannelBase {
+  id: string;
+  name: string;
+  enabled: boolean;
+  events: AdminHookEvent[];
+}
+
+export interface BarkAdminHookChannel extends AdminHookChannelBase {
+  type: 'bark';
+  serverUrl?: string;
+  key: string;
+  group?: string;
+  icon?: string;
+  sound?: string;
+}
+
+export interface HttpAdminHookChannel extends AdminHookChannelBase {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export interface AdminPwaHookChannel extends AdminHookChannelBase {
+  type: 'admin_pwa';
+}
+
+export type AdminHookChannel = BarkAdminHookChannel | HttpAdminHookChannel | AdminPwaHookChannel;
+
+export interface AdminHooksConfig {
+  enabled: boolean;
+  channels: AdminHookChannel[];
+}
+
 export interface NotificationConfig {
   vapidPublicKey: string;
   vapidPrivateKey: string;
+  adminHooks?: AdminHooksConfig;
 }
 
 export interface UiConfig {

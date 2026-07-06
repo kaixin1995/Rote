@@ -1,6 +1,12 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { settings } from '../drizzle/schema';
-import type { ConfigData, ConfigGroup, ConfigUpdateOptions, SystemConfig } from '../types/config';
+import type {
+  ConfigData,
+  ConfigGroup,
+  ConfigUpdateOptions,
+  NotificationConfig,
+  SystemConfig,
+} from '../types/config';
 import db from './drizzle';
 import { KeyGenerator } from './keyGenerator';
 
@@ -364,6 +370,7 @@ export class ConfigManager {
 
       // 生成 VAPID 密钥
       const vapidKeys = KeyGenerator.generateVAPIDKeys();
+      const existingNotificationConfig = this.getGlobalConfig<NotificationConfig>('notification');
 
       // 更新安全配置
       await this.setConfig(
@@ -382,6 +389,7 @@ export class ConfigManager {
       await this.setConfig(
         'notification',
         {
+          ...(existingNotificationConfig || {}),
           vapidPublicKey: vapidKeys.publicKey,
           vapidPrivateKey: vapidKeys.privateKey,
         },

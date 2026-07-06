@@ -9,6 +9,8 @@ import { eq, or } from 'drizzle-orm';
 import { users, userPasskeys } from '../../drizzle/schema';
 import type { SecurityConfig, SiteConfig, UiConfig } from '../../types/config';
 import type { HonoContext, HonoVariables } from '../../types/hono';
+import { notifyUserRegistered } from '../../utils/adminHooks';
+import { trackBackgroundTask } from '../../utils/backgroundTask';
 import { getConfig, getGlobalConfig } from '../../utils/config';
 import db from '../../utils/drizzle';
 import { generateAccessToken, generateRefreshToken } from '../../utils/jwt';
@@ -196,6 +198,8 @@ passkeyRegistrationRouter.post('/verify', async (c: HonoContext) => {
 
     return { user, passkey };
   });
+
+  trackBackgroundTask(notifyUserRegistered(result.user), 'admin_hook_user_registered_failed');
 
   // Generate JWT tokens
   const accessToken = await generateAccessToken({
