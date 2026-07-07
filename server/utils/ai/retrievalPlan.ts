@@ -73,6 +73,14 @@ export interface SearchRotesArgs {
   cursor?: string;
 }
 
+export interface RetrievalTimeContext {
+  nowIso?: string;
+  localDate?: string;
+  localDateTime?: string;
+  timeZone?: string;
+  utcOffsetMinutes?: number;
+}
+
 export interface RetrievalSnippet {
   id: string;
   sourceType: AiSourceType;
@@ -158,6 +166,8 @@ const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 50;
 const MAX_STEPS = 6;
 const MAX_TOOL_CALLS = 10;
+const DEFAULT_TIME_ZONE = 'Asia/Shanghai';
+const DEFAULT_UTC_OFFSET_MINUTES = 8 * 60;
 const DATE_ONLY_RE = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/;
 const ISO_DATE_TIME_WITH_ZONE_RE =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
@@ -246,14 +256,62 @@ export async function getUserRoteTagCounts(
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-function getShanghaiToday(): Date {
+function normalizeTimeZone(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) return DEFAULT_TIME_ZONE;
+  const timeZone = value.trim();
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date(0));
+    return timeZone;
+  } catch {
+    return DEFAULT_TIME_ZONE;
+  }
+}
+
+function parseReferenceNow(context?: RetrievalTimeContext): Date {
+  const raw = context?.nowIso || context?.localDateTime;
+  if (raw) {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
+function parseLocalDate(value: unknown): Date | null {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!isValidDateParts(year, month, day)) return null;
+
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function getDatePartsInTimeZone(date: Date, timeZone: string) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   });
-  const [year, month, day] = formatter.format(new Date()).split('-').map(Number);
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((part) => [part.type, part.value])
+  );
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+  };
+}
+
+function getTodayInTimeContext(context?: RetrievalTimeContext): Date {
+  const localDate = parseLocalDate(context?.localDate);
+  if (localDate) return localDate;
+
+  const timeZone = normalizeTimeZone(context?.timeZone);
+  const { year, month, day } = getDatePartsInTimeZone(parseReferenceNow(context), timeZone);
   return new Date(Date.UTC(year, month - 1, day));
 }
 
@@ -265,12 +323,61 @@ function toDateString(date: Date): string {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
-function startOfDay(date: Date): string {
-  return `${toDateString(date)}T00:00:00+08:00`;
+function formatOffset(minutes: number): string {
+  const sign = minutes >= 0 ? '+' : '-';
+  const absolute = Math.abs(minutes);
+  return `${sign}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`;
 }
 
-function endOfDay(date: Date): string {
-  return `${toDateString(date)}T23:59:59+08:00`;
+function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number | null {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const parts = Object.fromEntries(
+      formatter.formatToParts(date).map((part) => [part.type, part.value])
+    );
+    const zonedAsUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second)
+    );
+    return Math.round((zonedAsUtc - date.getTime()) / 60_000);
+  } catch {
+    return null;
+  }
+}
+
+function offsetForCalendarDate(date: Date, context?: RetrievalTimeContext): string {
+  const timeZone = normalizeTimeZone(context?.timeZone);
+  const noonUtc = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12)
+  );
+  const offsetMinutes =
+    getTimeZoneOffsetMinutes(noonUtc, timeZone) ??
+    (Number.isFinite(context?.utcOffsetMinutes)
+      ? Math.trunc(context?.utcOffsetMinutes as number)
+      : DEFAULT_UTC_OFFSET_MINUTES);
+  return formatOffset(offsetMinutes);
+}
+
+function startOfDay(date: Date, context?: RetrievalTimeContext): string {
+  return `${toDateString(date)}T00:00:00${offsetForCalendarDate(date, context)}`;
+}
+
+function endOfDay(date: Date, context?: RetrievalTimeContext): string {
+  return `${toDateString(date)}T23:59:59${offsetForCalendarDate(date, context)}`;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -289,10 +396,15 @@ function addMonths(date: Date, months: number): Date {
   return next;
 }
 
-function monthRange(year: number, monthIndex: number, label: string): NormalizedTimeRange {
+function monthRange(
+  year: number,
+  monthIndex: number,
+  label: string,
+  context?: RetrievalTimeContext
+): NormalizedTimeRange {
   const start = new Date(Date.UTC(year, monthIndex, 1));
   const end = new Date(Date.UTC(year, monthIndex + 1, 0));
-  return { from: startOfDay(start), to: endOfDay(end), label };
+  return { from: startOfDay(start, context), to: endOfDay(end, context), label };
 }
 
 function isValidDateParts(year: number, month: number, day: number): boolean {
@@ -368,16 +480,20 @@ function addRelativeOffset(date: Date, amount: number, unit: AiTimeUnit): Date {
   return addDays(date, -(unit === 'day' ? amount : amount * 7));
 }
 
-function parseRelativePointDate(value: string): Date | null {
+function parseRelativePointDate(value: string, context?: RetrievalTimeContext): Date | null {
   const match = value.trim().match(RELATIVE_POINT_RE) || value.trim().match(RELATIVE_POINT_ZH_RE);
   if (!match) return null;
 
   const amount = chineseNumberToInt(match[1]);
   if (!amount || amount > 10000) return null;
-  return addRelativeOffset(getShanghaiToday(), amount, unitTextToUnit(match[2]));
+  return addRelativeOffset(getTodayInTimeContext(context), amount, unitTextToUnit(match[2]));
 }
 
-function normalizeDateOnlyInput(value: string, end = false): string | null {
+function normalizeDateOnlyInput(
+  value: string,
+  end = false,
+  context?: RetrievalTimeContext
+): string | null {
   const match = value.trim().match(DATE_ONLY_RE);
   if (!match) return null;
 
@@ -386,7 +502,8 @@ function normalizeDateOnlyInput(value: string, end = false): string | null {
   const day = Number(match[3]);
   if (!isValidDateParts(year, month, day)) return null;
 
-  return `${year}-${pad(month)}-${pad(day)}${end ? 'T23:59:59+08:00' : 'T00:00:00+08:00'}`;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return end ? endOfDay(date, context) : startOfDay(date, context);
 }
 
 function normalizeIsoDateTimeInput(value: string): string | null {
@@ -410,16 +527,21 @@ function normalizeIsoDateTimeInput(value: string): string | null {
   return normalized;
 }
 
-function normalizeDateInput(value: string, end = false): string | null {
+function normalizeDateInput(
+  value: string,
+  end = false,
+  context?: RetrievalTimeContext
+): string | null {
   const normalized = value.trim();
   if (!normalized) return null;
   if (normalized.includes('T')) return normalizeIsoDateTimeInput(normalized);
 
-  const dateOnly = normalizeDateOnlyInput(normalized, end);
+  const dateOnly = normalizeDateOnlyInput(normalized, end, context);
   if (dateOnly) return dateOnly;
 
-  const relativePoint = parseRelativePointDate(normalized);
-  if (relativePoint) return end ? endOfDay(relativePoint) : startOfDay(relativePoint);
+  const relativePoint = parseRelativePointDate(normalized, context);
+  if (relativePoint)
+    return end ? endOfDay(relativePoint, context) : startOfDay(relativePoint, context);
 
   return null;
 }
@@ -430,14 +552,17 @@ function isOrderedTimeRange(from: string, to: string): boolean {
   return Number.isFinite(fromTime) && Number.isFinite(toTime) && fromTime <= toTime;
 }
 
-export function normalizeTimeRangeInput(value: unknown): NormalizedTimeRange | null {
+export function normalizeTimeRangeInput(
+  value: unknown,
+  context?: RetrievalTimeContext
+): NormalizedTimeRange | null {
   const raw = asRecord(value);
   const from = typeof raw.from === 'string' ? raw.from.trim() : '';
   const to = typeof raw.to === 'string' ? raw.to.trim() : '';
   if (!from || !to) return null;
 
-  const normalizedFrom = normalizeDateInput(from);
-  const normalizedTo = normalizeDateInput(to, true);
+  const normalizedFrom = normalizeDateInput(from, false, context);
+  const normalizedTo = normalizeDateInput(to, true, context);
   if (!normalizedFrom || !normalizedTo || !isOrderedTimeRange(normalizedFrom, normalizedTo)) {
     return null;
   }
@@ -477,46 +602,58 @@ function formatRelativePointLabel(point: Record<string, unknown>): string {
   return `${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
 }
 
-function normalizeStructuredRelativePoint(value: unknown, end = false): string | null {
+function normalizeStructuredRelativePoint(
+  value: unknown,
+  end = false,
+  context?: RetrievalTimeContext
+): string | null {
   const point = asRecord(value);
   const amount = normalizeStructuredAmount(point.amount);
   const unit = normalizeStructuredTimeUnit(point.unit);
   const direction = typeof point.direction === 'string' ? point.direction.trim() : 'ago';
   if (!amount || !unit || direction !== 'ago') return null;
 
-  const date = addRelativeOffset(getShanghaiToday(), amount, unit);
-  return end ? endOfDay(date) : startOfDay(date);
+  const date = addRelativeOffset(getTodayInTimeContext(context), amount, unit);
+  return end ? endOfDay(date, context) : startOfDay(date, context);
 }
 
 function canonicalizePresetTimeRange(
   preset: StructuredTimeRangePreset,
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  context?: RetrievalTimeContext
 ): NormalizedTimeRange {
-  const today = getShanghaiToday();
+  const today = getTodayInTimeContext(context);
   if (preset === 'today') {
-    return { from: startOfDay(today), to: endOfDay(today), label: structuredLabel(raw, '今天') };
+    return {
+      from: startOfDay(today, context),
+      to: endOfDay(today, context),
+      label: structuredLabel(raw, '今天'),
+    };
   }
   if (preset === 'yesterday') {
     const yesterday = addDays(today, -1);
     return {
-      from: startOfDay(yesterday),
-      to: endOfDay(yesterday),
+      from: startOfDay(yesterday, context),
+      to: endOfDay(yesterday, context),
       label: structuredLabel(raw, '昨天'),
     };
   }
   if (preset === 'this_month') {
     const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
     return {
-      from: startOfDay(start),
-      to: endOfDay(today),
+      from: startOfDay(start, context),
+      to: endOfDay(today, context),
       label: structuredLabel(raw, '本月'),
     };
   }
-  const range = monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月');
+  const range = monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月', context);
   return { ...range, label: structuredLabel(raw, range.label) };
 }
 
-function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | null {
+function canonicalizeStructuredTimeRange(
+  value: unknown,
+  context?: RetrievalTimeContext
+): NormalizedTimeRange | null {
   const raw = asRecord(value);
   if (!Object.keys(raw).length) return null;
 
@@ -529,25 +666,25 @@ function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | 
 
   const parsePreset = () => {
     if (!preset) return null;
-    return canonicalizePresetTimeRange(preset, raw);
+    return canonicalizePresetTimeRange(preset, raw, context);
   };
 
   const parseRolling = () => {
     const amount = normalizeStructuredAmount(raw.amount);
     const unit = normalizeStructuredTimeUnit(raw.unit);
     if (!amount || !unit) return null;
-    const today = getShanghaiToday();
+    const today = getTodayInTimeContext(context);
     const start = addRelativeOffset(today, amount, unit);
     return {
-      from: startOfDay(start),
-      to: endOfDay(today),
+      from: startOfDay(start, context),
+      to: endOfDay(today, context),
       label: structuredLabel(raw, `last ${amount} ${unit}${amount === 1 ? '' : 's'}`),
     };
   };
 
   const parseRelativeBetween = () => {
-    const from = normalizeStructuredRelativePoint(raw.fromRelative);
-    const to = normalizeStructuredRelativePoint(raw.toRelative, true);
+    const from = normalizeStructuredRelativePoint(raw.fromRelative, false, context);
+    const to = normalizeStructuredRelativePoint(raw.toRelative, true, context);
     if (!from || !to || !isOrderedTimeRange(from, to)) return null;
     return {
       from,
@@ -562,11 +699,14 @@ function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | 
   };
 
   const parseAbsolute = () =>
-    normalizeTimeRangeInput({
-      from: raw.fromDate,
-      to: raw.toDate,
-      label: raw.label,
-    });
+    normalizeTimeRangeInput(
+      {
+        from: raw.fromDate,
+        to: raw.toDate,
+        label: raw.label,
+      },
+      context
+    );
 
   if (type) {
     if (type === 'absolute') return parseAbsolute();
@@ -585,10 +725,11 @@ function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | 
 
 export function canonicalizeTimeRange(
   args: SearchRotesArgs,
-  warnings?: string[]
+  warnings?: string[],
+  context?: RetrievalTimeContext
 ): NormalizedTimeRange | null {
   if (args.timeRange !== undefined) {
-    const structured = canonicalizeStructuredTimeRange(args.timeRange);
+    const structured = canonicalizeStructuredTimeRange(args.timeRange, context);
     if (structured) return structured;
     warnings?.push('invalid_time_range_ignored');
   }
@@ -596,7 +737,7 @@ export function canonicalizeTimeRange(
   const from = typeof args.from === 'string' ? args.from.trim() : '';
   const to = typeof args.to === 'string' ? args.to.trim() : '';
   if (from && to) {
-    const normalized = normalizeTimeRangeInput({ from, to, label: `${from} 到 ${to}` });
+    const normalized = normalizeTimeRangeInput({ from, to, label: `${from} 到 ${to}` }, context);
     if (!normalized) warnings?.push('invalid_time_range_ignored');
     return normalized;
   }
@@ -604,20 +745,24 @@ export function canonicalizeTimeRange(
   const expression = typeof args.timeExpression === 'string' ? args.timeExpression.trim() : '';
   if (!expression) return null;
 
-  const today = getShanghaiToday();
+  const today = getTodayInTimeContext(context);
   if (/今天|今日|today/i.test(expression)) {
-    return { from: startOfDay(today), to: endOfDay(today), label: '今天' };
+    return { from: startOfDay(today, context), to: endOfDay(today, context), label: '今天' };
   }
   if (/昨天|昨日|yesterday/i.test(expression)) {
     const yesterday = addDays(today, -1);
-    return { from: startOfDay(yesterday), to: endOfDay(yesterday), label: '昨天' };
+    return {
+      from: startOfDay(yesterday, context),
+      to: endOfDay(yesterday, context),
+      label: '昨天',
+    };
   }
   if (/本月|这个月|this month/i.test(expression)) {
     const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    return { from: startOfDay(start), to: endOfDay(today), label: '本月' };
+    return { from: startOfDay(start, context), to: endOfDay(today, context), label: '本月' };
   }
   if (/上个月|上月|last month/i.test(expression)) {
-    return monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月');
+    return monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月', context);
   }
 
   const rollingMatch = expression.match(
@@ -627,7 +772,11 @@ export function canonicalizeTimeRange(
     const amount = chineseNumberToInt(rollingMatch[1]);
     if (amount) {
       const start = addRelativeOffset(today, amount, unitTextToUnit(rollingMatch[2]));
-      return { from: startOfDay(start), to: endOfDay(today), label: rollingMatch[0] };
+      return {
+        from: startOfDay(start, context),
+        to: endOfDay(today, context),
+        label: rollingMatch[0],
+      };
     }
   }
 
@@ -635,11 +784,14 @@ export function canonicalizeTimeRange(
     /(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})\s*(?:到|至|~|-|—)\s*(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})/
   );
   if (explicitRange) {
-    const normalized = normalizeTimeRangeInput({
-      from: explicitRange[1],
-      to: explicitRange[2],
-      label: explicitRange[0],
-    });
+    const normalized = normalizeTimeRangeInput(
+      {
+        from: explicitRange[1],
+        to: explicitRange[2],
+        label: explicitRange[0],
+      },
+      context
+    );
     if (!normalized) warnings?.push('invalid_time_range_ignored');
     return normalized;
   }
@@ -652,6 +804,7 @@ export function canonicalizeSearchRotesArgs(params: {
   args: SearchRotesArgs;
   availableTags: string[];
   excludeIds?: string[];
+  timeContext?: RetrievalTimeContext | null;
 }): { scope: RetrievalScope; warnings: string[] } {
   const warnings: string[] = [];
   const availableTagSet = new Set(params.availableTags);
@@ -684,7 +837,7 @@ export function canonicalizeSearchRotesArgs(params: {
     excludeTags: Array.from(new Set(excludeTags)),
     semanticScope: Array.from(semanticScope).slice(0, 30),
     sourceTypes: normalizeSourceTypes(params.args.sourceTypes, warnings),
-    timeRange: canonicalizeTimeRange(params.args, warnings),
+    timeRange: canonicalizeTimeRange(params.args, warnings, params.timeContext || undefined),
     lifecycleScope: normalizeLifecycleScope(params.args.lifecycleScope),
     taskStatusScope: normalizeTaskStatusScope(params.args.taskStatusScope),
     limit: clampLimit(params.args.limit),
@@ -857,8 +1010,13 @@ function plannerTools(): ChatToolDefinition[] {
   ];
 }
 
-function buildPlannerSystemPrompt(today: string): string {
-  return `You are the Rote retrieval planner. Today is ${today} in Asia/Shanghai.
+function buildPlannerSystemPrompt(context?: RetrievalTimeContext): string {
+  const timeZone = normalizeTimeZone(context?.timeZone);
+  const today = toDateString(getTodayInTimeContext(context));
+  const localDateTime = context?.localDateTime || context?.localDate || today;
+  return `You are the Rote retrieval planner. Today is ${today} in ${timeZone}.
+Client local date/time: ${localDateTime}.
+Server now (UTC): ${new Date().toISOString()}.
 
 Use tools only. Decide whether Rote memory is needed, what to probe, whether another probe is needed, or whether to ask a clarification.
 
@@ -869,6 +1027,7 @@ Tools:
 - request_clarification asks a concise user-facing question.
 
 Keep lifecycleScope and taskStatusScope independent. lifecycleScope is note archived/unarchived lifecycle. taskStatusScope is task/open-loop semantics and must not stand in for archived state.
+For relative date phrases, prefer structured timeRange preset/rolling/relative_between or pass the original phrase as timeExpression. Do not invent absolute from/to dates unless the user explicitly supplied absolute dates.
 Do not answer the user here.`;
 }
 
@@ -910,13 +1069,14 @@ export async function createRetrievalPlan(params: {
   maxSteps?: number;
   maxToolCalls?: number;
   enableThinking?: boolean;
+  timeContext?: RetrievalTimeContext | null;
   onThinkingDelta?: (text: string) => Promise<void> | void;
   onUsage?: (usage: ChatCompletionUsage) => Promise<void> | void;
 }): Promise<PlannerAgentResult> {
   const trace = createEmptyTrace();
   const availableTags = params.availableTags || (await getUserRoteTags(params.ownerId));
   const messages: ChatMessage[] = [
-    { role: 'system', content: buildPlannerSystemPrompt(toDateString(getShanghaiToday())) },
+    { role: 'system', content: buildPlannerSystemPrompt(params.timeContext || undefined) },
   ];
   if (params.history?.length) {
     messages.push(
@@ -988,6 +1148,7 @@ export async function createRetrievalPlan(params: {
           args: asRecord(args) as SearchRotesArgs,
           availableTags,
           excludeIds: params.excludeIds,
+          timeContext: params.timeContext,
         });
         let probe: SearchRotesProbeResult;
         try {

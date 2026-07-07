@@ -36,7 +36,18 @@ export type RoteAgentClientState = {
     selectedSourceIds?: string[];
     selectedTags?: string[];
   } | null;
+  clientContext?: RoteAgentClientContext | null;
   stateVersion?: number;
+};
+
+export type RoteAgentClientContext = {
+  nowIso?: string;
+  localDate?: string;
+  localDateTime?: string;
+  timeZone?: string;
+  utcOffsetMinutes?: number;
+  locale?: string;
+  calendar?: string;
 };
 
 export type RoteAgentRequest = {
@@ -45,6 +56,7 @@ export type RoteAgentRequest = {
   history?: { role: 'user' | 'assistant'; content: string }[];
   state?: RoteAgentClientState | null;
   selectedContext?: RoteAgentClientState['selectedContext'];
+  clientContext?: RoteAgentClientContext | null;
   debug?: boolean;
   limit?: number;
   previousPlan?: PlannerAgentDto | null;

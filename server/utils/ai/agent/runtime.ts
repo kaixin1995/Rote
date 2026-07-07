@@ -10,6 +10,7 @@ import { getNativeRoteTools } from './tools';
 import {
   AgentToolCallingUnavailableError,
   DEFAULT_AGENT_POLICY,
+  type RoteAgentClientContext,
   type RoteAgentClientState,
   type RoteAgentContext,
   type RoteAgentEmitter,
@@ -26,6 +27,42 @@ function createRunId(): string {
 
 function sourceKey(source: SemanticSearchResult): string {
   return `${source.sourceType}:${source.sourceId}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function sanitizeString(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : undefined;
+}
+
+function sanitizeUtcOffsetMinutes(value: unknown): number | undefined {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return undefined;
+  const minutes = Math.trunc(numeric);
+  return minutes >= -14 * 60 && minutes <= 14 * 60 ? minutes : undefined;
+}
+
+function sanitizeClientContext(value: unknown): RoteAgentClientContext | null {
+  const raw = asRecord(value);
+  if (!Object.keys(raw).length) return null;
+
+  const context: RoteAgentClientContext = {
+    nowIso: sanitizeString(raw.nowIso, 64),
+    localDate: sanitizeString(raw.localDate, 32),
+    localDateTime: sanitizeString(raw.localDateTime, 64),
+    timeZone: sanitizeString(raw.timeZone, 80),
+    utcOffsetMinutes: sanitizeUtcOffsetMinutes(raw.utcOffsetMinutes),
+    locale: sanitizeString(raw.locale, 32),
+    calendar: sanitizeString(raw.calendar, 32),
+  };
+
+  return Object.values(context).some((item) => item !== undefined) ? context : null;
 }
 
 class SourceCollector {
@@ -68,6 +105,8 @@ function sanitizeAgentState(request: RoteAgentRequest): RoteAgentClientState {
     previousPlan: state.previousPlan || request.previousPlan || null,
     seenSourceIds,
     selectedContext: state.selectedContext || request.selectedContext || null,
+    clientContext:
+      sanitizeClientContext(state.clientContext) || sanitizeClientContext(request.clientContext),
     stateVersion: Number.isFinite(state.stateVersion) ? state.stateVersion : 1,
   };
 }
@@ -134,13 +173,51 @@ async function logChatUsage(userId: string, model: string, usage: any): Promise<
   });
 }
 
-function buildInitialMessages(request: RoteAgentRequest): ChatMessage[] {
+function buildRequestTimeContextMessage(state: RoteAgentClientState): ChatMessage {
+  const clientContext = state.clientContext;
+  const lines = [
+    '## Current request time context',
+    `Server now (UTC): ${new Date().toISOString()}`,
+  ];
+
+  if (clientContext) {
+    if (clientContext.nowIso) lines.push(`Client now (UTC): ${clientContext.nowIso}`);
+    if (clientContext.localDate) lines.push(`Client local date: ${clientContext.localDate}`);
+    if (clientContext.localDateTime) {
+      lines.push(`Client local date/time: ${clientContext.localDateTime}`);
+    }
+    if (clientContext.timeZone) lines.push(`Client time zone: ${clientContext.timeZone}`);
+    if (typeof clientContext.utcOffsetMinutes === 'number') {
+      lines.push(`Client UTC offset minutes: ${clientContext.utcOffsetMinutes}`);
+    }
+    if (clientContext.locale) lines.push(`Client locale: ${clientContext.locale}`);
+    if (clientContext.calendar) lines.push(`Client calendar: ${clientContext.calendar}`);
+  } else {
+    lines.push(
+      'Client time context was not supplied; use server now and Asia/Shanghai for Rote date ranges.'
+    );
+  }
+
+  lines.push(
+    'Resolve relative date phrases such as today, yesterday, this month, last month, 最近, 本月, and 上月 using this context.',
+    'When calling rote_search_notes for a relative date phrase, pass the phrase as timeExpression instead of inventing absolute from/to dates.',
+    'Use from/to only when the user explicitly provides absolute dates.'
+  );
+
+  return { role: 'system', content: lines.join('\n') };
+}
+
+function buildInitialMessages(
+  request: RoteAgentRequest,
+  state: RoteAgentClientState
+): ChatMessage[] {
   const mode = request.mode || 'chat';
   const messages: ChatMessage[] = [
     {
       role: 'system',
       content: buildRoteAgentSystemPrompt(mode),
     },
+    buildRequestTimeContextMessage(state),
   ];
 
   if (request.history?.length) {
@@ -210,7 +287,7 @@ export async function runRoteAgentStream(params: {
     getSources: () => sourceCollector.list(),
   };
 
-  const messages = buildInitialMessages(request);
+  const messages = buildInitialMessages(request, state);
   let toolCallCount = 0;
   let hasFinalAnswer = false;
 

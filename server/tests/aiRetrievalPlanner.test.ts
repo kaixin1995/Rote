@@ -133,6 +133,22 @@ describe('canonicalizeSearchRotesArgs', () => {
     expect(Date.parse(range?.from || '')).toBeLessThan(Date.parse(range?.to || ''));
   });
 
+  it('anchors relative dates to the client request date', () => {
+    const range = canonicalizeTimeRange({ timeExpression: '上月' }, undefined, {
+      nowIso: '2026-07-07T14:14:35.000Z',
+      localDate: '2026-07-07',
+      localDateTime: '2026-07-07T22:14:35+08:00',
+      timeZone: 'Asia/Shanghai',
+      utcOffsetMinutes: 480,
+    });
+
+    expect(range).toMatchObject({
+      from: '2026-06-01T00:00:00+08:00',
+      to: '2026-06-30T23:59:59+08:00',
+      label: '上个月',
+    });
+  });
+
   it('prefers structured timeRange DSL over free-text fields', () => {
     expect(
       canonicalizeTimeRange({

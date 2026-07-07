@@ -28,6 +28,7 @@ import {
   type PlannerAgentResult,
   type RetrievalScope,
   type RetrievalSnippet,
+  type RetrievalTimeContext,
   type SearchRotesProbeResult,
 } from '../ai/retrievalPlan';
 import { hasCapability } from '../../authz/capabilityService';
@@ -1328,6 +1329,7 @@ export async function chatWithRoteContext(params: {
   limit?: number;
   excludeIds?: string[];
   history?: { role: 'user' | 'assistant'; content: string }[];
+  clientContext?: RetrievalTimeContext | null;
 }): Promise<{
   answer: string;
   sources: SemanticSearchResult[];
@@ -1369,6 +1371,7 @@ export async function prepareRoteChatContext(params: {
   onPlanGenerated?: (plan: PlannerAgentDto) => Promise<void> | void;
   onPlanThinkingDelta?: (text: string) => Promise<void> | void;
   enableThinking?: boolean;
+  clientContext?: RetrievalTimeContext | null;
 }): Promise<{
   config: AiConfig;
   messages: ChatMessage[];
@@ -1389,6 +1392,7 @@ export async function prepareRoteChatContext(params: {
     executeSearch: searchRotesProbe,
     excludeIds: sanitizeExcludeIds(params.excludeIds),
     enableThinking: params.enableThinking === true,
+    timeContext: params.clientContext,
     onThinkingDelta: params.onPlanThinkingDelta,
     onUsage: (usage) => logChatTokenUsage(params.ownerId, config.chat.model, usage),
   });

@@ -100,6 +100,7 @@ async function streamToolPlannedChatResponse(
     limit: body?.limit,
     excludeIds: body?.excludeIds,
     history: body?.history,
+    clientContext: body?.clientContext,
     enableThinking: body?.enableThinking === true,
     onPlanThinkingDelta: async (text) => {
       await writeSseEvent(stream, 'thinking', { phase: 'retrieval_planning', text });
@@ -366,12 +367,14 @@ aiRouter.post('/chat', authenticateJWT, bodyTypeCheck, async (c: HonoContext) =>
         limit: body?.limit,
         excludeIds: body?.excludeIds,
         history: body?.history,
+        clientContext: body?.clientContext,
       })
     : {
         answer: await createDirectSiteChat({
           userId: user.id,
           message,
           history: body?.history,
+          clientContext: body?.clientContext,
           enableThinking: body?.enableThinking === true,
         }),
         sources: [],
@@ -409,6 +412,7 @@ aiRouter.post('/agent/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCon
           history: body?.history,
           state: body?.state,
           selectedContext: body?.selectedContext,
+          clientContext: body?.clientContext,
           debug: body?.debug,
           limit: body?.limit,
           previousPlan: body?.previousPlan,
@@ -455,6 +459,7 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
           userId: user.id,
           message,
           history: body?.history,
+          clientContext: body?.clientContext,
           enableThinking: body?.enableThinking === true,
           onReasoning: (text) => writeSseEvent(stream, 'thinking', { phase: 'answer', text }),
           onContent: (text) => writeSseEvent(stream, 'delta', { text }),
