@@ -527,12 +527,12 @@ function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | 
     ? (raw.preset as StructuredTimeRangePreset)
     : undefined;
 
-  if (type === 'preset' || preset) {
+  const parsePreset = () => {
     if (!preset) return null;
     return canonicalizePresetTimeRange(preset, raw);
-  }
+  };
 
-  if (type === 'rolling' || raw.amount !== undefined || raw.unit !== undefined) {
+  const parseRolling = () => {
     const amount = normalizeStructuredAmount(raw.amount);
     const unit = normalizeStructuredTimeUnit(raw.unit);
     if (!amount || !unit) return null;
@@ -543,9 +543,9 @@ function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | 
       to: endOfDay(today),
       label: structuredLabel(raw, `last ${amount} ${unit}${amount === 1 ? '' : 's'}`),
     };
-  }
+  };
 
-  if (type === 'relative_between' || raw.fromRelative || raw.toRelative) {
+  const parseRelativeBetween = () => {
     const from = normalizeStructuredRelativePoint(raw.fromRelative);
     const to = normalizeStructuredRelativePoint(raw.toRelative, true);
     if (!from || !to || !isOrderedTimeRange(from, to)) return null;
@@ -559,15 +559,26 @@ function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | 
         )}`
       ),
     };
-  }
+  };
 
-  if (type === 'absolute' || raw.fromDate !== undefined || raw.toDate !== undefined) {
-    return normalizeTimeRangeInput({
+  const parseAbsolute = () =>
+    normalizeTimeRangeInput({
       from: raw.fromDate,
       to: raw.toDate,
       label: raw.label,
     });
+
+  if (type) {
+    if (type === 'absolute') return parseAbsolute();
+    if (type === 'rolling') return parseRolling();
+    if (type === 'relative_between') return parseRelativeBetween();
+    return parsePreset();
   }
+
+  if (preset) return parsePreset();
+  if (raw.fromRelative || raw.toRelative) return parseRelativeBetween();
+  if (raw.amount !== undefined || raw.unit !== undefined) return parseRolling();
+  if (raw.fromDate !== undefined || raw.toDate !== undefined) return parseAbsolute();
 
   return null;
 }

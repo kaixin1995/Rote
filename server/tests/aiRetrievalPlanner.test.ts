@@ -170,6 +170,33 @@ describe('canonicalizeSearchRotesArgs', () => {
     );
   });
 
+  it('honors structured timeRange type when extra fields are present', () => {
+    expect(
+      canonicalizeTimeRange({
+        timeRange: {
+          type: 'absolute',
+          fromDate: '2026-05-08',
+          toDate: '2026-05-09',
+          unit: 'day',
+        },
+      })
+    ).toMatchObject({
+      from: '2026-05-08T00:00:00+08:00',
+      to: '2026-05-09T23:59:59+08:00',
+    });
+
+    expect(
+      canonicalizeTimeRange({
+        timeRange: {
+          type: 'absolute',
+          preset: 'today',
+          fromDate: '2026-05-08',
+          toDate: '2026-05-09',
+        },
+      })?.label
+    ).toBe('2026-05-08 到 2026-05-09');
+  });
+
   it('ignores invalid time ranges instead of passing them through', () => {
     const warnings: string[] = [];
 
