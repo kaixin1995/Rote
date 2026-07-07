@@ -21,6 +21,27 @@ export interface NormalizedTimeRange {
   label: string;
 }
 
+export type StructuredTimeRangeType = 'absolute' | 'rolling' | 'relative_between' | 'preset';
+export type StructuredTimeRangePreset = 'today' | 'yesterday' | 'this_month' | 'last_month';
+
+export interface StructuredRelativeTimePoint {
+  amount?: number;
+  unit?: AiTimeUnit;
+  direction?: 'ago';
+}
+
+export interface StructuredTimeRange {
+  type?: StructuredTimeRangeType;
+  preset?: StructuredTimeRangePreset;
+  fromDate?: string;
+  toDate?: string;
+  amount?: number;
+  unit?: AiTimeUnit;
+  fromRelative?: StructuredRelativeTimePoint;
+  toRelative?: StructuredRelativeTimePoint;
+  label?: string;
+}
+
 export interface RetrievalScope {
   ownerId: string;
   query: string;
@@ -42,6 +63,7 @@ export interface SearchRotesArgs {
   excludeTags?: string[];
   semanticScope?: string[];
   sourceTypes?: AiSourceType[];
+  timeRange?: StructuredTimeRange;
   timeExpression?: string;
   from?: string;
   to?: string;
@@ -119,6 +141,19 @@ const VALID_LIFECYCLE_SCOPES = new Set<LifecycleScope>([
   'unspecified',
 ]);
 const VALID_TASK_STATUS_SCOPES = new Set<TaskStatusScope>(['open', 'closed', 'all', 'unspecified']);
+const VALID_STRUCTURED_TIME_TYPES = new Set<StructuredTimeRangeType>([
+  'absolute',
+  'rolling',
+  'relative_between',
+  'preset',
+]);
+const VALID_STRUCTURED_TIME_PRESETS = new Set<StructuredTimeRangePreset>([
+  'today',
+  'yesterday',
+  'this_month',
+  'last_month',
+]);
+const VALID_STRUCTURED_TIME_UNITS = new Set<AiTimeUnit>(['day', 'week', 'month', 'year']);
 const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 50;
 const MAX_STEPS = 6;
@@ -415,10 +450,138 @@ export function normalizeTimeRangeInput(value: unknown): NormalizedTimeRange | n
   };
 }
 
+function normalizeStructuredTimeUnit(value: unknown): AiTimeUnit | null {
+  if (typeof value !== 'string') return null;
+  const unit = value.trim().toLowerCase();
+  if (unit === 'days') return 'day';
+  if (unit === 'weeks') return 'week';
+  if (unit === 'months') return 'month';
+  if (unit === 'years') return 'year';
+  return VALID_STRUCTURED_TIME_UNITS.has(unit as AiTimeUnit) ? (unit as AiTimeUnit) : null;
+}
+
+function normalizeStructuredAmount(value: unknown): number | null {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return null;
+  const normalized = Math.floor(amount);
+  return normalized >= 1 && normalized <= 10000 ? normalized : null;
+}
+
+function structuredLabel(raw: Record<string, unknown>, fallback: string): string {
+  return typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : fallback;
+}
+
+function formatRelativePointLabel(point: Record<string, unknown>): string {
+  const amount = normalizeStructuredAmount(point.amount) || 0;
+  const unit = normalizeStructuredTimeUnit(point.unit) || 'day';
+  return `${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
+}
+
+function normalizeStructuredRelativePoint(value: unknown, end = false): string | null {
+  const point = asRecord(value);
+  const amount = normalizeStructuredAmount(point.amount);
+  const unit = normalizeStructuredTimeUnit(point.unit);
+  const direction = typeof point.direction === 'string' ? point.direction.trim() : 'ago';
+  if (!amount || !unit || direction !== 'ago') return null;
+
+  const date = addRelativeOffset(getShanghaiToday(), amount, unit);
+  return end ? endOfDay(date) : startOfDay(date);
+}
+
+function canonicalizePresetTimeRange(
+  preset: StructuredTimeRangePreset,
+  raw: Record<string, unknown>
+): NormalizedTimeRange {
+  const today = getShanghaiToday();
+  if (preset === 'today') {
+    return { from: startOfDay(today), to: endOfDay(today), label: structuredLabel(raw, '今天') };
+  }
+  if (preset === 'yesterday') {
+    const yesterday = addDays(today, -1);
+    return {
+      from: startOfDay(yesterday),
+      to: endOfDay(yesterday),
+      label: structuredLabel(raw, '昨天'),
+    };
+  }
+  if (preset === 'this_month') {
+    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    return {
+      from: startOfDay(start),
+      to: endOfDay(today),
+      label: structuredLabel(raw, '本月'),
+    };
+  }
+  const range = monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月');
+  return { ...range, label: structuredLabel(raw, range.label) };
+}
+
+function canonicalizeStructuredTimeRange(value: unknown): NormalizedTimeRange | null {
+  const raw = asRecord(value);
+  if (!Object.keys(raw).length) return null;
+
+  const type = VALID_STRUCTURED_TIME_TYPES.has(raw.type as StructuredTimeRangeType)
+    ? (raw.type as StructuredTimeRangeType)
+    : undefined;
+  const preset = VALID_STRUCTURED_TIME_PRESETS.has(raw.preset as StructuredTimeRangePreset)
+    ? (raw.preset as StructuredTimeRangePreset)
+    : undefined;
+
+  if (type === 'preset' || preset) {
+    if (!preset) return null;
+    return canonicalizePresetTimeRange(preset, raw);
+  }
+
+  if (type === 'rolling' || raw.amount !== undefined || raw.unit !== undefined) {
+    const amount = normalizeStructuredAmount(raw.amount);
+    const unit = normalizeStructuredTimeUnit(raw.unit);
+    if (!amount || !unit) return null;
+    const today = getShanghaiToday();
+    const start = addRelativeOffset(today, amount, unit);
+    return {
+      from: startOfDay(start),
+      to: endOfDay(today),
+      label: structuredLabel(raw, `last ${amount} ${unit}${amount === 1 ? '' : 's'}`),
+    };
+  }
+
+  if (type === 'relative_between' || raw.fromRelative || raw.toRelative) {
+    const from = normalizeStructuredRelativePoint(raw.fromRelative);
+    const to = normalizeStructuredRelativePoint(raw.toRelative, true);
+    if (!from || !to || !isOrderedTimeRange(from, to)) return null;
+    return {
+      from,
+      to,
+      label: structuredLabel(
+        raw,
+        `${formatRelativePointLabel(asRecord(raw.fromRelative))} 到 ${formatRelativePointLabel(
+          asRecord(raw.toRelative)
+        )}`
+      ),
+    };
+  }
+
+  if (type === 'absolute' || raw.fromDate !== undefined || raw.toDate !== undefined) {
+    return normalizeTimeRangeInput({
+      from: raw.fromDate,
+      to: raw.toDate,
+      label: raw.label,
+    });
+  }
+
+  return null;
+}
+
 export function canonicalizeTimeRange(
   args: SearchRotesArgs,
   warnings?: string[]
 ): NormalizedTimeRange | null {
+  if (args.timeRange !== undefined) {
+    const structured = canonicalizeStructuredTimeRange(args.timeRange);
+    if (structured) return structured;
+    warnings?.push('invalid_time_range_ignored');
+  }
+
   const from = typeof args.from === 'string' ? args.from.trim() : '';
   const to = typeof args.to === 'string' ? args.to.trim() : '';
   if (from && to) {
@@ -559,6 +722,56 @@ function plannerTools(): ChatToolDefinition[] {
             excludeTags: { type: 'array', items: { type: 'string' } },
             semanticScope: { type: 'array', items: { type: 'string' } },
             sourceTypes: { type: 'array', items: { type: 'string', enum: ['rote', 'article'] } },
+            timeRange: {
+              type: 'object',
+              description:
+                'Preferred structured time range. Use this instead of free-text from/to for dates.',
+              properties: {
+                type: {
+                  type: 'string',
+                  enum: ['absolute', 'rolling', 'relative_between', 'preset'],
+                },
+                preset: {
+                  type: 'string',
+                  enum: ['today', 'yesterday', 'this_month', 'last_month'],
+                },
+                fromDate: {
+                  type: 'string',
+                  description:
+                    'For absolute ranges only. ISO date/datetime such as 2026-05-08 or 2026-05-08T00:00:00+08:00.',
+                },
+                toDate: {
+                  type: 'string',
+                  description:
+                    'For absolute ranges only. ISO date/datetime such as 2026-05-09 or 2026-05-09T23:59:59+08:00.',
+                },
+                amount: { type: 'number', description: 'For rolling ranges, e.g. 7.' },
+                unit: {
+                  type: 'string',
+                  enum: ['day', 'week', 'month', 'year'],
+                  description: 'For rolling ranges.',
+                },
+                fromRelative: {
+                  type: 'object',
+                  description: 'For relative_between ranges, e.g. 60 days ago.',
+                  properties: {
+                    amount: { type: 'number' },
+                    unit: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
+                    direction: { type: 'string', enum: ['ago'] },
+                  },
+                },
+                toRelative: {
+                  type: 'object',
+                  description: 'For relative_between ranges, e.g. 30 days ago.',
+                  properties: {
+                    amount: { type: 'number' },
+                    unit: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
+                    direction: { type: 'string', enum: ['ago'] },
+                  },
+                },
+                label: { type: 'string' },
+              },
+            },
             timeExpression: {
               type: 'string',
               description:

@@ -133,6 +133,43 @@ describe('canonicalizeSearchRotesArgs', () => {
     expect(Date.parse(range?.from || '')).toBeLessThan(Date.parse(range?.to || ''));
   });
 
+  it('prefers structured timeRange DSL over free-text fields', () => {
+    expect(
+      canonicalizeTimeRange({
+        timeRange: { type: 'absolute', fromDate: '2026-05-08', toDate: '2026-05-09' },
+        from: 'bad input',
+        to: 'also bad',
+      })
+    ).toMatchObject({
+      from: '2026-05-08T00:00:00+08:00',
+      to: '2026-05-09T23:59:59+08:00',
+    });
+
+    const rolling = canonicalizeTimeRange({
+      timeRange: { type: 'rolling', amount: 7, unit: 'day' },
+    });
+    expect(rolling?.from).toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00\+08:00$/);
+    expect(rolling?.to).toMatch(/^\d{4}-\d{2}-\d{2}T23:59:59\+08:00$/);
+    expect(rolling?.label).toBe('last 7 days');
+
+    const relativeBetween = canonicalizeTimeRange({
+      timeRange: {
+        type: 'relative_between',
+        fromRelative: { amount: 60, unit: 'day', direction: 'ago' },
+        toRelative: { amount: 30, unit: 'day', direction: 'ago' },
+      },
+    });
+    expect(relativeBetween?.from).toMatch(/T00:00:00\+08:00$/);
+    expect(relativeBetween?.to).toMatch(/T23:59:59\+08:00$/);
+    expect(Date.parse(relativeBetween?.from || '')).toBeLessThan(
+      Date.parse(relativeBetween?.to || '')
+    );
+
+    expect(canonicalizeTimeRange({ timeRange: { type: 'preset', preset: 'today' } })?.label).toBe(
+      '今天'
+    );
+  });
+
   it('ignores invalid time ranges instead of passing them through', () => {
     const warnings: string[] = [];
 
@@ -148,6 +185,14 @@ describe('canonicalizeSearchRotesArgs', () => {
     });
     expect(scoped.scope.timeRange).toBeNull();
     expect(scoped.warnings).toContain('invalid_time_range_ignored');
+
+    const dslScoped = canonicalizeSearchRotesArgs({
+      ownerId: 'u1',
+      availableTags: AVAILABLE_TAGS,
+      args: { timeRange: { type: 'rolling', amount: 0, unit: 'day' } },
+    });
+    expect(dslScoped.scope.timeRange).toBeNull();
+    expect(dslScoped.warnings).toContain('invalid_time_range_ignored');
   });
 
   it('clamps limit and validates sourceTypes', () => {
