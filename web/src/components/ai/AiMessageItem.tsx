@@ -56,10 +56,10 @@ export function AiMessageItem({ message }: { message: AiMemoryMessage }) {
     <div className={`px-4 py-4 ${message.role === 'assistant' ? 'bg-foreground/2' : ''}`}>
       <div className="mx-auto flex max-w-3xl flex-col gap-2 text-sm">
         {message.role === 'assistant' && (
-          <ScopeSummary message={message} title={t('scope.title')} />
+          <AgentTimeline message={message} title={t('timeline.title')} />
         )}
         {message.role === 'assistant' && (
-          <AgentTimeline message={message} title={t('timeline.title')} />
+          <ScopeSummary message={message} title={t('scope.title')} />
         )}
         {message.role === 'assistant' && (
           <PlannerDebugSummary message={message} title={t('debug.title')} />
