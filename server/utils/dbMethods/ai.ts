@@ -21,6 +21,7 @@ import { DEFAULT_AI_CONFIG, mergeAiConfig } from '../ai/providers';
 import {
   createRetrievalPlan,
   lifecycleScopeToArchived,
+  normalizeTimeRangeInput,
   toPlannerAgentDto,
   type NormalizedTimeRange,
   type PlannerAgentDto,
@@ -137,6 +138,16 @@ function normalizeEmbeddingDimensions(value: number): number {
 function normalizeLimit(limit?: number): number {
   if (!limit || Number.isNaN(limit)) return 10;
   return Math.min(Math.max(Math.floor(limit), 1), MAX_VECTOR_SEARCH_LIMIT);
+}
+
+function normalizeSearchTimeRange(timeRange?: NormalizedTimeRange | null): {
+  timeRange: NormalizedTimeRange | null;
+  warnings: string[];
+} {
+  if (!timeRange) return { timeRange: null, warnings: [] };
+  const normalized = normalizeTimeRangeInput(timeRange);
+  if (normalized) return { timeRange: normalized, warnings: [] };
+  return { timeRange: null, warnings: ['invalid_time_range_ignored'] };
 }
 
 function buildTextArraySql(values: string[]) {
@@ -766,6 +777,7 @@ export async function semanticSearch(params: {
       (params.sourceTypes || ['rote', 'article']).filter((type) => VALID_SOURCE_TYPES.has(type))
     )
   );
+  const { timeRange } = normalizeSearchTimeRange(params.timeRange);
   const vectorLiteral = vectorToLiteral(queryEmbedding);
   const sourceTypeSql =
     sourceTypes.length === 1
@@ -813,12 +825,12 @@ export async function semanticSearch(params: {
     typeof params.archived === 'boolean'
       ? sql`AND de."sourceType" = 'rote' AND r."archived" = ${params.archived}`
       : sql``;
-  const timeRangeSql = params.timeRange
+  const timeRangeSql = timeRange
     ? sql`
       AND (
-        (de."sourceType" = 'rote' AND r."createdAt" >= ${params.timeRange.from}::timestamptz AND r."createdAt" <= ${params.timeRange.to}::timestamptz)
+        (de."sourceType" = 'rote' AND r."createdAt" >= ${timeRange.from}::timestamptz AND r."createdAt" <= ${timeRange.to}::timestamptz)
         OR
-        (de."sourceType" = 'article' AND a."createdAt" >= ${params.timeRange.from}::timestamptz AND a."createdAt" <= ${params.timeRange.to}::timestamptz)
+        (de."sourceType" = 'article' AND a."createdAt" >= ${timeRange.from}::timestamptz AND a."createdAt" <= ${timeRange.to}::timestamptz)
       )
     `
     : sql``;
@@ -1022,6 +1034,7 @@ export async function textSearchMemory(params: {
 }): Promise<SemanticSearchResult[]> {
   if (!params.ownerId) return [];
   const limit = normalizeLimit(params.limit);
+  const { timeRange } = normalizeSearchTimeRange(params.timeRange);
   const sourceTypes = new Set(
     (params.sourceTypes || ['rote', 'article']).filter((type) => VALID_SOURCE_TYPES.has(type))
   );
@@ -1080,7 +1093,7 @@ export async function textSearchMemory(params: {
           ${excludeTagsSql}
           ${stateSql}
           ${archivedSql}
-          ${buildTextSearchTimeSql('r', params.timeRange)}
+          ${buildTextSearchTimeSql('r', timeRange)}
           ${excludeSql}
         ORDER BY r."updatedAt" DESC
         LIMIT ${limit}
@@ -1107,7 +1120,7 @@ export async function textSearchMemory(params: {
         FROM "articles" a
         WHERE a."authorId" = ${params.ownerId}
           ${buildArticleTextTermSql(activeTerms)}
-          ${buildTextSearchTimeSql('a', params.timeRange)}
+          ${buildTextSearchTimeSql('a', timeRange)}
           ${excludeSql}
         ORDER BY a."updatedAt" DESC
         LIMIT ${limit}
@@ -1142,13 +1155,15 @@ export async function searchMemoryWithFallback(params: {
   exclude?: { sourceType: AiSourceType; sourceId: string };
   excludeIds?: string[];
 }): Promise<{ sources: SemanticSearchResult[]; warnings: string[] }> {
+  const { timeRange, warnings } = normalizeSearchTimeRange(params.timeRange);
+  const safeParams = { ...params, timeRange };
   try {
-    return { sources: await semanticSearch(params), warnings: [] };
+    return { sources: await semanticSearch(safeParams), warnings };
   } catch (error: any) {
     if (params.scope === 'public') throw error;
     return {
-      sources: await textSearchMemory(params),
-      warnings: [`semantic_search_fallback_text:${error?.message || 'unknown_error'}`],
+      sources: await textSearchMemory(safeParams),
+      warnings: [...warnings, 'semantic_search_fallback_text'],
     };
   }
 }

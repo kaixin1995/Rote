@@ -110,8 +110,44 @@ describe('canonicalizeSearchRotesArgs', () => {
       from: '2026-01-01T00:00:00+08:00',
       to: '2026-01-03T23:59:59+08:00',
     });
+    expect(
+      canonicalizeTimeRange({
+        from: '2026-01-01T08:00:00+08:00',
+        to: '2026-01-03T18:30:00+08:00',
+      })
+    ).toMatchObject({
+      from: '2026-01-01T08:00:00+08:00',
+      to: '2026-01-03T18:30:00+08:00',
+    });
     expect(canonicalizeTimeRange({ timeExpression: '今天' })?.label).toBe('今天');
     expect(canonicalizeTimeRange({ timeExpression: '最近7天' })?.label).toBe('最近7天');
+  });
+
+  it('normalizes structured relative from/to ranges before SQL use', () => {
+    const range = canonicalizeTimeRange({ from: '60 days ago', to: '30 days ago' });
+
+    expect(range?.from).toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00\+08:00$/);
+    expect(range?.to).toMatch(/^\d{4}-\d{2}-\d{2}T23:59:59\+08:00$/);
+    expect(range?.from).not.toContain('days ago');
+    expect(range?.to).not.toContain('days ago');
+    expect(Date.parse(range?.from || '')).toBeLessThan(Date.parse(range?.to || ''));
+  });
+
+  it('ignores invalid time ranges instead of passing them through', () => {
+    const warnings: string[] = [];
+
+    expect(canonicalizeTimeRange({ from: 'sixty days ago', to: '30 days ago' }, warnings)).toBe(
+      null
+    );
+    expect(warnings).toContain('invalid_time_range_ignored');
+
+    const scoped = canonicalizeSearchRotesArgs({
+      ownerId: 'u1',
+      availableTags: AVAILABLE_TAGS,
+      args: { from: '2026-02-30', to: '2026-03-01' },
+    });
+    expect(scoped.scope.timeRange).toBeNull();
+    expect(scoped.warnings).toContain('invalid_time_range_ignored');
   });
 
   it('clamps limit and validates sourceTypes', () => {

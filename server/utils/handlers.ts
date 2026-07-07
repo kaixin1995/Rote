@@ -1,5 +1,19 @@
 import { HonoContext } from '../types/hono';
 
+function containsSensitiveServerDetails(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('postgres') ||
+    normalized.includes('timestamptz') ||
+    normalized.includes('timestamp with time zone') ||
+    normalized.includes('invalid input syntax for type') ||
+    normalized.includes('sql') ||
+    /\b(select|insert|update|delete|with|from|where|join|returning)\b/.test(normalized) ||
+    /\b(userid|user_id|user id|ownerid|owner_id)\b/i.test(message) ||
+    /\$\d+/.test(message)
+  );
+}
+
 export const errorHandler = async (err: Error, c: HonoContext) => {
   console.error('API Error:', err.message);
 
@@ -156,7 +170,7 @@ export const errorHandler = async (err: Error, c: HonoContext) => {
     return c.json(
       {
         code: 1,
-        message: err.message,
+        message: containsSensitiveServerDetails(err.message) ? 'Invalid request' : err.message,
         data: null,
       },
       400
@@ -218,10 +232,13 @@ export const errorHandler = async (err: Error, c: HonoContext) => {
   }
 
   // Default server error
+  const defaultMessage = err.message || 'Internal server error';
   return c.json(
     {
       code: 1,
-      message: err.message || 'Internal server error',
+      message: containsSensitiveServerDetails(defaultMessage)
+        ? 'Internal server error'
+        : defaultMessage,
       data: null,
     },
     500

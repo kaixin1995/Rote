@@ -421,8 +421,9 @@ aiRouter.post('/agent/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCon
         emit: (event) => writeAgentSseEvent(stream, event),
       });
     } catch (error: any) {
+      console.error('AI agent stream failed:', error);
       await writeSseEvent(stream, 'error', {
-        message: error?.message || 'AI agent stream failed',
+        message: 'AI agent stream failed',
       });
     }
   });
@@ -462,8 +463,9 @@ aiRouter.post('/chat/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCont
         await writeSseEvent(stream, 'done', {});
       }
     } catch (error: any) {
+      console.error('AI stream failed:', error);
       await writeSseEvent(stream, 'error', {
-        message: error?.message || 'AI stream failed',
+        message: 'AI stream failed',
       });
     }
   });

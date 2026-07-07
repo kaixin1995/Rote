@@ -123,6 +123,12 @@ const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 50;
 const MAX_STEPS = 6;
 const MAX_TOOL_CALLS = 10;
+const DATE_ONLY_RE = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/;
+const ISO_DATE_TIME_WITH_ZONE_RE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+const RELATIVE_POINT_RE =
+  /^(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年|days?|weeks?|months?|years?)\s*ago$/i;
+const RELATIVE_POINT_ZH_RE = /^(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年)前$/;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -254,6 +260,36 @@ function monthRange(year: number, monthIndex: number, label: string): Normalized
   return { from: startOfDay(start), to: endOfDay(end), label };
 }
 
+function isValidDateParts(year: number, month: number, day: number): boolean {
+  if (!Number.isInteger(year) || year < 1000 || year > 9999) return false;
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  const maxDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Number.isInteger(day) && day >= 1 && day <= maxDay;
+}
+
+function isValidTimeParts(hour: number, minute: number, second: number): boolean {
+  return (
+    Number.isInteger(hour) &&
+    hour >= 0 &&
+    hour <= 23 &&
+    Number.isInteger(minute) &&
+    minute >= 0 &&
+    minute <= 59 &&
+    Number.isInteger(second) &&
+    second >= 0 &&
+    second <= 59
+  );
+}
+
+function isValidTimezoneOffset(value: string): boolean {
+  if (value === 'Z') return true;
+  const match = value.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (!match) return false;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+}
+
 function chineseNumberToInt(value: string): number | null {
   const numeric = Number(value);
   if (Number.isFinite(numeric)) return Math.max(1, Math.floor(numeric));
@@ -280,21 +316,115 @@ function chineseNumberToInt(value: string): number | null {
   return null;
 }
 
-function normalizeDateInput(value: string, end = false): string {
-  const normalized = value.trim().replace(/[/.]/g, '-');
-  if (normalized.includes('T')) return normalized;
-  return `${normalized}${end ? 'T23:59:59+08:00' : 'T00:00:00+08:00'}`;
+function unitTextToUnit(value: string): AiTimeUnit {
+  const unitText = value.toLowerCase();
+  return unitText === '天' || unitText === '日' || unitText.startsWith('day')
+    ? 'day'
+    : unitText === '周' || unitText === '星期' || unitText.startsWith('week')
+      ? 'week'
+      : unitText === '年' || unitText.startsWith('year')
+        ? 'year'
+        : 'month';
 }
 
-export function canonicalizeTimeRange(args: SearchRotesArgs): NormalizedTimeRange | null {
+function addRelativeOffset(date: Date, amount: number, unit: AiTimeUnit): Date {
+  if (unit === 'month') return addMonths(date, -amount);
+  if (unit === 'year') return addMonths(date, -amount * 12);
+  return addDays(date, -(unit === 'day' ? amount : amount * 7));
+}
+
+function parseRelativePointDate(value: string): Date | null {
+  const match = value.trim().match(RELATIVE_POINT_RE) || value.trim().match(RELATIVE_POINT_ZH_RE);
+  if (!match) return null;
+
+  const amount = chineseNumberToInt(match[1]);
+  if (!amount || amount > 10000) return null;
+  return addRelativeOffset(getShanghaiToday(), amount, unitTextToUnit(match[2]));
+}
+
+function normalizeDateOnlyInput(value: string, end = false): string | null {
+  const match = value.trim().match(DATE_ONLY_RE);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!isValidDateParts(year, month, day)) return null;
+
+  return `${year}-${pad(month)}-${pad(day)}${end ? 'T23:59:59+08:00' : 'T00:00:00+08:00'}`;
+}
+
+function normalizeIsoDateTimeInput(value: string): string | null {
+  const normalized = value.trim();
+  const match = normalized.match(ISO_DATE_TIME_WITH_ZONE_RE);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = match[6] ? Number(match[6]) : 0;
+  const zone = match[8];
+
+  if (!isValidDateParts(year, month, day)) return null;
+  if (!isValidTimeParts(hour, minute, second)) return null;
+  if (!isValidTimezoneOffset(zone)) return null;
+  if (!Number.isFinite(Date.parse(normalized))) return null;
+
+  return normalized;
+}
+
+function normalizeDateInput(value: string, end = false): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (normalized.includes('T')) return normalizeIsoDateTimeInput(normalized);
+
+  const dateOnly = normalizeDateOnlyInput(normalized, end);
+  if (dateOnly) return dateOnly;
+
+  const relativePoint = parseRelativePointDate(normalized);
+  if (relativePoint) return end ? endOfDay(relativePoint) : startOfDay(relativePoint);
+
+  return null;
+}
+
+function isOrderedTimeRange(from: string, to: string): boolean {
+  const fromTime = Date.parse(from);
+  const toTime = Date.parse(to);
+  return Number.isFinite(fromTime) && Number.isFinite(toTime) && fromTime <= toTime;
+}
+
+export function normalizeTimeRangeInput(value: unknown): NormalizedTimeRange | null {
+  const raw = asRecord(value);
+  const from = typeof raw.from === 'string' ? raw.from.trim() : '';
+  const to = typeof raw.to === 'string' ? raw.to.trim() : '';
+  if (!from || !to) return null;
+
+  const normalizedFrom = normalizeDateInput(from);
+  const normalizedTo = normalizeDateInput(to, true);
+  if (!normalizedFrom || !normalizedTo || !isOrderedTimeRange(normalizedFrom, normalizedTo)) {
+    return null;
+  }
+
+  return {
+    from: normalizedFrom,
+    to: normalizedTo,
+    label:
+      typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : `${from} 到 ${to}`,
+  };
+}
+
+export function canonicalizeTimeRange(
+  args: SearchRotesArgs,
+  warnings?: string[]
+): NormalizedTimeRange | null {
   const from = typeof args.from === 'string' ? args.from.trim() : '';
   const to = typeof args.to === 'string' ? args.to.trim() : '';
   if (from && to) {
-    return {
-      from: normalizeDateInput(from),
-      to: normalizeDateInput(to, true),
-      label: `${from} 到 ${to}`,
-    };
+    const normalized = normalizeTimeRangeInput({ from, to, label: `${from} 到 ${to}` });
+    if (!normalized) warnings?.push('invalid_time_range_ignored');
+    return normalized;
   }
 
   const expression = typeof args.timeExpression === 'string' ? args.timeExpression.trim() : '';
@@ -317,27 +447,12 @@ export function canonicalizeTimeRange(args: SearchRotesArgs): NormalizedTimeRang
   }
 
   const rollingMatch = expression.match(
-    /(?:最近|近|过去|前)\s*(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年|days?|weeks?|months?|years?)/i
+    /(?:最近|近|过去|前|last|past|previous|recent)\s*(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年|days?|weeks?|months?|years?)/i
   );
   if (rollingMatch) {
     const amount = chineseNumberToInt(rollingMatch[1]);
-    const unitText = rollingMatch[2].toLowerCase();
-    const unit: AiTimeUnit =
-      unitText === '天' || unitText === '日' || unitText.startsWith('day')
-        ? 'day'
-        : unitText === '周' || unitText === '星期' || unitText.startsWith('week')
-          ? 'week'
-          : unitText === '年' || unitText.startsWith('year')
-            ? 'year'
-            : 'month';
     if (amount) {
-      const start =
-        unit === 'month'
-          ? addMonths(today, -amount)
-          : addDays(
-              today,
-              -(unit === 'day' ? amount : unit === 'week' ? amount * 7 : amount * 365)
-            );
+      const start = addRelativeOffset(today, amount, unitTextToUnit(rollingMatch[2]));
       return { from: startOfDay(start), to: endOfDay(today), label: rollingMatch[0] };
     }
   }
@@ -346,11 +461,13 @@ export function canonicalizeTimeRange(args: SearchRotesArgs): NormalizedTimeRang
     /(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})\s*(?:到|至|~|-|—)\s*(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})/
   );
   if (explicitRange) {
-    return {
-      from: normalizeDateInput(explicitRange[1]),
-      to: normalizeDateInput(explicitRange[2], true),
+    const normalized = normalizeTimeRangeInput({
+      from: explicitRange[1],
+      to: explicitRange[2],
       label: explicitRange[0],
-    };
+    });
+    if (!normalized) warnings?.push('invalid_time_range_ignored');
+    return normalized;
   }
 
   return null;
@@ -393,7 +510,7 @@ export function canonicalizeSearchRotesArgs(params: {
     excludeTags: Array.from(new Set(excludeTags)),
     semanticScope: Array.from(semanticScope).slice(0, 30),
     sourceTypes: normalizeSourceTypes(params.args.sourceTypes, warnings),
-    timeRange: canonicalizeTimeRange(params.args),
+    timeRange: canonicalizeTimeRange(params.args, warnings),
     lifecycleScope: normalizeLifecycleScope(params.args.lifecycleScope),
     taskStatusScope: normalizeTaskStatusScope(params.args.taskStatusScope),
     limit: clampLimit(params.args.limit),
@@ -442,9 +559,21 @@ function plannerTools(): ChatToolDefinition[] {
             excludeTags: { type: 'array', items: { type: 'string' } },
             semanticScope: { type: 'array', items: { type: 'string' } },
             sourceTypes: { type: 'array', items: { type: 'string', enum: ['rote', 'article'] } },
-            timeExpression: { type: 'string' },
-            from: { type: 'string' },
-            to: { type: 'string' },
+            timeExpression: {
+              type: 'string',
+              description:
+                'Relative range expression such as today, yesterday, last 7 days, or 最近7天.',
+            },
+            from: {
+              type: 'string',
+              description:
+                'Absolute ISO date/datetime only, such as 2026-05-08 or 2026-05-08T00:00:00+08:00. Use timeExpression for relative ranges.',
+            },
+            to: {
+              type: 'string',
+              description:
+                'Absolute ISO date/datetime only, such as 2026-05-09 or 2026-05-09T23:59:59+08:00. Use timeExpression for relative ranges.',
+            },
             lifecycleScope: {
               type: 'string',
               enum: ['active', 'archived', 'all', 'unspecified'],

@@ -442,9 +442,21 @@ export function getNativeRoteTools(): RoteAgentTool[] {
                 description:
                   'Soft topic keywords for semantic retrieval. Use for themes and patterns that are not verified tags.',
               },
-              timeExpression: { type: 'string' },
-              from: { type: 'string' },
-              to: { type: 'string' },
+              timeExpression: {
+                type: 'string',
+                description:
+                  'Relative range expression such as today, yesterday, last 7 days, or 最近7天.',
+              },
+              from: {
+                type: 'string',
+                description:
+                  'Absolute ISO date/datetime only, such as 2026-05-08 or 2026-05-08T00:00:00+08:00. Use timeExpression for relative ranges.',
+              },
+              to: {
+                type: 'string',
+                description:
+                  'Absolute ISO date/datetime only, such as 2026-05-09 or 2026-05-09T23:59:59+08:00. Use timeExpression for relative ranges.',
+              },
               lifecycleScope: {
                 type: 'string',
                 enum: Array.from(VALID_LIFECYCLE_SCOPES),
