@@ -1,8 +1,4 @@
-export const CAPABILITY_KEYS = [
-  'attachment.upload',
-  'attachment.video.upload',
-  'ai.site.chat',
-] as const;
+export const CAPABILITY_KEYS = ['attachment.upload', 'attachment.video.upload', 'ai.chat'] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 export type CapabilityEffect = 'allow' | 'deny';

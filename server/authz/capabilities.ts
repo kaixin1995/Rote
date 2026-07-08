@@ -1,10 +1,6 @@
 import { UserRole } from '../types/main';
 
-export const CAPABILITY_KEYS = [
-  'attachment.upload',
-  'attachment.video.upload',
-  'ai.site.chat',
-] as const;
+export const CAPABILITY_KEYS = ['attachment.upload', 'attachment.video.upload', 'ai.chat'] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 export type CapabilityEffect = 'allow' | 'deny';
@@ -22,13 +18,13 @@ export type EffectiveCapabilities = Record<CapabilityKey, EffectiveCapability>;
 const USER_DEFAULTS: Record<CapabilityKey, boolean> = {
   'attachment.upload': true,
   'attachment.video.upload': false,
-  'ai.site.chat': false,
+  'ai.chat': false,
 };
 
 const ADMIN_DEFAULTS: Record<CapabilityKey, boolean> = {
   'attachment.upload': true,
   'attachment.video.upload': true,
-  'ai.site.chat': true,
+  'ai.chat': true,
 };
 
 export const ROLE_DEFAULT_CAPABILITIES: Record<string, Record<CapabilityKey, boolean>> = {

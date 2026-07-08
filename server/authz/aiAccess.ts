@@ -1,31 +1,31 @@
 import type { AiConfig } from '../types/config';
-import { getPgvectorStatus, getStoredAiConfig } from '../utils/dbMethods/ai';
-import { getEffectiveCapabilitiesForUser } from './capabilityService';
 
-export const AI_CERTIFICATION_REQUIRED_MESSAGE = 'AI features require a certified account';
-export const AI_MEMORY_UNAVAILABLE_MESSAGE = 'Memory tools are not available';
+export const AI_CHAT_PERMISSION_REQUIRED_MESSAGE = 'capability_required:ai.chat';
+export const AI_MEMORY_UNAVAILABLE_MESSAGE = 'Memory tools are not ready';
 
 type AiAccessUser = {
   id: string;
-  certified?: boolean;
-  // TODO: 下下次更新移除 emailVerified 入参兼容，调用方统一传 certified。
-  emailVerified?: boolean;
 };
 
 export async function getUserAiAccess(user: AiAccessUser) {
+  const { getEffectiveCapabilitiesForUser } = await import('./capabilityService');
   const effective = await getEffectiveCapabilitiesForUser(user.id);
   return {
-    certified: user.certified === true || user.emailVerified === true,
-    siteChatAllowed: effective.capabilities['ai.site.chat'].allowed,
+    chatAllowed: effective.capabilities['ai.chat'].allowed,
   };
 }
 
 type AiAccess = Awaited<ReturnType<typeof getUserAiAccess>>;
-type PgvectorStatus = Awaited<ReturnType<typeof getPgvectorStatus>>;
+type PgvectorStatus = {
+  available: boolean;
+  installed: boolean;
+  version: string | null;
+  indexName: string | null;
+  dimensions: number;
+};
 
 export function getAiAccessErrorFromAccess(access: AiAccess): string | null {
-  if (!access.certified) return AI_CERTIFICATION_REQUIRED_MESSAGE;
-  if (!access.siteChatAllowed) return 'capability_required:ai.site.chat';
+  if (!access.chatAllowed) return AI_CHAT_PERMISSION_REQUIRED_MESSAGE;
   return null;
 }
 
@@ -47,6 +47,7 @@ export function isAiMemoryAvailableForAccess(params: {
 }
 
 export async function getAiMemoryAccessError(user: AiAccessUser): Promise<string | null> {
+  const { getPgvectorStatus, getStoredAiConfig } = await import('../utils/dbMethods/ai');
   const [access, config, vectorStatus] = await Promise.all([
     getUserAiAccess(user),
     getStoredAiConfig(),

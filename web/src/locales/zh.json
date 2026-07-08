@@ -548,9 +548,9 @@
         "checking": "检测中...",
         "ready": "配置已就绪",
         "chatReady": "对话模型已配置",
-        "unverified": "完成认证后可使用 AI",
-        "permissionDenied": "当前账号没有站内云端 AI 对话权限",
-        "unavailable": "AI 或向量索引暂不可用",
+        "unverified": "AI 使用由管理员权限配置控制",
+        "permissionDenied": "当前账号没有 AI 对话权限",
+        "unavailable": "AI 对话模型未配置",
         "memoryUnavailable": "对话模型已配置，记忆还需要启用向量索引"
       },
       "model": {
@@ -589,8 +589,8 @@
         "probeMissing": "未就绪",
         "siteProbeChecking": "正在读取站内 AI 状态。",
         "siteProbeReady": "站内 AI 对话已就绪；记忆是否可用取决于向量索引状态。",
-        "siteProbePartial": "站内对话模型和权限已配置，但账号资格还未就绪。",
-        "siteProbeMissing": "站内 AI 还不可用，请使用个人模型或联系管理员。",
+        "siteProbePartial": "站内对话模型和权限已配置，但记忆还未就绪。",
+        "siteProbeMissing": "站内 AI 还不可用，请使用个人模型，或联系管理员检查 AI 对话权限和模型配置。",
         "personalProbeReady": "模型/API 已启用；可测试接口，回答时会使用该配置。",
         "personalProbeDisabled": "模型/API 配置已填写，可以测试接口；打开开关后才会用于回答。",
         "personalProbeMissing": "请先填写 Base URL 与模型名。",
@@ -1423,9 +1423,9 @@
             "label": "上传视频",
             "description": "允许上传视频；该权限依赖上传附件权限。"
           },
-          "ai.site.chat": {
-            "label": "站内云端 AI 对话",
-            "description": "允许使用站点配置的云端对话模型。"
+          "ai.chat": {
+            "label": "AI 对话",
+            "description": "允许使用 AI 对话；系统记忆运行环境就绪时也可使用记忆工具。"
           }
         },
         "userDialog": {

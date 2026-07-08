@@ -558,9 +558,9 @@
         "checking": "Checking...",
         "ready": "Configuration ready",
         "chatReady": "Chat model configured",
-        "unverified": "Complete certification to use AI",
-        "permissionDenied": "This account does not have permission to use site cloud AI chat",
-        "unavailable": "AI or vector index is not available",
+        "unverified": "AI access is controlled by administrator permissions",
+        "permissionDenied": "This account does not have AI chat permission",
+        "unavailable": "AI chat model is not configured",
         "memoryUnavailable": "The chat model is configured, but memory still needs vector indexing"
       },
       "model": {
@@ -599,8 +599,8 @@
         "probeMissing": "Not ready",
         "siteProbeChecking": "Reading the site AI status.",
         "siteProbeReady": "Site AI chat is ready. Memory availability depends on the vector index status.",
-        "siteProbePartial": "The site chat model and permission are configured, but account eligibility is not ready.",
-        "siteProbeMissing": "Site AI is not available yet. Use a personal model or contact an admin.",
+        "siteProbePartial": "The site chat model and permission are configured, but memory is not ready.",
+        "siteProbeMissing": "Site AI is not available yet. Use a personal model or ask an admin to check the AI chat permission and model settings.",
         "personalProbeReady": "The model/API is enabled. You can test it; answers will use this configuration.",
         "personalProbeDisabled": "Model/API settings are filled in, so you can test the API. Turn on the switch to use it for answers.",
         "personalProbeMissing": "Fill in the Base URL and model first.",
@@ -1433,9 +1433,9 @@
             "label": "Upload Videos",
             "description": "Allow video uploads; this requires attachment upload permission."
           },
-          "ai.site.chat": {
-            "label": "Site Cloud AI Chat",
-            "description": "Allow the cloud chat model configured by the site."
+          "ai.chat": {
+            "label": "AI Chat",
+            "description": "Allow AI chat and memory tools when the system memory runtime is ready."
           }
         },
         "userDialog": {

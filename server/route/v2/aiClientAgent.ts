@@ -113,7 +113,7 @@ export function registerClientAgentRoutes(router: Hono<{ Variables: HonoVariable
 
     if (accessError) return c.json(createResponse(null, accessError), 403);
     if (!memoryAvailable) {
-      return c.json(createResponse(null, AI_MEMORY_UNAVAILABLE_MESSAGE), 403);
+      return c.json(createResponse(null, AI_MEMORY_UNAVAILABLE_MESSAGE), 503);
     }
 
     const policy = {
@@ -144,7 +144,7 @@ export function registerClientAgentRoutes(router: Hono<{ Variables: HonoVariable
 
       if (accessError) return c.json(createResponse(null, accessError), 403);
       if (!memoryAvailable) {
-        return c.json(createResponse(null, AI_MEMORY_UNAVAILABLE_MESSAGE), 403);
+        return c.json(createResponse(null, AI_MEMORY_UNAVAILABLE_MESSAGE), 503);
       }
 
       const result = await executeClientRoteTool({

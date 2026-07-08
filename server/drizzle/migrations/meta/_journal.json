@@ -127,6 +127,13 @@
       "when": 1782903517329,
       "tag": "0017_orange_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783494313000,
+      "tag": "0018_ai_chat_capability",
+      "breakpoints": true
     }
   ]
 }

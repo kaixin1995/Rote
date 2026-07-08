@@ -6,6 +6,7 @@ import PageRequestError from '@/components/others/PageRequestError';
 import UserAvatar from '@/components/others/UserAvatar';
 import RoteItem from '@/components/rote/roteItem';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useSiteStatus } from '@/hooks/useSiteStatus';
 import { profileAtom } from '@/state/profile';
 
@@ -25,6 +26,7 @@ function SingleRotePage() {
   const { roteid } = useParams();
   const profile = useAtomValue(profileAtom);
   const { data: siteStatus } = useSiteStatus();
+  const { capabilities } = usePermissions();
 
   const {
     data: rote,
@@ -88,7 +90,8 @@ function SingleRotePage() {
   }
 
   const isOwner = Boolean(profile?.username && rote?.author?.username === profile.username);
-  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.certified === true;
+  const canUseAi =
+    siteStatus?.ai?.memoryAvailable === true && capabilities?.['ai.chat']?.allowed === true;
 
   const SideBar = () =>
     isLoading ? (

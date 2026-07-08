@@ -7,9 +7,9 @@ import RoteList from '@/components/rote/roteList';
 import RoteItem from '@/components/rote/roteItem';
 import { DatePicker } from '@/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useSiteStatus } from '@/hooks/useSiteStatus';
 import ContainerWithSideBar from '@/layout/ContainerWithSideBar';
-import { profileAtom } from '@/state/profile';
 import { loadTagsAtom, tagsAtom } from '@/state/tags';
 import type { ApiGetRotesParams, Rote, Rotes, Statistics } from '@/types/main';
 import type { AiSemanticResult } from '@/utils/aiApi';
@@ -64,10 +64,11 @@ function MineFilter() {
   const { t } = useTranslation('translation', { keyPrefix: 'pages.filter' });
 
   const tags = useAtomValue(tagsAtom);
-  const profile = useAtomValue(profileAtom);
   const loadTags = useSetAtom(loadTagsAtom);
   const { data: siteStatus } = useSiteStatus();
-  const canUseAi = siteStatus?.ai?.memoryAvailable === true && profile?.certified === true;
+  const { capabilities } = usePermissions();
+  const canUseAi =
+    siteStatus?.ai?.memoryAvailable === true && capabilities?.['ai.chat']?.allowed === true;
 
   useEffect(() => {
     if (tags === null) loadTags();

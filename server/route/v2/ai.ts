@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import {
-  getAiAccessError,
+  AI_MEMORY_UNAVAILABLE_MESSAGE,
   getAiAccessErrorFromAccess,
   getAiMemoryAccessError,
   getUserAiAccess,
@@ -35,6 +35,10 @@ import { registerClientAgentRoutes } from './aiClientAgent';
 
 const aiRouter = new Hono<{ Variables: HonoVariables }>();
 const VALID_AI_SOURCE_TYPES = new Set<AiSourceType>(['rote', 'article']);
+
+function getAiMemoryErrorStatus(message: string): 403 | 503 {
+  return message === AI_MEMORY_UNAVAILABLE_MESSAGE ? 503 : 403;
+}
 
 async function writeSseEvent(
   stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
@@ -163,7 +167,9 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
   const config = await getStoredAiConfig();
   const vectorStatus = await getPgvectorStatus();
   const access = await getUserAiAccess(user);
-  const eligible = access.certified;
+  const eligible = Boolean(
+    user.emailVerified || (user as User & { certified?: boolean }).certified
+  );
   const memoryStats = await getOwnerAiMemoryStats(user.id);
   const chatBaseUrl = config.chat?.baseUrl || '';
   const isLocalChat =
@@ -174,14 +180,14 @@ aiRouter.get('/status', authenticateJWT, async (c: HonoContext) => {
     Boolean(config.chat?.baseUrl?.trim()) &&
     Boolean(config.chat?.model?.trim());
   const memoryAvailable = isAiMemoryAvailableForAccess({ access, config, vectorStatus });
-  const available = eligible && access.siteChatAllowed && chatAvailable;
+  const available = access.chatAllowed && chatAvailable;
   return c.json(
     createResponse({
       enabled: config.enabled,
       vectorEnabled: config.vectorEnabled,
       publicExploreVectorEnabled: config.publicExploreVectorEnabled,
       eligible,
-      siteChatAllowed: access.siteChatAllowed,
+      chatAllowed: access.chatAllowed,
       chatAvailable,
       chatProviderId: config.chat?.providerId || '',
       chatModel: config.chat?.model || '',
@@ -201,14 +207,16 @@ aiRouter.post('/site/test', authenticateJWT, async (c: HonoContext) => {
   const config = await getStoredAiConfig();
   const vectorStatus = await getPgvectorStatus();
   const access = await getUserAiAccess(user);
-  const eligible = access.certified;
+  const eligible = Boolean(
+    user.emailVerified || (user as User & { certified?: boolean }).certified
+  );
   const chatAvailable =
     config.enabled === true &&
     Boolean(config.chat?.baseUrl?.trim()) &&
     Boolean(config.chat?.model?.trim());
   const vectorAvailable = config.vectorEnabled === true && vectorStatus.installed === true;
 
-  const accessError = await getAiAccessError(user);
+  const accessError = getAiAccessErrorFromAccess(access);
   if (accessError) {
     return c.json(
       createResponse(
@@ -269,7 +277,7 @@ aiRouter.post('/search', authenticateJWT, bodyTypeCheck, async (c: HonoContext) 
   const user = c.get('user') as User;
   const accessError = await getAiMemoryAccessError(user);
   if (accessError) {
-    return c.json(createResponse(null, accessError), 403);
+    return c.json(createResponse(null, accessError), getAiMemoryErrorStatus(accessError));
   }
 
   const body = await c.req.json();
@@ -298,7 +306,7 @@ aiRouter.post('/related-notes', authenticateJWT, bodyTypeCheck, async (c: HonoCo
   const user = c.get('user') as User;
   const accessError = await getAiMemoryAccessError(user);
   if (accessError) {
-    return c.json(createResponse(null, accessError), 403);
+    return c.json(createResponse(null, accessError), getAiMemoryErrorStatus(accessError));
   }
 
   const body = await c.req.json();
@@ -386,7 +394,10 @@ aiRouter.post('/agent/stream', authenticateJWT, bodyTypeCheck, async (c: HonoCon
   const user = c.get('user') as User;
   const memoryAccessError = await getAiMemoryAccessError(user);
   if (memoryAccessError) {
-    return c.json(createResponse(null, memoryAccessError), 403);
+    return c.json(
+      createResponse(null, memoryAccessError),
+      getAiMemoryErrorStatus(memoryAccessError)
+    );
   }
 
   const body = await c.req.json();

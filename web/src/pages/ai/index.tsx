@@ -1,5 +1,4 @@
 import { AiMessageItem } from '@/components/ai/AiMessageItem';
-import { AiSourceList } from '@/components/ai/AiSourceList';
 import NavBar from '@/components/layout/navBar';
 import { SoftBottom } from '@/components/others/SoftBottom';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,6 @@ import {
   BrainCog,
   Loader,
   Send,
-  Settings2,
   Sparkles,
   Trash2,
 } from 'lucide-react';
@@ -50,6 +48,7 @@ import {
   iconButtonSize,
   statusBlockClasses,
 } from './components/aiPageClasses';
+import { AiMemorySidebar } from './components/AiMemorySidebar';
 import { PersonalAiDialog } from './components/PersonalAiDialog';
 import { useAiRunLabels } from './hooks/useAiRunLabels';
 import { usePersonalAiTesting } from './hooks/usePersonalAiTesting';
@@ -112,13 +111,11 @@ function AiMemoryPage() {
     !isStatusLoading && (isPersonalModelMode ? !personalAiReady : status?.available !== true);
   const unavailableText = isPersonalModelMode
     ? t('personal.personalUnavailable')
-    : status?.eligible === false
-      ? t('status.unverified')
-      : status?.siteChatAllowed === false
-        ? t('status.permissionDenied')
-        : status?.chatAvailable
-          ? t('status.memoryUnavailable')
-          : t('status.unavailable');
+    : status?.chatAllowed === false
+      ? t('status.permissionDenied')
+      : status?.chatAvailable
+        ? t('status.memoryUnavailable')
+        : t('status.unavailable');
   const canSend = !isSending && !unavailable && input.trim().length > 0;
   const memoryStats = status?.memoryStats;
   const indexedRoteCount = memoryStats?.indexedRoteCount ?? 0;
@@ -215,154 +212,31 @@ function AiMemoryPage() {
     }
   }
 
-  const StatusBlock = () => {
-    const statusText = (() => {
-      if (isStatusLoading) return t('status.checking');
-      if (isPersonalModelMode) return personalAiReady ? t('status.ready') : unavailableText;
-      if (status?.available) return t('status.ready');
-      if (status?.eligible === false) return unavailableText;
-      return status?.chatAvailable ? t('status.chatReady') : unavailableText;
-    })();
-    const providerText =
-      personalAi.mode === 'personal'
-        ? t('model.personal')
-        : status?.chatMode === 'local'
-          ? t('model.local')
-          : status?.chatMode === 'site'
-            ? t('model.site')
-            : t('model.disabled');
-    const modelText = isPersonalModelMode
-      ? activePersonalConfig.model || t('model.noModel')
-      : status?.chatModel || t('model.noModel');
-
-    return (
-      <div className="px-4 py-2">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <div className="text-md min-w-0 truncate">{t('status.title')}</div>
-          <div className={statusBlockClasses.actions}>
-            <div className={statusBlockClasses.statusText}>
-              {isStatusLoading || isStatusValidating ? (
-                <Loader className={statusBlockClasses.statusLoader} />
-              ) : null}
-              {!isStatusLoading && !status?.available ? (
-                <button
-                  type={buttonType}
-                  className={statusBlockClasses.statusRefresh}
-                  onClick={() => refreshStatus()}
-                >
-                  {statusText}
-                </button>
-              ) : (
-                <span className={statusBlockClasses.truncate}>{statusText}</span>
-              )}
-            </div>
-            <Button
-              type={buttonType}
-              variant={ghostButtonVariant}
-              size={iconButtonSize}
-              className={statusBlockClasses.settingsButton}
-              onClick={() => setIsPersonalAiDialogOpen(true)}
-              aria-label={t('personal.openSettings')}
-              title={t('personal.openSettings')}
-            >
-              <Settings2 className={statusBlockClasses.settingsIcon} />
-            </Button>
-          </div>
-        </div>
-        <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-sm">
-          <span className="text-info min-w-0 truncate font-light">{t('model.source')}</span>
-          <span className="shrink-0 truncate text-right text-xs font-medium">{providerText}</span>
-        </div>
-        <div className="mt-1 flex min-w-0 items-center justify-between gap-3 text-sm">
-          <span className="text-info min-w-0 truncate font-light">{t('model.model')}</span>
-          <span className="shrink-0 truncate text-right font-mono text-xs">
-            {isStatusLoading ? '-' : modelText}
-          </span>
-        </div>
-        <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-sm">
-          <span className="text-info min-w-0 truncate font-light">
-            {t('memoryStats.roteCount')}
-          </span>
-          <span className="shrink-0 font-mono tabular-nums">
-            {isStatusLoading ? '-' : roteCount.toLocaleString()}
-          </span>
-        </div>
-        <div className="mt-1 flex min-w-0 items-center justify-between gap-3 text-sm">
-          <span className="text-info min-w-0 truncate font-light">
-            {t('memoryStats.vectorProgress')}
-          </span>
-          <span className="shrink-0 font-mono tabular-nums">
-            {isStatusLoading
-              ? '-'
-              : t('memoryStats.vectorProgressValue', { percent: vectorProgress })}
-          </span>
-        </div>
-        <div className="text-info mt-2 line-clamp-3 text-xs font-light">
-          {personalAi.mode === 'personal'
-            ? t('personal.personalPrivacy')
-            : t('privacy.description')}
-        </div>
-      </div>
-    );
-  };
-
-  const SideBar = () => (
-    <div className="flex w-full flex-col divide-y">
-      <StatusBlock />
-      <div className="divide-border/50 flex flex-col divide-y">
-        <div className="px-4 py-2">
-          <div className="text-md">{t('quick.title')}</div>
-          <div className="text-info text-xs font-light">{t('empty.desc')}</div>
-        </div>
-        <div className="grid w-4/5 gap-2 px-4 py-2">
-          {(isPromptsExpanded ? quickPrompts : quickPrompts.slice(0, 4)).map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              className="hover:text-info min-w-0 cursor-pointer text-left text-sm duration-200 hover:opacity-60 disabled:pointer-events-none disabled:opacity-40"
-              disabled={isSending || unavailable}
-              onClick={() => sendMessage(prompt, { ignorePendingPlan: true })}
-            >
-              <span className="line-clamp-2 min-w-0">{prompt}</span>
-            </button>
-          ))}
-          {!isPromptsExpanded && quickPrompts.length > 4 && (
-            <button
-              type="button"
-              className="text-info hover:text-foreground flex cursor-pointer items-center gap-2 text-sm duration-200 hover:opacity-60"
-              onClick={() => setIsPromptsExpanded(true)}
-            >
-              <ArrowDownLeft className="size-4 shrink-0" />
-              <span className="min-w-0 truncate">{t('quick.expand')}</span>
-            </button>
-          )}
-          {isPromptsExpanded && quickPrompts.length > 4 && (
-            <button
-              type="button"
-              className="text-info hover:text-foreground flex cursor-pointer items-center gap-2 text-sm duration-200 hover:opacity-60"
-              onClick={() => setIsPromptsExpanded(false)}
-            >
-              <ArrowUpRight className="size-4 shrink-0" />
-              <span className="min-w-0 truncate">{t('quick.collapse')}</span>
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="divide-border/50 flex flex-col divide-y">
-        <div className="px-4 py-2">
-          <div className="text-md">{t('sources.title')}</div>
-          {visibleSources.length === 0 && (
-            <div className="text-info text-xs font-light">{t('sources.empty')}</div>
-          )}
-        </div>
-        <AiSourceList sources={visibleSources} emptyLabel={t('sources.empty')} />
-      </div>
-    </div>
-  );
-
   return (
     <ContainerWithSideBar
-      sidebar={<SideBar />}
+      sidebar={
+        <AiMemorySidebar
+          status={status}
+          isStatusLoading={isStatusLoading}
+          isStatusValidating={isStatusValidating}
+          onRefreshStatus={() => refreshStatus()}
+          personalAi={personalAi}
+          activePersonalConfig={activePersonalConfig}
+          isPersonalModelMode={isPersonalModelMode}
+          personalAiReady={personalAiReady}
+          unavailableText={unavailableText}
+          roteCount={roteCount}
+          vectorProgress={vectorProgress}
+          onOpenPersonalAiDialog={() => setIsPersonalAiDialogOpen(true)}
+          quickPrompts={quickPrompts}
+          isPromptsExpanded={isPromptsExpanded}
+          setIsPromptsExpanded={setIsPromptsExpanded}
+          isSending={isSending}
+          unavailable={unavailable}
+          sendMessage={sendMessage}
+          visibleSources={visibleSources}
+        />
+      }
       sidebarHeader={
         <div className="flex min-w-0 items-center gap-2 p-3 text-lg font-semibold">
           <BrainCog className="size-5 shrink-0" />

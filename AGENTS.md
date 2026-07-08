@@ -18,6 +18,14 @@
 - Frontend commands should run in `web/`.
 - Backend commands should run in `server/`.
 
+## Pull Request Policy
+
+- Always create work branches from `develop`, not `main`.
+- Always open pull requests against `develop`, not `main`.
+- Before pushing or opening a PR, verify the branch base and PR base are `develop`.
+- When correcting an existing PR with the wrong base, change the PR base to `develop` before
+  force-pushing or otherwise synchronizing the branch, so main-only source guards are not triggered.
+
 ## Validation Policy
 
 - After every code change, run both lint and build before finishing.

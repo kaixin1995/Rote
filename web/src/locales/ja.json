@@ -562,9 +562,9 @@
         "checking": "確認中...",
         "ready": "設定準備完了",
         "chatReady": "チャットモデル設定済み",
-        "unverified": "認証後に AI を利用できます",
-        "permissionDenied": "このアカウントにはサイトのクラウド AI チャット権限がありません",
-        "unavailable": "AI またはベクトル索引を利用できません",
+        "unverified": "AI の利用可否は管理者の権限設定で制御されます",
+        "permissionDenied": "このアカウントには AI チャット権限がありません",
+        "unavailable": "AI チャットモデルが未設定です",
         "memoryUnavailable": "チャットモデルは設定済みですが、メモリーにはベクトル索引が必要です"
       },
       "model": {
@@ -603,8 +603,8 @@
         "probeMissing": "未準備",
         "siteProbeChecking": "サイト AI の状態を読み取っています。",
         "siteProbeReady": "サイト AI チャットは利用できます。メモリーの可用性はベクトル索引の状態に依存します。",
-        "siteProbePartial": "サイトのチャットモデルと権限は設定済みですが、アカウント資格が未準備です。",
-        "siteProbeMissing": "サイト AI はまだ利用できません。個人モデルを使うか管理者に連絡してください。",
+        "siteProbePartial": "サイトのチャットモデルと権限は設定済みですが、メモリーはまだ準備できていません。",
+        "siteProbeMissing": "サイト AI はまだ利用できません。個人モデルを使うか、AI チャット権限とモデル設定を管理者に確認してください。",
         "personalProbeReady": "モデル/API は有効です。API をテストできます。回答時はこの設定を使用します。",
         "personalProbeDisabled": "モデル/API 設定は入力済みなので API をテストできます。回答に使うにはスイッチをオンにしてください。",
         "personalProbeMissing": "Base URL とモデル名を入力してください。",
@@ -1437,9 +1437,9 @@
             "label": "動画をアップロード",
             "description": "動画のアップロードを許可します。添付ファイルのアップロード権限が必要です。"
           },
-          "ai.site.chat": {
-            "label": "サイトのクラウド AI チャット",
-            "description": "サイトで設定されたクラウドチャットモデルの使用を許可します。"
+          "ai.chat": {
+            "label": "AI チャット",
+            "description": "AI チャットを許可し、システムのメモリー実行環境が準備できていればメモリーツールも利用できます。"
           }
         },
         "userDialog": {
