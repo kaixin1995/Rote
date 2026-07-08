@@ -172,6 +172,7 @@ export interface AiAgentClientState {
     selectedSourceIds?: string[];
     selectedTags?: string[];
   } | null;
+  clientContext?: AiClientRequestContext | null;
   stateVersion?: number;
 }
 
@@ -243,9 +244,86 @@ export type AiChatPayload = {
   excludeIds?: string[];
   history?: { role: 'user' | 'assistant'; content: string }[];
   state?: AiAgentClientState | null;
+  clientContext?: AiClientRequestContext | null;
   debug?: boolean;
   enableThinking?: boolean;
 };
+
+export interface AiClientRequestContext {
+  nowIso: string;
+  localDate: string;
+  localDateTime: string;
+  timeZone?: string;
+  utcOffsetMinutes: number;
+  locale?: string;
+  calendar?: string;
+}
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function formatUtcOffset(minutes: number): string {
+  const sign = minutes >= 0 ? '+' : '-';
+  const absolute = Math.abs(minutes);
+  return `${sign}${padDatePart(Math.floor(absolute / 60))}:${padDatePart(absolute % 60)}`;
+}
+
+export function createAiClientRequestContext(now = new Date()): AiClientRequestContext {
+  const resolvedOptions = Intl.DateTimeFormat().resolvedOptions();
+  const utcOffsetMinutes = -now.getTimezoneOffset();
+  const localDate = [
+    now.getFullYear(),
+    padDatePart(now.getMonth() + 1),
+    padDatePart(now.getDate()),
+  ].join('-');
+  const localTime = [
+    padDatePart(now.getHours()),
+    padDatePart(now.getMinutes()),
+    padDatePart(now.getSeconds()),
+  ].join(':');
+
+  return {
+    nowIso: now.toISOString(),
+    localDate,
+    localDateTime: `${localDate}T${localTime}${formatUtcOffset(utcOffsetMinutes)}`,
+    timeZone: resolvedOptions.timeZone,
+    utcOffsetMinutes,
+    locale: typeof navigator !== 'undefined' ? navigator.language : resolvedOptions.locale,
+    calendar: resolvedOptions.calendar,
+  };
+}
+
+export function buildAiClientTimeContextMessage(context: AiClientRequestContext): string {
+  return [
+    'Use the current request time context for relative date phrases.',
+    `Client now (UTC): ${context.nowIso}`,
+    `Client local date: ${context.localDate}`,
+    `Client local date/time: ${context.localDateTime}`,
+    context.timeZone ? `Client time zone: ${context.timeZone}` : null,
+    `Client UTC offset minutes: ${context.utcOffsetMinutes}`,
+    context.locale ? `Client locale: ${context.locale}` : null,
+    context.calendar ? `Client calendar: ${context.calendar}` : null,
+    'Resolve relative date phrases such as today, yesterday, this month, last month, 最近, 本月, and 上月 using this context.',
+    'For Rote search tools, prefer structured timeRange preset/rolling/relative_between or pass the original phrase as timeExpression. Use from/to only for explicit absolute dates.',
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n');
+}
+
+export function withAiClientRequestContext(payload: AiChatPayload): AiChatPayload {
+  const clientContext = payload.clientContext || createAiClientRequestContext();
+  return {
+    ...payload,
+    clientContext,
+    state: payload.state
+      ? {
+          ...payload.state,
+          clientContext: payload.state.clientContext || clientContext,
+        }
+      : payload.state,
+  };
+}
 
 export const getClientAgentBootstrap = () =>
   get('/ai/client-agent/bootstrap').then((res) => res.data as ClientAgentBootstrap);
@@ -256,14 +334,26 @@ export const executeClientAgentTool = (payload: {
   request: AiChatPayload;
   state?: AiAgentClientState | null;
   sourceKeys?: string[];
-}) =>
-  post('/ai/client-agent/tools/execute', payload).then((res) => res.data as ClientAgentToolResult);
+}) => {
+  const request = withAiClientRequestContext(payload.request);
+  return post('/ai/client-agent/tools/execute', {
+    ...payload,
+    request,
+    state: payload.state
+      ? {
+          ...payload.state,
+          clientContext: payload.state.clientContext || request.clientContext,
+        }
+      : payload.state,
+  }).then((res) => res.data as ClientAgentToolResult);
+};
 
 async function createAiStreamRequest(
   endpoint: '/ai/chat/stream' | '/ai/agent/stream',
   payload: AiChatPayload,
   signal?: AbortSignal
 ) {
+  const requestPayload = withAiClientRequestContext(payload);
   let token = authService.getAccessToken();
   const request = () =>
     fetch(`${getApiUrl()}${endpoint}`, {
@@ -272,7 +362,7 @@ async function createAiStreamRequest(
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
       signal,
     });
 

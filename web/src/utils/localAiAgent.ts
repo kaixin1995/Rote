@@ -1,7 +1,9 @@
 import type { PersonalAiProviderConfig } from '@/state/localAi';
 import {
+  buildAiClientTimeContextMessage,
   executeClientAgentTool,
   getClientAgentBootstrap,
+  withAiClientRequestContext,
   type AiAgentClientState,
   type AiChatPayload,
   type AiChatStreamHandlers,
@@ -40,18 +42,23 @@ export async function localAiAgentStream(params: {
   enableThinking: boolean;
   signal?: AbortSignal;
 }) {
+  const payload = withAiClientRequestContext(params.payload);
+  const clientContext = payload.clientContext;
   const bootstrap = params.toolsAvailable ? await getClientAgentBootstrap() : null;
   const messages: LocalChatMessage[] = [
     {
       role: 'system',
       content: bootstrap?.systemPrompt || PERSONAL_ASSISTANT_PROMPT,
     },
-    ...(params.payload.history || []).slice(-8),
-    { role: 'user', content: params.payload.message },
+    ...(clientContext
+      ? [{ role: 'system' as const, content: buildAiClientTimeContextMessage(clientContext) }]
+      : []),
+    ...(payload.history || []).slice(-8),
+    { role: 'user', content: payload.message },
   ];
   const sourceMap = new Map<string, AiSemanticResult>();
   let sourceKeys: string[] = [];
-  let state: AiAgentClientState = params.payload.state || { stateVersion: 1, seenSourceIds: [] };
+  let state: AiAgentClientState = payload.state || { stateVersion: 1, seenSourceIds: [] };
   let toolCallCount = 0;
   let hasAnswer = false;
   const availableToolNames = new Set(bootstrap?.tools.map((tool) => tool.function.name) || []);
@@ -142,7 +149,7 @@ export async function localAiAgentStream(params: {
       const result = await executeClientAgentTool({
         toolName: call.function.name,
         arguments: args,
-        request: params.payload,
+        request: payload,
         state,
         sourceKeys,
       });

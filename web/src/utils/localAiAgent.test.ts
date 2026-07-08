@@ -5,6 +5,15 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   bootstrap: vi.fn(),
   executeTool: vi.fn(),
+  clientContext: {
+    nowIso: '2026-07-07T14:14:35.000Z',
+    localDate: '2026-07-07',
+    localDateTime: '2026-07-07T22:14:35+08:00',
+    timeZone: 'Asia/Shanghai',
+    utcOffsetMinutes: 480,
+    locale: 'zh-CN',
+    calendar: 'gregory',
+  },
 }));
 
 vi.mock('@/utils/localAi', () => ({
@@ -14,6 +23,23 @@ vi.mock('@/utils/localAi', () => ({
 vi.mock('@/utils/aiApi', () => ({
   getClientAgentBootstrap: mocks.bootstrap,
   executeClientAgentTool: mocks.executeTool,
+  withAiClientRequestContext: (payload: {
+    clientContext?: unknown;
+    state?: { clientContext?: unknown } | null;
+  }) => {
+    const clientContext = payload.clientContext || mocks.clientContext;
+    return {
+      ...payload,
+      clientContext,
+      state: payload.state
+        ? {
+            ...payload.state,
+            clientContext: payload.state.clientContext || clientContext,
+          }
+        : payload.state,
+    };
+  },
+  buildAiClientTimeContextMessage: () => 'Client time context for tests',
 }));
 
 const config = {
@@ -105,7 +131,11 @@ describe('local AI agent', () => {
       expect.objectContaining({ enableThinking: true })
     );
     expect(mocks.executeTool).toHaveBeenCalledWith(
-      expect.objectContaining({ toolName: 'rote_get_tags', arguments: {} })
+      expect.objectContaining({
+        toolName: 'rote_get_tags',
+        arguments: {},
+        request: expect.objectContaining({ clientContext: mocks.clientContext }),
+      })
     );
     expect(onDelta).toHaveBeenCalledWith('final answer');
   });
