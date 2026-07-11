@@ -26,6 +26,22 @@ function getSimilarityPercent(source: AiSemanticResult) {
   return Math.max(0, Math.min(100, Math.round(source.similarity * 100)));
 }
 
+function formatSourceDate(value: unknown, locale: string): string | null {
+  if (typeof value !== 'string') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function getSourceDateValue(source: AiSemanticResult): unknown {
+  const dateField = source.metadata?.retrievalDateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
+  return source.metadata?.[dateField];
+}
+
 export function AiSourceList({
   sources,
   title,
@@ -39,7 +55,7 @@ export function AiSourceList({
   className?: string;
   compact?: boolean;
 }) {
-  const { t } = useTranslation('translation', { keyPrefix: 'components.aiSourceList' });
+  const { t, i18n } = useTranslation('translation', { keyPrefix: 'components.aiSourceList' });
   const visibleSources = useMemo(() => sources || [], [sources]);
 
   return (
@@ -68,7 +84,9 @@ export function AiSourceList({
                         {source.sourceType === 'article' ? t('article') : t('rote')}
                       </span>
                       <span className="ml-auto shrink-0 font-mono">
-                        {getSimilarityPercent(source)}%
+                        {source.retrievalMode === 'recent'
+                          ? formatSourceDate(getSourceDateValue(source), i18n.language) || '-'
+                          : `${getSimilarityPercent(source)}%`}
                       </span>
                     </div>
                     <div

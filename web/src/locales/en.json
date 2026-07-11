@@ -653,6 +653,11 @@
         "title": "Scope",
         "paginationMore": "More results",
         "time": "Time: {{label}}",
+        "latestItems": "Latest {{count}} records ({{field}})",
+        "dateFields": {
+          "createdAt": "created",
+          "updatedAt": "updated"
+        },
         "tags": "Tags: {{tags}}",
         "excludeTags": "Exclude tags: {{tags}}",
         "semanticScope": "Keywords: {{keywords}}",

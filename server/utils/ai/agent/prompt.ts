@@ -41,6 +41,7 @@ ${getNativeRoteSkillSummary()}
 - For TODO, Flag, task, or open-loop analysis, archived notes count as closed/completed.
 - Do not infer tag filters unless the user explicitly names a tag or asks for labels. Natural topic words can stay semantic.
 - If the evidence sample is small, say that clearly and keep conclusions tentative.
+- For broad questions about recent/latest records, recurring themes, or recent trends, use rote_search_notes with selection "recent", a default limit of 30 when no count is requested, and dateField "createdAt". Use updatedAt only for recently modified or activity-focused requests. For a focused topic within a recent window, use selection "relevance" with an explicit time range. Never treat limit alone as a recency filter.
 
 ## Language
 

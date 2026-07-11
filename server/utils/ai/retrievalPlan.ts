@@ -1,7 +1,4 @@
-import { sql } from 'drizzle-orm';
-import { rotes } from '../../drizzle/schema';
 import type { AiConfig } from '../../types/config';
-import db from '../drizzle';
 import {
   createChatCompletionWithToolsStreaming,
   type ChatCompletionUsage,
@@ -9,171 +6,36 @@ import {
   type ChatToolCall,
   type ChatToolDefinition,
 } from './client';
+import { getTodayInTimeContext, normalizeTimeZone, toDateString } from './retrievalDate';
+import {
+  canonicalizeSearchRotesArgs,
+  getUserRoteTagCounts,
+  getUserRoteTags,
+} from './retrievalScope';
+import type {
+  PlannerAgentDto,
+  PlannerAgentResult,
+  PlannerDebugTrace,
+  RetrievalTimeContext,
+  SearchRotesArgs,
+  SearchRotesProbeExecutor,
+} from './retrievalTypes';
+import type { SearchRotesProbeResult } from './retrievalTypes';
 
-export type AiSourceType = 'rote' | 'article';
-export type LifecycleScope = 'active' | 'archived' | 'all' | 'unspecified';
-export type TaskStatusScope = 'open' | 'closed' | 'all' | 'unspecified';
-export type AiTimeUnit = 'day' | 'week' | 'month' | 'year';
+export * from './retrievalTypes';
+export {
+  canonicalizeSearchRotesArgs,
+  getUserRoteTagCounts,
+  getUserRoteTags,
+} from './retrievalScope';
+export { canonicalizeTimeRange } from './retrievalTimeRange';
+export { normalizeTimeRangeInput } from './retrievalDateParsing';
+export { lifecycleScopeToArchived } from './retrievalScope';
 
-export interface NormalizedTimeRange {
-  from: string;
-  to: string;
-  label: string;
-}
-
-export type StructuredTimeRangeType = 'absolute' | 'rolling' | 'relative_between' | 'preset';
-export type StructuredTimeRangePreset = 'today' | 'yesterday' | 'this_month' | 'last_month';
-
-export interface StructuredRelativeTimePoint {
-  amount?: number;
-  unit?: AiTimeUnit;
-  direction?: 'ago';
-}
-
-export interface StructuredTimeRange {
-  type?: StructuredTimeRangeType;
-  preset?: StructuredTimeRangePreset;
-  fromDate?: string;
-  toDate?: string;
-  amount?: number;
-  unit?: AiTimeUnit;
-  fromRelative?: StructuredRelativeTimePoint;
-  toRelative?: StructuredRelativeTimePoint;
-  label?: string;
-}
-
-export interface RetrievalScope {
-  ownerId: string;
-  query: string;
-  tags: string[];
-  excludeTags: string[];
-  semanticScope: string[];
-  sourceTypes: AiSourceType[];
-  timeRange: NormalizedTimeRange | null;
-  lifecycleScope: LifecycleScope;
-  taskStatusScope: TaskStatusScope;
-  limit: number;
-  cursor: string | null;
-  excludeIds: string[];
-}
-
-export interface SearchRotesArgs {
-  query?: string;
-  tags?: string[];
-  excludeTags?: string[];
-  semanticScope?: string[];
-  sourceTypes?: AiSourceType[];
-  timeRange?: StructuredTimeRange;
-  timeExpression?: string;
-  from?: string;
-  to?: string;
-  lifecycleScope?: LifecycleScope;
-  taskStatusScope?: TaskStatusScope;
-  limit?: number;
-  cursor?: string;
-}
-
-export interface RetrievalTimeContext {
-  nowIso?: string;
-  localDate?: string;
-  localDateTime?: string;
-  timeZone?: string;
-  utcOffsetMinutes?: number;
-}
-
-export interface RetrievalSnippet {
-  id: string;
-  sourceType: AiSourceType;
-  sourceId: string;
-  title?: string;
-  tags?: string[];
-  createdAt?: string;
-  similarity: number;
-  text: string;
-}
-
-export interface RetrievalToolResult {
-  canonicalizedArgs: RetrievalScope;
-  resultCount: number;
-  topSnippets: RetrievalSnippet[];
-  cursor: string | null;
-  warnings: string[];
-}
-
-export interface SearchRotesProbeResult {
-  toolResult: RetrievalToolResult;
-  sources: unknown[];
-}
-
-export interface PlannerDebugTrace {
-  toolCalls: Array<{
-    step: number;
-    name: string;
-    args: unknown;
-  }>;
-  canonicalizedArgs: RetrievalScope[];
-  warnings: string[];
-  probeCounts: number[];
-  finishReason?: string;
-  fallbackReason?: string;
-  providerError?: string;
-  toolError?: string;
-}
-
-export interface PlannerAgentResult {
-  originalMessage: string;
-  retrievalNeeded: boolean;
-  scope: RetrievalScope | null;
-  toolResult: RetrievalToolResult | null;
-  sources: unknown[];
-  clarification: { question: string; reason?: string } | null;
-  debugTrace: PlannerDebugTrace;
-}
-
-export interface PlannerAgentDto {
-  originalMessage: string;
-  retrievalNeeded: boolean;
-  scope: RetrievalScope | null;
-  toolResult: RetrievalToolResult | null;
-  clarification: { question: string; reason?: string } | null;
-  debugTrace: PlannerDebugTrace;
-}
-
-export type SearchRotesProbeExecutor = (scope: RetrievalScope) => Promise<SearchRotesProbeResult>;
-
-const VALID_SOURCE_TYPES = new Set<AiSourceType>(['rote', 'article']);
-const VALID_LIFECYCLE_SCOPES = new Set<LifecycleScope>([
-  'active',
-  'archived',
-  'all',
-  'unspecified',
-]);
-const VALID_TASK_STATUS_SCOPES = new Set<TaskStatusScope>(['open', 'closed', 'all', 'unspecified']);
-const VALID_STRUCTURED_TIME_TYPES = new Set<StructuredTimeRangeType>([
-  'absolute',
-  'rolling',
-  'relative_between',
-  'preset',
-]);
-const VALID_STRUCTURED_TIME_PRESETS = new Set<StructuredTimeRangePreset>([
-  'today',
-  'yesterday',
-  'this_month',
-  'last_month',
-]);
-const VALID_STRUCTURED_TIME_UNITS = new Set<AiTimeUnit>(['day', 'week', 'month', 'year']);
 const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 50;
 const MAX_STEPS = 6;
 const MAX_TOOL_CALLS = 10;
-const DEFAULT_TIME_ZONE = 'Asia/Shanghai';
-const DEFAULT_UTC_OFFSET_MINUTES = 8 * 60;
-const DATE_ONLY_RE = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/;
-const ISO_DATE_TIME_WITH_ZONE_RE =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
-const RELATIVE_POINT_RE =
-  /^(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年|days?|weeks?|months?|years?)\s*ago$/i;
-const RELATIVE_POINT_ZH_RE = /^(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年)前$/;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -181,674 +43,10 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function uniqueStrings(value: unknown, limit = 30): string[] {
-  if (!Array.isArray(value)) return [];
-  return Array.from(
-    new Set(
-      value
-        .map((item) => (typeof item === 'string' ? item.trim().replace(/^#/, '') : ''))
-        .filter(Boolean)
-    )
-  ).slice(0, limit);
-}
-
 function clampLimit(value: unknown): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return DEFAULT_LIMIT;
   return Math.min(Math.max(Math.floor(numeric), 1), MAX_LIMIT);
-}
-
-function normalizeSourceTypes(value: unknown, warnings: string[]): AiSourceType[] {
-  if (!Array.isArray(value)) return ['rote', 'article'];
-  const valid = uniqueStrings(value)
-    .filter((type): type is AiSourceType => VALID_SOURCE_TYPES.has(type as AiSourceType))
-    .slice(0, 2);
-  const invalid = uniqueStrings(value).filter(
-    (type) => !VALID_SOURCE_TYPES.has(type as AiSourceType)
-  );
-  invalid.forEach((type) => warnings.push(`invalid_source_type:${type}`));
-  return valid.length ? valid : ['rote', 'article'];
-}
-
-function normalizeLifecycleScope(value: unknown): LifecycleScope {
-  return VALID_LIFECYCLE_SCOPES.has(value as LifecycleScope)
-    ? (value as LifecycleScope)
-    : 'unspecified';
-}
-
-function normalizeTaskStatusScope(value: unknown): TaskStatusScope {
-  return VALID_TASK_STATUS_SCOPES.has(value as TaskStatusScope)
-    ? (value as TaskStatusScope)
-    : 'unspecified';
-}
-
-export function lifecycleScopeToArchived(scope: LifecycleScope): boolean | null {
-  if (scope === 'active') return false;
-  if (scope === 'archived') return true;
-  return null;
-}
-
-export async function getUserRoteTags(ownerId: string): Promise<string[]> {
-  const rows = (await db
-    .select({ tags: rotes.tags })
-    .from(rotes)
-    .where(sql`${rotes.authorid} = ${ownerId}`)) as Array<{ tags: string[] | null }>;
-  return Array.from(
-    new Set(rows.flatMap((row) => (Array.isArray(row.tags) ? row.tags : [])).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
-}
-
-export async function getUserRoteTagCounts(
-  ownerId: string
-): Promise<Array<{ name: string; count: number }>> {
-  const rows = (await db
-    .select({ tags: rotes.tags })
-    .from(rotes)
-    .where(sql`${rotes.authorid} = ${ownerId}`)) as Array<{ tags: string[] | null }>;
-  const counts = new Map<string, number>();
-  rows.forEach((row) => {
-    (Array.isArray(row.tags) ? row.tags : []).forEach((tag) => {
-      if (tag) counts.set(tag, (counts.get(tag) || 0) + 1);
-    });
-  });
-  return Array.from(counts.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-}
-
-function normalizeTimeZone(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim()) return DEFAULT_TIME_ZONE;
-  const timeZone = value.trim();
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date(0));
-    return timeZone;
-  } catch {
-    return DEFAULT_TIME_ZONE;
-  }
-}
-
-function parseReferenceNow(context?: RetrievalTimeContext): Date {
-  const raw = context?.nowIso || context?.localDateTime;
-  if (raw) {
-    const parsed = new Date(raw);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  return new Date();
-}
-
-function parseLocalDate(value: unknown): Date | null {
-  if (typeof value !== 'string') return null;
-  const match = value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (!isValidDateParts(year, month, day)) return null;
-
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-function getDatePartsInTimeZone(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const parts = Object.fromEntries(
-    formatter.formatToParts(date).map((part) => [part.type, part.value])
-  );
-  return {
-    year: Number(parts.year),
-    month: Number(parts.month),
-    day: Number(parts.day),
-  };
-}
-
-function getTodayInTimeContext(context?: RetrievalTimeContext): Date {
-  const localDate = parseLocalDate(context?.localDate);
-  if (localDate) return localDate;
-
-  const timeZone = normalizeTimeZone(context?.timeZone);
-  const { year, month, day } = getDatePartsInTimeZone(parseReferenceNow(context), timeZone);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-function toDateString(date: Date): string {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
-}
-
-function formatOffset(minutes: number): string {
-  const sign = minutes >= 0 ? '+' : '-';
-  const absolute = Math.abs(minutes);
-  return `${sign}${pad(Math.floor(absolute / 60))}:${pad(absolute % 60)}`;
-}
-
-function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number | null {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hour12: false,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-    const parts = Object.fromEntries(
-      formatter.formatToParts(date).map((part) => [part.type, part.value])
-    );
-    const zonedAsUtc = Date.UTC(
-      Number(parts.year),
-      Number(parts.month) - 1,
-      Number(parts.day),
-      Number(parts.hour),
-      Number(parts.minute),
-      Number(parts.second)
-    );
-    return Math.round((zonedAsUtc - date.getTime()) / 60_000);
-  } catch {
-    return null;
-  }
-}
-
-function offsetForCalendarDate(date: Date, context?: RetrievalTimeContext): string {
-  const timeZone = normalizeTimeZone(context?.timeZone);
-  const noonUtc = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12)
-  );
-  const offsetMinutes =
-    getTimeZoneOffsetMinutes(noonUtc, timeZone) ??
-    (Number.isFinite(context?.utcOffsetMinutes)
-      ? Math.trunc(context?.utcOffsetMinutes as number)
-      : DEFAULT_UTC_OFFSET_MINUTES);
-  return formatOffset(offsetMinutes);
-}
-
-function startOfDay(date: Date, context?: RetrievalTimeContext): string {
-  return `${toDateString(date)}T00:00:00${offsetForCalendarDate(date, context)}`;
-}
-
-function endOfDay(date: Date, context?: RetrievalTimeContext): string {
-  return `${toDateString(date)}T23:59:59${offsetForCalendarDate(date, context)}`;
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-function addMonths(date: Date, months: number): Date {
-  const next = new Date(date);
-  const day = next.getUTCDate();
-  next.setUTCDate(1);
-  next.setUTCMonth(next.getUTCMonth() + months);
-  const maxDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
-  next.setUTCDate(Math.min(day, maxDay));
-  return next;
-}
-
-function monthRange(
-  year: number,
-  monthIndex: number,
-  label: string,
-  context?: RetrievalTimeContext
-): NormalizedTimeRange {
-  const start = new Date(Date.UTC(year, monthIndex, 1));
-  const end = new Date(Date.UTC(year, monthIndex + 1, 0));
-  return { from: startOfDay(start, context), to: endOfDay(end, context), label };
-}
-
-function isValidDateParts(year: number, month: number, day: number): boolean {
-  if (!Number.isInteger(year) || year < 1000 || year > 9999) return false;
-  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
-  const maxDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return Number.isInteger(day) && day >= 1 && day <= maxDay;
-}
-
-function isValidTimeParts(hour: number, minute: number, second: number): boolean {
-  return (
-    Number.isInteger(hour) &&
-    hour >= 0 &&
-    hour <= 23 &&
-    Number.isInteger(minute) &&
-    minute >= 0 &&
-    minute <= 59 &&
-    Number.isInteger(second) &&
-    second >= 0 &&
-    second <= 59
-  );
-}
-
-function isValidTimezoneOffset(value: string): boolean {
-  if (value === 'Z') return true;
-  const match = value.match(/^([+-])(\d{2}):(\d{2})$/);
-  if (!match) return false;
-  const hours = Number(match[2]);
-  const minutes = Number(match[3]);
-  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
-}
-
-function chineseNumberToInt(value: string): number | null {
-  const numeric = Number(value);
-  if (Number.isFinite(numeric)) return Math.max(1, Math.floor(numeric));
-  const digits: Record<string, number> = {
-    零: 0,
-    一: 1,
-    二: 2,
-    两: 2,
-    三: 3,
-    四: 4,
-    五: 5,
-    六: 6,
-    七: 7,
-    八: 8,
-    九: 9,
-  };
-  if (value in digits) return digits[value];
-  if (value === '十') return 10;
-  if (value.startsWith('十')) return 10 + (digits[value.slice(1)] ?? 0);
-  if (value.includes('十')) {
-    const [tensText, onesText] = value.split('十');
-    return (digits[tensText] ?? 1) * 10 + (onesText ? (digits[onesText] ?? 0) : 0);
-  }
-  return null;
-}
-
-function unitTextToUnit(value: string): AiTimeUnit {
-  const unitText = value.toLowerCase();
-  return unitText === '天' || unitText === '日' || unitText.startsWith('day')
-    ? 'day'
-    : unitText === '周' || unitText === '星期' || unitText.startsWith('week')
-      ? 'week'
-      : unitText === '年' || unitText.startsWith('year')
-        ? 'year'
-        : 'month';
-}
-
-function addRelativeOffset(date: Date, amount: number, unit: AiTimeUnit): Date {
-  if (unit === 'month') return addMonths(date, -amount);
-  if (unit === 'year') return addMonths(date, -amount * 12);
-  return addDays(date, -(unit === 'day' ? amount : amount * 7));
-}
-
-function parseRelativePointDate(value: string, context?: RetrievalTimeContext): Date | null {
-  const match = value.trim().match(RELATIVE_POINT_RE) || value.trim().match(RELATIVE_POINT_ZH_RE);
-  if (!match) return null;
-
-  const amount = chineseNumberToInt(match[1]);
-  if (!amount || amount > 10000) return null;
-  return addRelativeOffset(getTodayInTimeContext(context), amount, unitTextToUnit(match[2]));
-}
-
-function normalizeDateOnlyInput(
-  value: string,
-  end = false,
-  context?: RetrievalTimeContext
-): string | null {
-  const match = value.trim().match(DATE_ONLY_RE);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (!isValidDateParts(year, month, day)) return null;
-
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return end ? endOfDay(date, context) : startOfDay(date, context);
-}
-
-function normalizeIsoDateTimeInput(value: string): string | null {
-  const normalized = value.trim();
-  const match = normalized.match(ISO_DATE_TIME_WITH_ZONE_RE);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = match[6] ? Number(match[6]) : 0;
-  const zone = match[8];
-
-  if (!isValidDateParts(year, month, day)) return null;
-  if (!isValidTimeParts(hour, minute, second)) return null;
-  if (!isValidTimezoneOffset(zone)) return null;
-  if (!Number.isFinite(Date.parse(normalized))) return null;
-
-  return normalized;
-}
-
-function normalizeDateInput(
-  value: string,
-  end = false,
-  context?: RetrievalTimeContext
-): string | null {
-  const normalized = value.trim();
-  if (!normalized) return null;
-  if (normalized.includes('T')) return normalizeIsoDateTimeInput(normalized);
-
-  const dateOnly = normalizeDateOnlyInput(normalized, end, context);
-  if (dateOnly) return dateOnly;
-
-  const relativePoint = parseRelativePointDate(normalized, context);
-  if (relativePoint)
-    return end ? endOfDay(relativePoint, context) : startOfDay(relativePoint, context);
-
-  return null;
-}
-
-function isOrderedTimeRange(from: string, to: string): boolean {
-  const fromTime = Date.parse(from);
-  const toTime = Date.parse(to);
-  return Number.isFinite(fromTime) && Number.isFinite(toTime) && fromTime <= toTime;
-}
-
-export function normalizeTimeRangeInput(
-  value: unknown,
-  context?: RetrievalTimeContext
-): NormalizedTimeRange | null {
-  const raw = asRecord(value);
-  const from = typeof raw.from === 'string' ? raw.from.trim() : '';
-  const to = typeof raw.to === 'string' ? raw.to.trim() : '';
-  if (!from || !to) return null;
-
-  const normalizedFrom = normalizeDateInput(from, false, context);
-  const normalizedTo = normalizeDateInput(to, true, context);
-  if (!normalizedFrom || !normalizedTo || !isOrderedTimeRange(normalizedFrom, normalizedTo)) {
-    return null;
-  }
-
-  return {
-    from: normalizedFrom,
-    to: normalizedTo,
-    label:
-      typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : `${from} 到 ${to}`,
-  };
-}
-
-function normalizeStructuredTimeUnit(value: unknown): AiTimeUnit | null {
-  if (typeof value !== 'string') return null;
-  const unit = value.trim().toLowerCase();
-  if (unit === 'days') return 'day';
-  if (unit === 'weeks') return 'week';
-  if (unit === 'months') return 'month';
-  if (unit === 'years') return 'year';
-  return VALID_STRUCTURED_TIME_UNITS.has(unit as AiTimeUnit) ? (unit as AiTimeUnit) : null;
-}
-
-function normalizeStructuredAmount(value: unknown): number | null {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return null;
-  const normalized = Math.floor(amount);
-  return normalized >= 1 && normalized <= 10000 ? normalized : null;
-}
-
-function structuredLabel(raw: Record<string, unknown>, fallback: string): string {
-  return typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : fallback;
-}
-
-function formatRelativePointLabel(point: Record<string, unknown>): string {
-  const amount = normalizeStructuredAmount(point.amount) || 0;
-  const unit = normalizeStructuredTimeUnit(point.unit) || 'day';
-  return `${amount} ${unit}${amount === 1 ? '' : 's'} ago`;
-}
-
-function normalizeStructuredRelativePoint(
-  value: unknown,
-  end = false,
-  context?: RetrievalTimeContext
-): string | null {
-  const point = asRecord(value);
-  const amount = normalizeStructuredAmount(point.amount);
-  const unit = normalizeStructuredTimeUnit(point.unit);
-  const direction = typeof point.direction === 'string' ? point.direction.trim() : 'ago';
-  if (!amount || !unit || direction !== 'ago') return null;
-
-  const date = addRelativeOffset(getTodayInTimeContext(context), amount, unit);
-  return end ? endOfDay(date, context) : startOfDay(date, context);
-}
-
-function canonicalizePresetTimeRange(
-  preset: StructuredTimeRangePreset,
-  raw: Record<string, unknown>,
-  context?: RetrievalTimeContext
-): NormalizedTimeRange {
-  const today = getTodayInTimeContext(context);
-  if (preset === 'today') {
-    return {
-      from: startOfDay(today, context),
-      to: endOfDay(today, context),
-      label: structuredLabel(raw, '今天'),
-    };
-  }
-  if (preset === 'yesterday') {
-    const yesterday = addDays(today, -1);
-    return {
-      from: startOfDay(yesterday, context),
-      to: endOfDay(yesterday, context),
-      label: structuredLabel(raw, '昨天'),
-    };
-  }
-  if (preset === 'this_month') {
-    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    return {
-      from: startOfDay(start, context),
-      to: endOfDay(today, context),
-      label: structuredLabel(raw, '本月'),
-    };
-  }
-  const range = monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月', context);
-  return { ...range, label: structuredLabel(raw, range.label) };
-}
-
-function canonicalizeStructuredTimeRange(
-  value: unknown,
-  context?: RetrievalTimeContext
-): NormalizedTimeRange | null {
-  const raw = asRecord(value);
-  if (!Object.keys(raw).length) return null;
-
-  const type = VALID_STRUCTURED_TIME_TYPES.has(raw.type as StructuredTimeRangeType)
-    ? (raw.type as StructuredTimeRangeType)
-    : undefined;
-  const preset = VALID_STRUCTURED_TIME_PRESETS.has(raw.preset as StructuredTimeRangePreset)
-    ? (raw.preset as StructuredTimeRangePreset)
-    : undefined;
-
-  const parsePreset = () => {
-    if (!preset) return null;
-    return canonicalizePresetTimeRange(preset, raw, context);
-  };
-
-  const parseRolling = () => {
-    const amount = normalizeStructuredAmount(raw.amount);
-    const unit = normalizeStructuredTimeUnit(raw.unit);
-    if (!amount || !unit) return null;
-    const today = getTodayInTimeContext(context);
-    const start = addRelativeOffset(today, amount, unit);
-    return {
-      from: startOfDay(start, context),
-      to: endOfDay(today, context),
-      label: structuredLabel(raw, `last ${amount} ${unit}${amount === 1 ? '' : 's'}`),
-    };
-  };
-
-  const parseRelativeBetween = () => {
-    const from = normalizeStructuredRelativePoint(raw.fromRelative, false, context);
-    const to = normalizeStructuredRelativePoint(raw.toRelative, true, context);
-    if (!from || !to || !isOrderedTimeRange(from, to)) return null;
-    return {
-      from,
-      to,
-      label: structuredLabel(
-        raw,
-        `${formatRelativePointLabel(asRecord(raw.fromRelative))} 到 ${formatRelativePointLabel(
-          asRecord(raw.toRelative)
-        )}`
-      ),
-    };
-  };
-
-  const parseAbsolute = () =>
-    normalizeTimeRangeInput(
-      {
-        from: raw.fromDate,
-        to: raw.toDate,
-        label: raw.label,
-      },
-      context
-    );
-
-  if (type) {
-    if (type === 'absolute') return parseAbsolute();
-    if (type === 'rolling') return parseRolling();
-    if (type === 'relative_between') return parseRelativeBetween();
-    return parsePreset();
-  }
-
-  if (preset) return parsePreset();
-  if (raw.fromRelative || raw.toRelative) return parseRelativeBetween();
-  if (raw.amount !== undefined || raw.unit !== undefined) return parseRolling();
-  if (raw.fromDate !== undefined || raw.toDate !== undefined) return parseAbsolute();
-
-  return null;
-}
-
-export function canonicalizeTimeRange(
-  args: SearchRotesArgs,
-  warnings?: string[],
-  context?: RetrievalTimeContext
-): NormalizedTimeRange | null {
-  if (args.timeRange !== undefined) {
-    const structured = canonicalizeStructuredTimeRange(args.timeRange, context);
-    if (structured) return structured;
-    warnings?.push('invalid_time_range_ignored');
-  }
-
-  const from = typeof args.from === 'string' ? args.from.trim() : '';
-  const to = typeof args.to === 'string' ? args.to.trim() : '';
-  if (from && to) {
-    const normalized = normalizeTimeRangeInput({ from, to, label: `${from} 到 ${to}` }, context);
-    if (!normalized) warnings?.push('invalid_time_range_ignored');
-    return normalized;
-  }
-
-  const expression = typeof args.timeExpression === 'string' ? args.timeExpression.trim() : '';
-  if (!expression) return null;
-
-  const today = getTodayInTimeContext(context);
-  if (/今天|今日|today/i.test(expression)) {
-    return { from: startOfDay(today, context), to: endOfDay(today, context), label: '今天' };
-  }
-  if (/昨天|昨日|yesterday/i.test(expression)) {
-    const yesterday = addDays(today, -1);
-    return {
-      from: startOfDay(yesterday, context),
-      to: endOfDay(yesterday, context),
-      label: '昨天',
-    };
-  }
-  if (/本月|这个月|this month/i.test(expression)) {
-    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    return { from: startOfDay(start, context), to: endOfDay(today, context), label: '本月' };
-  }
-  if (/上个月|上月|last month/i.test(expression)) {
-    return monthRange(today.getUTCFullYear(), today.getUTCMonth() - 1, '上个月', context);
-  }
-
-  const rollingMatch = expression.match(
-    /(?:最近|近|过去|前|last|past|previous|recent)\s*(\d+|[一二两三四五六七八九十]+)\s*(天|日|周|星期|个月|月|年|days?|weeks?|months?|years?)/i
-  );
-  if (rollingMatch) {
-    const amount = chineseNumberToInt(rollingMatch[1]);
-    if (amount) {
-      const start = addRelativeOffset(today, amount, unitTextToUnit(rollingMatch[2]));
-      return {
-        from: startOfDay(start, context),
-        to: endOfDay(today, context),
-        label: rollingMatch[0],
-      };
-    }
-  }
-
-  const explicitRange = expression.match(
-    /(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})\s*(?:到|至|~|-|—)\s*(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})/
-  );
-  if (explicitRange) {
-    const normalized = normalizeTimeRangeInput(
-      {
-        from: explicitRange[1],
-        to: explicitRange[2],
-        label: explicitRange[0],
-      },
-      context
-    );
-    if (!normalized) warnings?.push('invalid_time_range_ignored');
-    return normalized;
-  }
-
-  return null;
-}
-
-export function canonicalizeSearchRotesArgs(params: {
-  ownerId: string;
-  args: SearchRotesArgs;
-  availableTags: string[];
-  excludeIds?: string[];
-  timeContext?: RetrievalTimeContext | null;
-}): { scope: RetrievalScope; warnings: string[] } {
-  const warnings: string[] = [];
-  const availableTagSet = new Set(params.availableTags);
-  const semanticScope = new Set(uniqueStrings(params.args.semanticScope));
-  const tags: string[] = [];
-  const excludeTags: string[] = [];
-
-  uniqueStrings(params.args.tags).forEach((tag) => {
-    if (availableTagSet.has(tag)) {
-      tags.push(tag);
-    } else {
-      semanticScope.add(tag);
-      warnings.push(`unknown_tag_downgraded:${tag}`);
-    }
-  });
-
-  uniqueStrings(params.args.excludeTags).forEach((tag) => {
-    if (availableTagSet.has(tag)) {
-      excludeTags.push(tag);
-    } else {
-      semanticScope.add(tag);
-      warnings.push(`unknown_exclude_tag_downgraded:${tag}`);
-    }
-  });
-
-  const scope: RetrievalScope = {
-    ownerId: params.ownerId,
-    query: typeof params.args.query === 'string' ? params.args.query.trim() : '',
-    tags: Array.from(new Set(tags)),
-    excludeTags: Array.from(new Set(excludeTags)),
-    semanticScope: Array.from(semanticScope).slice(0, 30),
-    sourceTypes: normalizeSourceTypes(params.args.sourceTypes, warnings),
-    timeRange: canonicalizeTimeRange(params.args, warnings, params.timeContext || undefined),
-    lifecycleScope: normalizeLifecycleScope(params.args.lifecycleScope),
-    taskStatusScope: normalizeTaskStatusScope(params.args.taskStatusScope),
-    limit: clampLimit(params.args.limit),
-    cursor:
-      typeof params.args.cursor === 'string' && params.args.cursor.trim()
-        ? params.args.cursor.trim()
-        : null,
-    excludeIds: params.excludeIds || [],
-  };
-
-  return { scope, warnings };
 }
 
 export function toPlannerAgentDto(result: PlannerAgentResult): PlannerAgentDto {
@@ -885,6 +83,18 @@ function plannerTools(): ChatToolDefinition[] {
             tags: { type: 'array', items: { type: 'string' } },
             excludeTags: { type: 'array', items: { type: 'string' } },
             semanticScope: { type: 'array', items: { type: 'string' } },
+            selection: {
+              type: 'string',
+              enum: ['relevance', 'recent'],
+              description:
+                'Use relevance for focused topic lookup. Use recent for broad analysis of the latest records; recent ignores semantic query ranking.',
+            },
+            dateField: {
+              type: 'string',
+              enum: ['createdAt', 'updatedAt'],
+              description:
+                'Date basis for recent retrieval: createdAt for recently written records, updatedAt for recently modified/activity records.',
+            },
             sourceTypes: { type: 'array', items: { type: 'string', enum: ['rote', 'article'] } },
             timeRange: {
               type: 'object',
@@ -899,16 +109,8 @@ function plannerTools(): ChatToolDefinition[] {
                   type: 'string',
                   enum: ['today', 'yesterday', 'this_month', 'last_month'],
                 },
-                fromDate: {
-                  type: 'string',
-                  description:
-                    'For absolute ranges only. ISO date/datetime such as 2026-05-08 or 2026-05-08T00:00:00+08:00.',
-                },
-                toDate: {
-                  type: 'string',
-                  description:
-                    'For absolute ranges only. ISO date/datetime such as 2026-05-09 or 2026-05-09T23:59:59+08:00.',
-                },
+                fromDate: { type: 'string' },
+                toDate: { type: 'string' },
                 amount: { type: 'number', description: 'For rolling ranges, e.g. 7.' },
                 unit: {
                   type: 'string',
@@ -917,7 +119,6 @@ function plannerTools(): ChatToolDefinition[] {
                 },
                 fromRelative: {
                   type: 'object',
-                  description: 'For relative_between ranges, e.g. 60 days ago.',
                   properties: {
                     amount: { type: 'number' },
                     unit: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
@@ -926,7 +127,6 @@ function plannerTools(): ChatToolDefinition[] {
                 },
                 toRelative: {
                   type: 'object',
-                  description: 'For relative_between ranges, e.g. 30 days ago.',
                   properties: {
                     amount: { type: 'number' },
                     unit: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
@@ -941,16 +141,8 @@ function plannerTools(): ChatToolDefinition[] {
               description:
                 'Relative range expression such as today, yesterday, last 7 days, or 最近7天.',
             },
-            from: {
-              type: 'string',
-              description:
-                'Absolute ISO date/datetime only, such as 2026-05-08 or 2026-05-08T00:00:00+08:00. Use timeExpression for relative ranges.',
-            },
-            to: {
-              type: 'string',
-              description:
-                'Absolute ISO date/datetime only, such as 2026-05-09 or 2026-05-09T23:59:59+08:00. Use timeExpression for relative ranges.',
-            },
+            from: { type: 'string' },
+            to: { type: 'string' },
             lifecycleScope: {
               type: 'string',
               enum: ['active', 'archived', 'all', 'unspecified'],
@@ -959,8 +151,7 @@ function plannerTools(): ChatToolDefinition[] {
             taskStatusScope: {
               type: 'string',
               enum: ['open', 'closed', 'all', 'unspecified'],
-              description:
-                'Task/open-loop semantic scope only. It is independent from lifecycleScope and does not map to archived.',
+              description: 'Task/open-loop semantic scope only.',
             },
             limit: { type: 'number' },
             cursor: { type: 'string' },
@@ -999,10 +190,7 @@ function plannerTools(): ChatToolDefinition[] {
         description: 'Ask the user one concise clarification question before retrieval.',
         parameters: {
           type: 'object',
-          properties: {
-            question: { type: 'string' },
-            reason: { type: 'string' },
-          },
+          properties: { question: { type: 'string' }, reason: { type: 'string' } },
           required: ['question'],
         },
       },
@@ -1028,21 +216,17 @@ Tools:
 
 Keep lifecycleScope and taskStatusScope independent. lifecycleScope is note archived/unarchived lifecycle. taskStatusScope is task/open-loop semantics and must not stand in for archived state.
 For relative date phrases, prefer structured timeRange preset/rolling/relative_between or pass the original phrase as timeExpression. Do not invent absolute from/to dates unless the user explicitly supplied absolute dates.
+For broad questions about recent/latest records, recurring themes, or recent trends, set selection to recent, use limit 30 when no count is requested, and use dateField createdAt unless the user asks about modifications or activity. For a focused topic within a recent window, use selection relevance plus an explicit timeRange/timeExpression. Never leave a clear recent request as an unbounded relevance search.
 Do not answer the user here.`;
 }
 
 function createEmptyTrace(): PlannerDebugTrace {
-  return {
-    toolCalls: [],
-    canonicalizedArgs: [],
-    warnings: [],
-    probeCounts: [],
-  };
+  return { toolCalls: [], canonicalizedArgs: [], warnings: [], probeCounts: [] };
 }
 
 function noRetrievalResult(
   message: string,
-  trace: PlannerDebugTrace,
+  trace: ReturnType<typeof createEmptyTrace>,
   reason: string
 ): PlannerAgentResult {
   return {
@@ -1079,12 +263,7 @@ export async function createRetrievalPlan(params: {
     { role: 'system', content: buildPlannerSystemPrompt(params.timeContext || undefined) },
   ];
   if (params.history?.length) {
-    messages.push(
-      ...params.history.slice(-8).map((message) => ({
-        role: message.role,
-        content: message.content,
-      }))
-    );
+    messages.push(...params.history.slice(-8).map((message) => ({ ...message })));
   }
   messages.push({ role: 'user', content: params.message });
 
@@ -1110,13 +289,11 @@ export async function createRetrievalPlan(params: {
     }
 
     if (response.usage) await params.onUsage?.(response.usage);
-
     const calls = response.message.tool_calls || [];
     if (!calls.length) {
       trace.fallbackReason = 'assistant_returned_no_tool_call';
       return noRetrievalResult(params.message, trace, 'assistant_returned_no_tool_call');
     }
-
     messages.push({
       role: 'assistant',
       content: response.message.content || null,
@@ -1147,17 +324,11 @@ export async function createRetrievalPlan(params: {
           ownerId: params.ownerId,
           args: asRecord(args) as SearchRotesArgs,
           availableTags,
+          message: params.message,
           excludeIds: params.excludeIds,
           timeContext: params.timeContext,
         });
-        let probe: SearchRotesProbeResult;
-        try {
-          probe = await params.executeSearch(scope);
-        } catch (error: any) {
-          trace.toolError = error?.message || String(error);
-          trace.fallbackReason = 'tool_error';
-          throw error;
-        }
+        const probe = await params.executeSearch(scope);
         lastSearch = {
           toolResult: {
             ...probe.toolResult,
@@ -1174,8 +345,7 @@ export async function createRetrievalPlan(params: {
           content: JSON.stringify(lastSearch.toolResult),
         });
       } else if (call.function.name === 'list_tags') {
-        const raw = asRecord(args);
-        const limit = clampLimit(raw.limit);
+        const limit = clampLimit(asRecord(args).limit);
         const tags = (
           await (params.getTagCounts || (() => getUserRoteTagCounts(params.ownerId)))()
         ).slice(0, limit);
@@ -1199,9 +369,7 @@ export async function createRetrievalPlan(params: {
             debugTrace: trace,
           };
         }
-        if (raw.retrievalNeeded === false) {
-          return noRetrievalResult(params.message, trace, reason);
-        }
+        if (raw.retrievalNeeded === false) return noRetrievalResult(params.message, trace, reason);
         messages.push({
           role: 'tool',
           tool_call_id: call.id,

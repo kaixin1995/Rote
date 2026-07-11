@@ -201,7 +201,8 @@ function buildRequestTimeContextMessage(state: RoteAgentClientState): ChatMessag
   lines.push(
     'Resolve relative date phrases such as today, yesterday, this month, last month, 最近, 本月, and 上月 using this context.',
     'When calling rote_search_notes for a relative date phrase, pass the phrase as timeExpression instead of inventing absolute from/to dates.',
-    'Use from/to only when the user explicitly provides absolute dates.'
+    'Use from/to only when the user explicitly provides absolute dates.',
+    'For broad recent/latest record reviews or recurring-theme analysis, use selection recent with a default limit of 30 and dateField createdAt. Use updatedAt for modification/activity wording. For focused topics, use selection relevance with an explicit time range.'
   );
 
   return { role: 'system', content: lines.join('\n') };

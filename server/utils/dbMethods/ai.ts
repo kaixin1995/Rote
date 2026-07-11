@@ -5,6 +5,8 @@ export type {
   NormalizedTimeRange,
   PlannerAgentDto,
   PlannerAgentResult,
+  RetrievalDateField,
+  RetrievalSelection,
   RetrievalScope,
   RetrievalToolResult,
   SearchRotesArgs,

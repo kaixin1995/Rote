@@ -105,6 +105,51 @@ describe('canonicalizeSearchRotesArgs', () => {
     expect(lifecycleScopeToArchived(scope.lifecycleScope)).toBe(true);
   });
 
+  it('defaults an unbounded recent request to the latest 30 created records', () => {
+    const { scope } = canonicalizeSearchRotesArgs({
+      ownerId: 'u1',
+      availableTags: AVAILABLE_TAGS,
+      message: '最近我的记录里有哪些反复出现的主题？',
+      args: { query: '反复出现的主题' },
+    });
+
+    expect(scope.selection).toBe('recent');
+    expect(scope.dateField).toBe('createdAt');
+    expect(scope.limit).toBe(30);
+    expect(scope.timeRange).toBeNull();
+  });
+
+  it('keeps explicit relevance searches and supports updated records', () => {
+    const { scope } = canonicalizeSearchRotesArgs({
+      ownerId: 'u1',
+      availableTags: AVAILABLE_TAGS,
+      message: '最近修改过的 iOS 笔记',
+      args: {
+        query: 'iOS',
+        selection: 'relevance',
+        dateField: 'updatedAt',
+        timeExpression: '最近30天',
+      },
+    });
+
+    expect(scope.selection).toBe('relevance');
+    expect(scope.dateField).toBe('updatedAt');
+    expect(scope.timeRange?.label).toBe('最近30天');
+  });
+
+  it('uses the recent corpus for broad analysis inside an explicit window', () => {
+    const { scope } = canonicalizeSearchRotesArgs({
+      ownerId: 'u1',
+      availableTags: AVAILABLE_TAGS,
+      message: '最近30天有哪些反复出现的主题？',
+      args: { timeExpression: '最近30天' },
+    });
+
+    expect(scope.selection).toBe('recent');
+    expect(scope.timeRange?.label).toBe('最近30天');
+    expect(scope.limit).toBe(30);
+  });
+
   it('canonicalizes time ranges', () => {
     expect(canonicalizeTimeRange({ from: '2026-01-01', to: '2026-01-03' })).toMatchObject({
       from: '2026-01-01T00:00:00+08:00',

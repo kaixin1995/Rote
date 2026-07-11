@@ -16,6 +16,8 @@ import {
   canonicalizeSearchRotesArgs,
   getUserRoteTags,
   type LifecycleScope,
+  type RetrievalDateField,
+  type RetrievalSelection,
   type SearchRotesArgs,
   type TaskStatusScope,
 } from '../retrievalPlan';
@@ -81,7 +83,13 @@ function formatSourceMetadata(source: SemanticSearchResult): Record<string, unkn
         : undefined,
     createdAt: metadata.createdAt || undefined,
     updatedAt: metadata.updatedAt || undefined,
-    similarity: Number.isFinite(source.similarity) ? Number(source.similarity.toFixed(3)) : null,
+    retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
+    similarity:
+      source.retrievalMode === 'recent' || metadata.retrievalMode === 'recent'
+        ? null
+        : Number.isFinite(source.similarity)
+          ? Number(source.similarity.toFixed(3))
+          : null,
   };
 }
 
@@ -127,6 +135,14 @@ function parseSearchNotesInput(args: unknown, fallbackQuery: string): SearchRote
     timeExpression: typeof raw.timeExpression === 'string' ? raw.timeExpression.trim() : undefined,
     from: typeof raw.from === 'string' ? raw.from.trim() : undefined,
     to: typeof raw.to === 'string' ? raw.to.trim() : undefined,
+    selection:
+      raw.selection === 'relevance' || raw.selection === 'recent'
+        ? (raw.selection as RetrievalSelection)
+        : undefined,
+    dateField:
+      raw.dateField === 'createdAt' || raw.dateField === 'updatedAt'
+        ? (raw.dateField as RetrievalDateField)
+        : undefined,
     lifecycleScope: VALID_LIFECYCLE_SCOPES.has(raw.lifecycleScope as LifecycleScope)
       ? (raw.lifecycleScope as LifecycleScope)
       : VALID_LIFECYCLE_SCOPES.has(raw.archivedScope as LifecycleScope)
@@ -162,6 +178,7 @@ async function executeAgentSearch(
     ownerId: ctx.userId,
     args: input,
     availableTags,
+    message: ctx.request.message,
     excludeIds: sanitizeExcludeIds([
       ...(ctx.request.excludeIds || []),
       ...(ctx.state.seenSourceIds || []),

@@ -643,6 +643,11 @@
         "title": "范围",
         "paginationMore": "查看更多",
         "time": "时间：{{label}}",
+        "latestItems": "最近 {{count}} 条（按{{field}}）",
+        "dateFields": {
+          "createdAt": "创建时间",
+          "updatedAt": "更新时间"
+        },
         "tags": "标签：{{tags}}",
         "excludeTags": "排除标签：{{tags}}",
         "semanticScope": "关键词：{{keywords}}",

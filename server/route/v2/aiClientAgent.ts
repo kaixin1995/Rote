@@ -36,6 +36,7 @@ function toClientSource(source: any) {
     sourceType: source.sourceType,
     sourceId: source.sourceId,
     similarity: Number(source.similarity) || 0,
+    retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
     preview: normalizeSourcePreview(source.text),
     metadata: {
       title: typeof metadata.title === `string` ? metadata.title : '',
@@ -43,6 +44,9 @@ function toClientSource(source: any) {
       state: typeof metadata.state === `string` ? metadata.state : undefined,
       archived: typeof metadata.archived === 'boolean' ? metadata.archived : undefined,
       createdAt: metadata.createdAt,
+      updatedAt: metadata.updatedAt,
+      retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
+      retrievalDateField: metadata.retrievalDateField,
     },
   };
 }

@@ -53,6 +53,8 @@ function sourceToSnippet(source: SemanticSearchResult): RetrievalSnippet {
       ? metadata.tags.filter((tag: unknown) => typeof tag === 'string')
       : [],
     createdAt: typeof metadata.createdAt === 'string' ? metadata.createdAt : undefined,
+    updatedAt: typeof metadata.updatedAt === 'string' ? metadata.updatedAt : undefined,
+    retrievalMode: source.retrievalMode,
     similarity: Number(source.similarity.toFixed(3)),
     text: source.text.replace(/\s+/g, ' ').trim().slice(0, 600),
   };
@@ -89,6 +91,8 @@ export async function searchRotesProbe(scope: RetrievalScope): Promise<SearchRot
     ownerId: scope.ownerId,
     sourceTypes: scope.sourceTypes,
     timeRange: scope.timeRange,
+    selection: scope.selection,
+    dateField: scope.dateField,
     tags: {
       include: scope.tags,
       exclude: scope.excludeTags,
@@ -130,7 +134,11 @@ function buildProbeEvidence(result: PlannerAgentResult): string {
       const createdAt = snippet.createdAt
         ? `\nCreated: ${formatEvidenceDate(snippet.createdAt)}`
         : '';
-      return `[${index + 1}] ${snippet.sourceType}:${snippet.sourceId}${title}${tags}${createdAt}\nSimilarity: ${snippet.similarity}\nExcerpt:\n${snippet.text}`;
+      const ranking =
+        snippet.retrievalMode === 'recent'
+          ? '\nSelection: recent records'
+          : `\nSimilarity: ${snippet.similarity}`;
+      return `[${index + 1}] ${snippet.sourceType}:${snippet.sourceId}${title}${tags}${createdAt}${ranking}\nExcerpt:\n${snippet.text}`;
     })
     .join('\n\n');
 }
@@ -145,6 +153,8 @@ function buildScopeText(scope: RetrievalScope | null): string {
       semanticScope: scope.semanticScope,
       sourceTypes: scope.sourceTypes,
       timeRange: scope.timeRange,
+      selection: scope.selection,
+      dateField: scope.dateField,
       lifecycleScope: scope.lifecycleScope,
       taskStatusScope: scope.taskStatusScope,
       limit: scope.limit,

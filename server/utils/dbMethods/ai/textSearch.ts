@@ -7,7 +7,13 @@ import {
 } from './documents';
 import db from '../../drizzle';
 import { semanticSearch } from './semanticSearch';
-import type { AiSourceType, NormalizedTimeRange, SemanticSearchResult } from './types';
+import type {
+  AiSourceType,
+  NormalizedTimeRange,
+  RetrievalDateField,
+  RetrievalSelection,
+  SemanticSearchResult,
+} from './types';
 
 function extractTextSearchTerms(...values: Array<string | string[] | undefined>): string[] {
   const text = values.flat().filter(Boolean).join(' ');
@@ -20,7 +26,13 @@ function maybeDateString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-function buildTextSearchResult(row: any, sourceType: AiSourceType, similarity: number) {
+function buildTextSearchResult(
+  row: any,
+  sourceType: AiSourceType,
+  similarity: number,
+  retrievalMode: RetrievalSelection = 'relevance',
+  dateField: RetrievalDateField = 'createdAt'
+) {
   if (sourceType === 'rote') {
     const text = `Title: ${row.title || ''}\nTags: ${(row.tags || []).join(', ')}\n${row.content || ''}`;
     return {
@@ -31,6 +43,7 @@ function buildTextSearchResult(row: any, sourceType: AiSourceType, similarity: n
       chunkIndex: 0,
       text,
       similarity,
+      retrievalMode,
       metadata: {
         title: row.title || '',
         tags: row.tags || [],
@@ -38,6 +51,8 @@ function buildTextSearchResult(row: any, sourceType: AiSourceType, similarity: n
         archived: row.archived,
         createdAt: maybeDateString(row.createdAt),
         updatedAt: maybeDateString(row.updatedAt),
+        retrievalMode,
+        retrievalDateField: dateField,
       },
     } satisfies SemanticSearchResult;
   }
@@ -50,9 +65,12 @@ function buildTextSearchResult(row: any, sourceType: AiSourceType, similarity: n
     chunkIndex: 0,
     text: row.content || '',
     similarity,
+    retrievalMode,
     metadata: {
       createdAt: maybeDateString(row.createdAt),
       updatedAt: maybeDateString(row.updatedAt),
+      retrievalMode,
+      retrievalDateField: dateField,
     },
   } satisfies SemanticSearchResult;
 }
@@ -82,11 +100,27 @@ function buildArticleTextTermSql(terms: string[]) {
   return sql`AND (${sql.join(clauses, sql` OR `)})`;
 }
 
-function buildTextSearchTimeSql(alias: 'r' | 'a', timeRange?: NormalizedTimeRange | null) {
+function buildTextSearchTimeSql(
+  alias: 'r' | 'a',
+  timeRange?: NormalizedTimeRange | null,
+  dateField: RetrievalDateField = 'createdAt'
+) {
   if (!timeRange) return sql``;
+  const column = dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
   return alias === 'r'
-    ? sql`AND r."createdAt" >= ${timeRange.from}::timestamptz AND r."createdAt" <= ${timeRange.to}::timestamptz`
-    : sql`AND a."createdAt" >= ${timeRange.from}::timestamptz AND a."createdAt" <= ${timeRange.to}::timestamptz`;
+    ? sql`AND r.${sql.raw(`"${column}"`)} >= ${timeRange.from}::timestamptz AND r.${sql.raw(`"${column}"`)} <= ${timeRange.to}::timestamptz`
+    : sql`AND a.${sql.raw(`"${column}"`)} >= ${timeRange.from}::timestamptz AND a.${sql.raw(`"${column}"`)} <= ${timeRange.to}::timestamptz`;
+}
+
+function buildTextSearchOrderSql(alias: 'r' | 'a', dateField: RetrievalDateField = 'updatedAt') {
+  const column = dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
+  return sql`${alias}.${sql.raw(`"${column}"`)} DESC, ${alias}."id" DESC`;
+}
+
+function getResultDate(result: SemanticSearchResult, dateField: RetrievalDateField): number {
+  const value = result.metadata?.[dateField] || result.metadata?.createdAt;
+  const timestamp = Date.parse(String(value || ''));
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 export async function textSearchMemory(params: {
@@ -94,6 +128,8 @@ export async function textSearchMemory(params: {
   ownerId?: string;
   sourceTypes?: AiSourceType[];
   timeRange?: NormalizedTimeRange | null;
+  selection?: RetrievalSelection;
+  dateField?: RetrievalDateField;
   tags?: { include?: string[]; exclude?: string[]; match?: 'any' | 'all' };
   semanticScope?: string[];
   state?: 'private' | 'public' | 'all';
@@ -108,7 +144,10 @@ export async function textSearchMemory(params: {
   const sourceTypes = new Set(
     (params.sourceTypes || ['rote', 'article']).filter((type) => VALID_SOURCE_TYPES.has(type))
   );
-  const terms = extractTextSearchTerms(params.query, params.semanticScope);
+  const selection = params.selection === 'recent' ? 'recent' : 'relevance';
+  const dateField = params.dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
+  const terms =
+    selection === 'recent' ? [] : extractTextSearchTerms(params.query, params.semanticScope);
   const runSearch = async (activeTerms: string[]) => {
     const results: SemanticSearchResult[] = [];
     const excludeRoteIds = [
@@ -163,12 +202,16 @@ export async function textSearchMemory(params: {
           ${excludeTagsSql}
           ${stateSql}
           ${archivedSql}
-          ${buildTextSearchTimeSql('r', timeRange)}
+          ${buildTextSearchTimeSql('r', timeRange, dateField)}
           ${excludeSql}
-        ORDER BY r."updatedAt" DESC
+        ORDER BY ${buildTextSearchOrderSql('r', selection === 'recent' ? dateField : 'updatedAt')}
         LIMIT ${limit}
       `)) as any[];
-      results.push(...rows.map((row) => buildTextSearchResult(row, 'rote', 0.2)));
+      results.push(
+        ...rows.map((row) =>
+          buildTextSearchResult(row, 'rote', selection === 'recent' ? 0 : 0.2, selection, dateField)
+        )
+      );
     }
 
     if (
@@ -190,16 +233,32 @@ export async function textSearchMemory(params: {
         FROM "articles" a
         WHERE a."authorId" = ${params.ownerId}
           ${buildArticleTextTermSql(activeTerms)}
-          ${buildTextSearchTimeSql('a', timeRange)}
+          ${buildTextSearchTimeSql('a', timeRange, dateField)}
           ${excludeSql}
-        ORDER BY a."updatedAt" DESC
+        ORDER BY ${buildTextSearchOrderSql('a', selection === 'recent' ? dateField : 'updatedAt')}
         LIMIT ${limit}
       `)) as any[];
-      results.push(...rows.map((row) => buildTextSearchResult(row, 'article', 0.15)));
+      results.push(
+        ...rows.map((row) =>
+          buildTextSearchResult(
+            row,
+            'article',
+            selection === 'recent' ? 0 : 0.15,
+            selection,
+            dateField
+          )
+        )
+      );
     }
 
     return results
       .sort((a, b) => {
+        if (selection === 'recent') {
+          return (
+            getResultDate(b, dateField) - getResultDate(a, dateField) ||
+            `${b.sourceType}:${b.sourceId}`.localeCompare(`${a.sourceType}:${a.sourceId}`)
+          );
+        }
         const aTime = Date.parse(String(a.metadata?.updatedAt || a.metadata?.createdAt || ''));
         const bTime = Date.parse(String(b.metadata?.updatedAt || b.metadata?.createdAt || ''));
         return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
@@ -217,6 +276,8 @@ export async function searchMemoryWithFallback(params: {
   scope?: 'mine' | 'public';
   sourceTypes?: AiSourceType[];
   timeRange?: NormalizedTimeRange | null;
+  selection?: RetrievalSelection;
+  dateField?: RetrievalDateField;
   tags?: { include?: string[]; exclude?: string[]; match?: 'any' | 'all' };
   semanticScope?: string[];
   state?: 'private' | 'public' | 'all';
@@ -227,6 +288,12 @@ export async function searchMemoryWithFallback(params: {
 }): Promise<{ sources: SemanticSearchResult[]; warnings: string[] }> {
   const { timeRange, warnings } = normalizeSearchTimeRange(params.timeRange);
   const safeParams = { ...params, timeRange };
+  if (params.selection === 'recent') {
+    return {
+      sources: await textSearchMemory({ ...safeParams, query: '', selection: 'recent' }),
+      warnings,
+    };
+  }
   try {
     return { sources: await semanticSearch(safeParams), warnings };
   } catch (error: any) {
