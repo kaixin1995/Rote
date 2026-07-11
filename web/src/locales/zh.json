@@ -643,6 +643,11 @@
         "title": "范围",
         "paginationMore": "查看更多",
         "time": "时间：{{label}}",
+        "latestItems": "最近 {{count}} 条（按{{field}}）",
+        "dateFields": {
+          "createdAt": "创建时间",
+          "updatedAt": "更新时间"
+        },
         "tags": "标签：{{tags}}",
         "excludeTags": "排除标签：{{tags}}",
         "semanticScope": "关键词：{{keywords}}",
@@ -677,10 +682,7 @@
         "fallback": "降级原因：{{reason}}",
         "providerError": "模型工具调用失败",
         "toolError": "检索工具失败",
-        "warnings": "提示：{{warnings}}",
-        "warningLabels": {
-          "semanticSearchTextFallback": "语义检索不可用，已使用文本搜索"
-        }
+        "warnings": "提示：{{warnings}}"
       },
       "timeline": {
         "title": "进度",

@@ -54,6 +54,18 @@ export function createSearchNotesToolDefinition(params: {
             description:
               'Soft topic keywords for semantic retrieval. Use for themes and patterns that are not verified tags.',
           },
+          selection: {
+            type: 'string',
+            enum: ['relevance', 'recent'],
+            description:
+              'Choose relevance for focused topic lookup. Choose recent for broad analysis of the latest records; recent ignores semantic query ranking.',
+          },
+          dateField: {
+            type: 'string',
+            enum: ['createdAt', 'updatedAt'],
+            description:
+              'Date basis for recent retrieval. Use createdAt for recently written records and updatedAt for recently modified/activity records.',
+          },
           timeRange: {
             type: 'object',
             description:

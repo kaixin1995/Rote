@@ -12,7 +12,12 @@ import {
   normalizeSearchTimeRange,
   VALID_SOURCE_TYPES,
 } from './documents';
-import type { AiSourceType, NormalizedTimeRange, SemanticSearchResult } from './types';
+import type {
+  AiSourceType,
+  NormalizedTimeRange,
+  RetrievalDateField,
+  SemanticSearchResult,
+} from './types';
 
 export async function semanticSearch(params: {
   query: string;
@@ -20,6 +25,7 @@ export async function semanticSearch(params: {
   scope?: 'mine' | 'public';
   sourceTypes?: AiSourceType[];
   timeRange?: NormalizedTimeRange | null;
+  dateField?: RetrievalDateField;
   tags?: { include?: string[]; exclude?: string[]; match?: 'any' | 'all' };
   semanticScope?: string[];
   state?: 'private' | 'public' | 'all';
@@ -39,6 +45,7 @@ export async function semanticSearch(params: {
   const dimensions = normalizeEmbeddingDimensions(config.embedding.dimensions);
   const limit = normalizeLimit(params.limit);
   const { timeRange } = normalizeSearchTimeRange(params.timeRange);
+  const dateField = params.dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
   const queryText = [params.query, ...(params.semanticScope || [])].filter(Boolean).join('\n');
 
   let queryEmbedding: number[];
@@ -125,9 +132,9 @@ export async function semanticSearch(params: {
   const timeRangeSql = timeRange
     ? sql`
       AND (
-        (de."sourceType" = 'rote' AND r."createdAt" >= ${timeRange.from}::timestamptz AND r."createdAt" <= ${timeRange.to}::timestamptz)
+        (de."sourceType" = 'rote' AND r.${sql.raw(`"${dateField}"`)} >= ${timeRange.from}::timestamptz AND r.${sql.raw(`"${dateField}"`)} <= ${timeRange.to}::timestamptz)
         OR
-        (de."sourceType" = 'article' AND a."createdAt" >= ${timeRange.from}::timestamptz AND a."createdAt" <= ${timeRange.to}::timestamptz)
+        (de."sourceType" = 'article' AND a.${sql.raw(`"${dateField}"`)} >= ${timeRange.from}::timestamptz AND a.${sql.raw(`"${dateField}"`)} <= ${timeRange.to}::timestamptz)
       )
     `
     : sql``;

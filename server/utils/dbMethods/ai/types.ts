@@ -1,3 +1,5 @@
+import type { RetrievalSelection } from '../../ai/retrievalPlan';
+
 export type AiSourceType = 'rote' | 'article';
 export type EmbeddingJobAction = 'upsert' | 'delete' | 'reindex';
 export type EmbeddingJobStatus = 'pending' | 'running' | 'succeeded' | 'failed';
@@ -6,6 +8,8 @@ export type {
   NormalizedTimeRange,
   PlannerAgentDto,
   PlannerAgentResult,
+  RetrievalDateField,
+  RetrievalSelection,
   RetrievalScope,
   RetrievalSnippet,
   RetrievalTimeContext,
@@ -22,5 +26,6 @@ export interface SemanticSearchResult {
   chunkIndex: number;
   text: string;
   similarity: number;
+  retrievalMode?: RetrievalSelection;
   metadata: any;
 }

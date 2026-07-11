@@ -19,7 +19,18 @@ function buildScopeSummary(plan: PlannerAgentDto, t: ReturnType<typeof useTransl
   if (!scope) return summary;
   const listSeparator = t('scope.listSeparator');
 
-  if (scope.timeRange) summary.push(t('scope.time', { label: scope.timeRange.label }));
+  if (scope.timeRange) {
+    summary.push(t('scope.time', { label: scope.timeRange.label }));
+  }
+
+  if (scope.selection === 'recent' && !scope.timeRange) {
+    summary.push(
+      t('scope.latestItems', {
+        count: scope.limit,
+        field: t(`scope.dateFields.${scope.dateField}`),
+      })
+    );
+  }
 
   if (scope.tags.length) {
     summary.push(t('scope.tags', { tags: scope.tags.map((tag) => `#${tag}`).join(listSeparator) }));
@@ -91,14 +102,7 @@ function buildDebugSummary(plan: PlannerAgentDto, t: ReturnType<typeof useTransl
   }
 
   if (trace.warnings.length > 0) {
-    const warnings = trace.warnings
-      .slice(0, 3)
-      .map((warning) =>
-        warning.startsWith('semantic_search_fallback_text')
-          ? t('debug.warningLabels.semanticSearchTextFallback')
-          : warning
-      )
-      .join(' / ');
+    const warnings = trace.warnings.slice(0, 3).join(' / ');
     summary.push(t('debug.warnings', { warnings }));
   }
 

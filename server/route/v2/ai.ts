@@ -26,7 +26,7 @@ import {
   getPgvectorStatus,
   getStoredAiConfig,
   prepareRoteChatContext,
-  searchMemoryWithFallback,
+  searchMemory,
   logAiTokenUsage,
 } from '../../utils/dbMethods';
 import { bodyTypeCheck, createResponse } from '../../utils/main';
@@ -69,6 +69,7 @@ function toClientSource(source: any) {
     sourceType: source.sourceType,
     sourceId: source.sourceId,
     similarity: Number(source.similarity) || 0,
+    retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
     preview: normalizeSourcePreview(source.text),
     metadata: {
       title: typeof metadata.title === 'string' ? metadata.title : '',
@@ -76,6 +77,9 @@ function toClientSource(source: any) {
       state: typeof metadata.state === 'string' ? metadata.state : undefined,
       archived: typeof metadata.archived === 'boolean' ? metadata.archived : undefined,
       createdAt: metadata.createdAt,
+      updatedAt: metadata.updatedAt,
+      retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
+      retrievalDateField: metadata.retrievalDateField,
     },
   };
 }
@@ -287,7 +291,7 @@ aiRouter.post('/search', authenticateJWT, bodyTypeCheck, async (c: HonoContext) 
     return c.json(createResponse(null, 'Query is required'), 400);
   }
 
-  const { sources: results } = await searchMemoryWithFallback({
+  const { sources: results } = await searchMemory({
     query,
     ownerId: body?.scope === 'public' ? undefined : user.id,
     scope: body?.scope === 'public' ? 'public' : 'mine',
@@ -340,7 +344,7 @@ aiRouter.post('/related-notes', authenticateJWT, bodyTypeCheck, async (c: HonoCo
       )
     : ['rote', 'article'];
 
-  const { sources: results } = await searchMemoryWithFallback({
+  const { sources: results } = await searchMemory({
     query,
     ownerId: user.id,
     sourceTypes,

@@ -93,11 +93,10 @@ async function runChat(
 }
 
 function log(label: string, r: ChatResult) {
-  const tags = r.plan.filters?.tags?.include?.join(',') || '';
-  const time =
-    r.plan.filters?.time?.normalizedRange?.label || r.plan.filters?.time?.timeExpression || '';
+  const tags = r.plan.scope?.tags?.join(',') || '';
+  const time = r.plan.scope?.timeRange?.label || '';
   console.log(
-    `  [${label}] plan=${r.plan.retrievalNeeded ? 'retrieve' : 'chat'} tags=${tags} time=${time} sources=${r.sources.length} answer=${r.answer.length}ch plan=${r.planTime}ms total=${r.totalTime}ms`
+    `  [${label}] plan=${r.plan.retrievalNeeded ? 'retrieve' : 'chat'} selection=${r.plan.scope?.selection || ''} tags=${tags} time=${time} sources=${r.sources.length} answer=${r.answer.length}ch plan=${r.planTime}ms total=${r.totalTime}ms`
   );
 }
 
@@ -111,15 +110,14 @@ describe('Fast Path', () => {
     const r = await runChat(`#${tag}`);
     log(`#${tag}`, r);
     expect(r.plan.retrievalNeeded).toBe(true);
-    expect(r.plan.filters.tags.include).toContain(tag);
+    expect(r.plan.scope.tags).toContain(tag);
   }, 30_000);
 
   test('最近90天 → plan has time filter', async () => {
     const r = await runChat('最近90天');
     log('最近90天', r);
     expect(r.plan.retrievalNeeded).toBe(true);
-    expect(r.plan.filters.time).not.toBeNull();
-    expect(r.plan.filters.time?.normalizedRange).toBeDefined();
+    expect(r.plan.scope.timeRange).not.toBeNull();
   }, 30_000);
 
   test('#tag + query → query stripped of #tag', async () => {
@@ -128,8 +126,8 @@ describe('Fast Path', () => {
     const r = await runChat(`#${tag} 里面开心的事`);
     log(`#${tag}+query`, r);
     expect(r.plan.retrievalNeeded).toBe(true);
-    expect(r.plan.query).not.toContain(`#${tag}`);
-    expect(r.plan.query).toContain('开心');
+    expect(r.plan.scope.query).not.toContain(`#${tag}`);
+    expect(r.plan.scope.query).toContain('开心');
   }, 30_000);
 
   test('全部 → all_time, retrieves sources', async () => {
@@ -165,7 +163,7 @@ describe('LLM Planner', () => {
     const r = await runChat(tag);
     log(`bare:${tag}`, r);
     expect(r.plan.retrievalNeeded).toBe(true);
-    expect(r.plan.filters.tags.include.length).toBeGreaterThan(0);
+    expect(r.plan.scope.tags.length).toBeGreaterThan(0);
   }, 60_000);
 });
 
@@ -210,7 +208,7 @@ describe('Multi-turn', () => {
     const t2 = await runChat('看看更多的', { previousPlan: t1.plan, excludeIds: t1Ids, limit: 3 });
     log('T2:more', t2);
     expect(t2.plan.retrievalNeeded).toBe(true);
-    expect(t2.plan.pagination).toBe('more');
+    expect(t2.plan.scope.excludeIds).toEqual(expect.arrayContaining(t1Ids));
 
     const t2Ids = t2.sources.map((s) => `${s.sourceType}:${s.sourceId}`);
     const overlap12 = t1Ids.filter((id) => t2Ids.includes(id));

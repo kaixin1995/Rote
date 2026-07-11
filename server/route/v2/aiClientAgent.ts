@@ -36,6 +36,7 @@ function toClientSource(source: any) {
     sourceType: source.sourceType,
     sourceId: source.sourceId,
     similarity: Number(source.similarity) || 0,
+    retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
     preview: normalizeSourcePreview(source.text),
     metadata: {
       title: typeof metadata.title === `string` ? metadata.title : '',
@@ -43,16 +44,15 @@ function toClientSource(source: any) {
       state: typeof metadata.state === `string` ? metadata.state : undefined,
       archived: typeof metadata.archived === 'boolean' ? metadata.archived : undefined,
       createdAt: metadata.createdAt,
+      updatedAt: metadata.updatedAt,
+      retrievalMode: source.retrievalMode || metadata.retrievalMode || 'relevance',
+      retrievalDateField: metadata.retrievalDateField,
     },
   };
 }
 
 function sanitizeClientWarning(value: unknown): string {
-  const text = String(value || '').trim();
-  if (text.startsWith('semantic_search_fallback_text')) {
-    return 'semantic_search_fallback_text';
-  }
-  return text;
+  return String(value || '').trim();
 }
 
 function sanitizeWarningArray(value: unknown): string[] {
@@ -87,7 +87,7 @@ function sanitizeClientModelContent(value: string): string {
     }
     return JSON.stringify(parsed, null, 2);
   } catch {
-    return value.replace(/semantic_search_fallback_text:[^"\n]+/g, 'semantic_search_fallback_text');
+    return value;
   }
 }
 

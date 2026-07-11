@@ -5,6 +5,8 @@ export type {
   NormalizedTimeRange,
   PlannerAgentDto,
   PlannerAgentResult,
+  RetrievalDateField,
+  RetrievalSelection,
   RetrievalScope,
   RetrievalToolResult,
   SearchRotesArgs,
@@ -30,7 +32,7 @@ export {
   retryFailedEmbeddingJobs,
   setIndexingPaused,
 } from './ai/jobs';
-export { searchMemoryWithFallback, semanticSearch, textSearchMemory } from './ai/search';
+export { searchMemory, semanticSearch, textSearchMemory } from './ai/search';
 export {
   buildAnswerMessagesFromPlannerResult,
   chatWithRoteContext,
